@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit2, Pill, Save, X, Search } from 'lucide-react';
 import { useMedicines, useTemplates, useMedicineMutations, useTemplateMutations } from '@/lib/hooks/useQueries';
 import type { Medicine, Template, PrescribedMedicine } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import PageTransition from '@/components/PageTransition';
 
 const CATEGORIES = ['All', 'Antipyretic', 'NSAID', 'Antibiotic', 'Antacid', 'Antiemetic', 'Antidiabetic',
   'Antihypertensive', 'Antihistamine', 'Expectorant', 'Bronchodilator', 'Vitamin', 'Supplement',
@@ -68,7 +69,7 @@ export default function PrescriptionPage() {
   }, {} as Record<string, Medicine[]>);
 
   return (
-    <div className="fade-up">
+    <PageTransition>
       <div className="page-header">
         <div>
           <div className="page-title">Prescription</div>
@@ -268,6 +269,6 @@ export default function PrescriptionPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Users, UserPlus, Search, Filter, Eye, Stethoscope, Phone, MapPin, Edit2 } from 'lucide-react';
 import { usePatients } from '@/lib/hooks/useQueries';
+import { motion } from 'framer-motion';
+import PageTransition from '@/components/PageTransition';
+import LoadingScreen from '@/components/LoadingScreen';
+import ErrorState from '@/components/ErrorState';
 
 export default function PatientsPage() {
   const [query, setQuery] = useState('');
@@ -16,7 +20,17 @@ export default function PatientsPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data: patients = [], isLoading: loading } = usePatients({ search: debouncedQuery });
+  const { data: patients = [], isLoading: loading, error } = usePatients({ search: debouncedQuery });
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+  
+  const item = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0 }
+  };
 
   const genderColor = (g: string) => {
     if (g === 'Male') return 'badge-blue';
@@ -25,13 +39,15 @@ export default function PatientsPage() {
   };
 
   return (
-    <div className="fade-up">
+    <PageTransition>
       <div className="page-header">
         <div>
           <div className="page-title">Patients</div>
           <div className="page-subtitle">{patients.length} patient{patients.length !== 1 ? 's' : ''} {query ? 'found' : 'registered'}</div>
         </div>
-        <Link href="/patients/new" className="btn btn-primary"><UserPlus size={16} /> Register Patient</Link>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link href="/patients/new" className="btn btn-primary"><UserPlus size={16} /> Register Patient</Link>
+        </div>
       </div>
 
       {/* Search */}
@@ -48,11 +64,10 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: 56, borderRadius: 8 }} />)}
-        </div>
+      {error ? (
+        <ErrorState message="Could not fetch patients. Please ensure the backend is running." />
+      ) : loading ? (
+        <LoadingScreen message="Loading patient records..." />
       ) : patients.length === 0 ? (
         <div className="empty-state">
           <Users />
@@ -74,9 +89,9 @@ export default function PatientsPage() {
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <motion.tbody variants={container} initial="hidden" animate="show">
               {patients.map(p => (
-                <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/patients/${p.patientId}`)}>
+                <motion.tr variants={item} key={p.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/patients/${p.patientId}`)}>
                   <td><span className="badge badge-teal">{p.patientId}</span></td>
                   <td style={{ fontWeight: 600 }}>{p.name}</td>
                   <td>
@@ -97,12 +112,12 @@ export default function PatientsPage() {
                       <Link href={`/visits/new?patientId=${p.patientId}`} className="btn btn-primary btn-sm"><Stethoscope size={14} /></Link>
                     </div>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
-            </tbody>
+            </motion.tbody>
           </table>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

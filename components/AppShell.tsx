@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Calendar,
-  BarChart3, Settings, Activity, Search, Bell
+  BarChart3, Settings, Activity, Search, Bell, Menu, X
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
 import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
 import type { Patient } from '@/lib/providers/types';
@@ -96,6 +97,7 @@ function GlobalSearch() {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: settings } = useSettings();
   const { today } = useFollowUps();
 
@@ -115,8 +117,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
+      {/* Mobile Backdrop Overlay */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay"
+            style={{ zIndex: 40, animation: 'none' }}
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="logo-wrap">
           <div className="logo-row">
             <div className="logo-icon">
@@ -138,7 +154,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 const active = pathname === item.href || pathname.startsWith(item.href + '/');
                 return (
                   <Link key={item.href} href={item.href}
-                    className={`nav-item ${active ? 'active' : ''}`}>
+                    className={`nav-item ${active ? 'active' : ''}`}
+                    onClick={() => setMobileMenuOpen(false)}>
                     <item.icon />
                     {item.label}
                     {item.href === '/followup' && followUpCount > 0 && (
@@ -159,6 +176,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main */}
       <div className="main-area">
         <header className="topbar">
+          <button 
+            className="btn-icon" 
+            style={{ display: 'none' }} // Hidden by default, shown via CSS on small screens, BUT CSS does logic differently. Let's just render it and use CSS or conditional rendering
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Toggle Menu"
+            id="mobile-menu-btn"
+          >
+            <Menu size={20} />
+          </button>
+          
           <GlobalSearch />
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
             {followUpCount > 0 && (

@@ -5,28 +5,36 @@ import {
   Users, Stethoscope, Calendar, TrendingUp,
   UserPlus, ArrowRight, Clock, Activity, CheckCircle2
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useDashboardStats } from '@/lib/hooks/useQueries';
+import PageTransition from '@/components/PageTransition';
+import LoadingScreen from '@/components/LoadingScreen';
+import ErrorState from '@/components/ErrorState';
 
 export default function DashboardPage() {
-  const { data: stats, isLoading: loading } = useDashboardStats();
+  const { data: stats, isLoading: loading, error } = useDashboardStats();
 
-
-  if (loading) return (
-    <div>
-      <div className="page-header">
-        <div><div className="page-title">Dashboard</div><div className="page-subtitle">Loading today's summary…</div></div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-        {[...Array(4)].map((_, i) => <div key={i} className="stat-card skeleton" style={{ height: 100 }} />)}
-      </div>
-    </div>
-  );
+  if (loading) return <LoadingScreen message="Loading today's summary…" />;
+  if (error) return <ErrorState message="Could not load your dashboard stats." />;
 
   const s = stats!;
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="fade-up">
+    <PageTransition>
       <div className="page-header">
         <div>
           <div className="page-title">Good Morning 👋</div>
@@ -39,42 +47,47 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-        <div className="stat-card" style={{ '--stat-color': 'var(--accent)', '--stat-bg': 'var(--accent-glow)' } as React.CSSProperties}>
+      <motion.div 
+        className="dashboard-stats-grid" 
+        variants={container} 
+        initial="hidden" 
+        animate="show"
+      >
+        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--accent)', '--stat-bg': 'var(--accent-glow)' } as React.CSSProperties}>
           <div className="stat-icon"><Activity /></div>
           <div className="stat-info">
             <div className="stat-value">{s.todayTotal}</div>
             <div className="stat-label">Patients Today</div>
             <div className="stat-sub">{s.todayNew} new · {s.todayReturning} returning</div>
           </div>
-        </div>
-        <div className="stat-card" style={{ '--stat-color': 'var(--blue)', '--stat-bg': 'rgba(59,130,246,0.1)' } as React.CSSProperties}>
+        </motion.div>
+        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--blue)', '--stat-bg': 'rgba(59,130,246,0.1)' } as React.CSSProperties}>
           <div className="stat-icon" style={{ '--stat-color': 'var(--blue)' } as React.CSSProperties}><Users style={{ color: 'var(--blue)' }} /></div>
           <div className="stat-info">
             <div className="stat-value">{s.totalPatients}</div>
             <div className="stat-label">Total Patients</div>
             <div className="stat-sub">Registered in system</div>
           </div>
-        </div>
-        <div className="stat-card" style={{ '--stat-color': 'var(--amber)', '--stat-bg': 'rgba(245,158,11,0.1)' } as React.CSSProperties}>
+        </motion.div>
+        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--amber)', '--stat-bg': 'rgba(245,158,11,0.1)' } as React.CSSProperties}>
           <div className="stat-icon" style={{ '--stat-color': 'var(--amber)' } as React.CSSProperties}><Calendar style={{ color: 'var(--amber)' }} /></div>
           <div className="stat-info">
             <div className="stat-value">{s.followUpsToday}</div>
             <div className="stat-label">Follow-ups Today</div>
             <div className="stat-sub">{s.upcomingFollowUps} in next 7 days</div>
           </div>
-        </div>
-        <div className="stat-card" style={{ '--stat-color': 'var(--green)', '--stat-bg': 'rgba(16,185,129,0.1)' } as React.CSSProperties}>
+        </motion.div>
+        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--green)', '--stat-bg': 'rgba(16,185,129,0.1)' } as React.CSSProperties}>
           <div className="stat-icon" style={{ '--stat-color': 'var(--green)' } as React.CSSProperties}><TrendingUp style={{ color: 'var(--green)' }} /></div>
           <div className="stat-info">
             <div className="stat-value">{s.todayNew}</div>
             <div className="stat-label">New Patients Today</div>
             <div className="stat-sub">{s.todayTotal > 0 ? Math.round((s.todayNew / s.todayTotal) * 100) : 0}% of today</div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="form-grid-2">
         {/* Today Follow-ups */}
         <div className="card">
           <div className="section-header">
@@ -143,6 +156,6 @@ export default function DashboardPage() {
           <Link href="/prescription" className="btn btn-secondary"><Activity size={16} /> Manage Medicines</Link>
         </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

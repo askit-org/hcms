@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Save, Settings as SettingsIcon, User, Building2, Phone, MapPin, FileText, Trash2, AlertTriangle } from 'lucide-react';
 import { useSettings, useSettingsMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import PageTransition from '@/components/PageTransition';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function SettingsPage() {
   const { data: settings, isLoading } = useSettings();
@@ -59,10 +61,10 @@ export default function SettingsPage() {
     regNo: form.regNo,
   };
 
-  if (isLoading) return <div className="page-header"><div className="page-title">Loading settings...</div></div>;
+  if (isLoading) return <LoadingScreen message="Loading settings..." />;
 
   return (
-    <div className="fade-up" style={{ maxWidth: 780 }}>
+    <PageTransition className="page-transition" style={{ maxWidth: 780 }}>
       <div className="page-header">
         <div>
           <div className="page-title">Settings</div>
@@ -158,6 +160,6 @@ export default function SettingsPage() {
           <Trash2 size={14} /> Clear All Data
         </button>
       </div>
-    </div>
+    </PageTransition>
   );
 }

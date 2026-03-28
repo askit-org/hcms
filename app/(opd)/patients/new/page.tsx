@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePatientMutations } from '@/lib/hooks/useQueries';
 import { useProviderStore } from '@/lib/providers';
 import { toast } from '@/components/Toast';
+import PageTransition from '@/components/PageTransition';
 
 export default function NewPatientPage() {
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function NewPatientPage() {
   };
 
   return (
-    <div className="fade-up" style={{ maxWidth: 700, margin: '0 auto' }}>
+    <PageTransition className="page-transition" style={{ maxWidth: 700, margin: '0 auto' }}>
       <div className="page-header">
         <div>
           <Link href="/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
@@ -108,6 +109,6 @@ export default function NewPatientPage() {
           </div>
         </div>
       </form>
-    </div>
+    </PageTransition>
   );
 }

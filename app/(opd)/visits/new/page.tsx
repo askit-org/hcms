@@ -8,6 +8,7 @@ import { useProviderStore } from '@/lib/providers';
 import { useMedicines, useVisitMutations, usePatient } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import PageTransition from '@/components/PageTransition';
 
 const QUICK_COMPLAINTS = [
   'Fever', 'Cough', 'Cold', 'Body Ache', 'Headache',
@@ -123,7 +124,7 @@ export default function NewVisitPage() {
   };
 
   return (
-    <div className="fade-up" style={{ maxWidth: 900, margin: '0 auto' }}>
+    <PageTransition className="page-transition" style={{ maxWidth: 900, margin: '0 auto' }}>
       <div className="page-header">
         <div>
           <Link href="/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
@@ -299,6 +300,6 @@ export default function NewVisitPage() {
           </button>
         </div>
       </form>
-    </div>
+    </PageTransition>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BarChart3, Download, FileText, Calendar, Users, Search } from 'lucide-react';
 import { useReports, usePatients } from '@/lib/hooks/useQueries';
+import PageTransition from '@/components/PageTransition';
 
 export default function ReportsPage() {
   const [startDate, setStartDate] = useState(() => {
@@ -92,7 +93,7 @@ export default function ReportsPage() {
   const peakDay = Object.entries(dailyCounts).sort((a, b) => b[1] - a[1])[0];
 
   return (
-    <div className="fade-up">
+    <PageTransition>
       <div className="page-header">
         <div>
           <div className="page-title">Reports</div>
@@ -123,14 +124,14 @@ export default function ReportsPage() {
       </div>
 
       {/* Summary Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+      <div className="dashboard-stats-grid">
         {[
           { label: 'Total Visits', value: filteredVisits.length, color: 'var(--accent-light)', icon: <BarChart3 size={20} /> },
           { label: 'Unique Patients', value: periodPatientIds.size, color: 'var(--blue)', icon: <Users size={20} /> },
           { label: 'New Patients', value: newInPeriod, color: 'var(--green)', icon: <Users size={20} /> },
           { label: 'Peak Day', value: peakDay ? `${peakDay[1]} visits` : '—', color: 'var(--amber)', icon: <Calendar size={20} />, sub: peakDay ? new Date(peakDay[0]).toLocaleDateString('en-IN') : '' },
         ].map(s => (
-          <div key={s.label} className="card card-sm" style={{ textAlign: 'center', border: `1px solid var(--border)` }}>
+          <div key={s.label} className="card stat-card" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
             <div style={{ color: s.color, display: 'flex', justifyContent: 'center', marginBottom: 6 }}>{s.icon}</div>
             <div style={{ fontWeight: 800, fontSize: '1.5rem', color: s.color }}>{s.value}</div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: 2 }}>{s.label}</div>
@@ -191,6 +192,6 @@ export default function ReportsPage() {
           </table>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

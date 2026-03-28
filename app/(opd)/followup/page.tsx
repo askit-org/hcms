@@ -8,6 +8,10 @@ import { useFollowUps, useVisitMutations } from '@/lib/hooks/useQueries';
 import { useQuery } from '@tanstack/react-query';
 import type { Visit, Patient } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import { motion } from 'framer-motion';
+import PageTransition from '@/components/PageTransition';
+import LoadingScreen from '@/components/LoadingScreen';
+import ErrorState from '@/components/ErrorState';
 
 type FollowUpItem = { visit: Visit; patient: Patient | undefined };
 
@@ -55,8 +59,17 @@ export default function FollowUpPage() {
     if (diff < 0) return <span className="badge badge-red">Overdue ({Math.abs(diff)}d)</span>;
   };
 
+  const containerAnimations = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+  const itemAnimations = {
+    hidden: { opacity: 0, scale: 0.98 },
+    show: { opacity: 1, scale: 1 }
+  };
+
   return (
-    <div className="fade-up">
+    <PageTransition>
       <div className="page-header">
         <div>
           <div className="page-title">Follow-up Tracker</div>
@@ -80,9 +93,7 @@ export default function FollowUpPage() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[...Array(4)].map((_, i) => <div key={i} className="skeleton" style={{ height: 72, borderRadius: 10 }} />)}
-        </div>
+        <LoadingScreen message="Loading follow-ups..." />
       ) : items.length === 0 ? (
         <div className="empty-state">
           <CheckCircle2 />
@@ -90,9 +101,9 @@ export default function FollowUpPage() {
           <p>{tab === 'today' ? 'No follow-up appointments scheduled for today.' : 'All follow-up appointments are clear!'}</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <motion.div variants={containerAnimations} initial="hidden" animate="show" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {items.map(({ visit, patient }) => (
-            <div key={visit.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <motion.div variants={itemAnimations} key={visit.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               {/* Avatar */}
               <div className="followup-avatar" style={{ width: 46, height: 46, fontSize: '1rem' }}>
                 {patient?.name?.charAt(0)?.toUpperCase() || '?'}
@@ -124,10 +135,10 @@ export default function FollowUpPage() {
                   <CheckCircle2 size={14} /> Attended
                 </button>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </PageTransition>
   );
 }

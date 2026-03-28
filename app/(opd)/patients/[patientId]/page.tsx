@@ -11,6 +11,10 @@ import {
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations } from '@/lib/hooks/useQueries';
 import type { Visit } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import { motion } from 'framer-motion';
+import PageTransition from '@/components/PageTransition';
+import LoadingScreen from '@/components/LoadingScreen';
+import ErrorState from '@/components/ErrorState';
 
 export default function PatientDetailPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = use(params);
@@ -34,26 +38,32 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
 
   const loading = patientLoading || visitsLoading;
 
-  if (loading) return <div className="empty-state"><div className="skeleton" style={{ width: 200, height: 20 }} /></div>;
+  if (loading) return <LoadingScreen message="Loading patient details..." />;
   if (!patient) return (
-    <div className="empty-state">
-      <ClipboardList /><h4>Patient Not Found</h4>
-      <Link href="/patients" className="btn btn-primary" style={{ marginTop: 16 }}>Back to Patients</Link>
-    </div>
+    <ErrorState title="Patient Not Found" message="The requested patient ID does not exist in the system." />
   );
 
   const age = patient.age || (patient.dob ? new Date().getFullYear() - new Date(patient.dob).getFullYear() : null);
   const lastVisit = visits[0];
 
+  const containerAnimations = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+  const itemAnimations = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="fade-up">
+    <PageTransition>
       {/* Header */}
       <div style={{ marginBottom: 4 }}>
         <Link href="/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 12 }}>
           <ChevronLeft size={15} /> Back to Patients
         </Link>
       </div>
-      <div className="page-header">
+      <div className="page-header" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
@@ -88,7 +98,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
       </div>
 
       {tab === 'overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="form-grid-2">
           <div className="card">
             <div className="card-title">Patient Information</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
@@ -128,7 +138,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
       )}
 
       {tab === 'visits' && (
-        <div>
+        <motion.div variants={containerAnimations} initial="hidden" animate="show">
           {visits.length === 0 ? (
             <div className="empty-state">
               <Stethoscope />
@@ -139,7 +149,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               </Link>
             </div>
           ) : visits.map(v => (
-            <div key={v.id} className="card card-sm" style={{ marginBottom: 12, cursor: 'pointer' }}
+            <motion.div variants={itemAnimations} key={v.id} className="card card-sm" style={{ marginBottom: 12, cursor: 'pointer' }}
               onClick={() => setActiveVisit(activeVisit?.id === v.id ? null : v)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -212,10 +222,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </PageTransition>
   );
 }
