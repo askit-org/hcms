@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Toast {
   id: string;
@@ -23,7 +23,10 @@ export default function ToastContainer() {
     setTimeout(() => setToasts(prev => prev.filter(x => x.id !== id)), 3500);
   }, []);
 
-  _addToast = add;
+  useEffect(() => {
+    _addToast = add;
+    return () => { _addToast = null; };
+  }, [add]);
 
   const icons: Record<string, string> = { success: '✓', error: '✕', info: 'ℹ' };
   const colors: Record<string, string> = { success: 'var(--green)', error: 'var(--red)', info: 'var(--blue)' };

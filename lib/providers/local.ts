@@ -19,6 +19,9 @@ import {
   setSetting,
 } from '@/lib/db';
 import type {
+  AuthLoginInput,
+  AuthSignupInput,
+  AuthResponse,
   ClinicSettings,
   CreateMedicineInput,
   CreatePatientInput,
@@ -40,6 +43,14 @@ import type {
 } from './types';
 
 export const LocalDataProvider: DataProvider = {
+  // ── Auth ───────────────────────────────────────────────────────
+  async authLogin({ email }: AuthLoginInput): Promise<AuthResponse> {
+    throw new Error('Offline login not supported. Switch to API mode.');
+  },
+  async authSignup(input: AuthSignupInput): Promise<AuthResponse> {
+    throw new Error('Offline signup not supported. Switch to API mode.');
+  },
+
   // ── Patients ───────────────────────────────────────────────────
   async listPatients(params?: PatientListParams): Promise<Patient[]> {
     if (params?.search) {

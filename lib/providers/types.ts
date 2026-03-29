@@ -34,6 +34,16 @@ export type ClinicSettings = {
   city: string;
 };
 
+export type AuthLoginInput = { email: string; password?: string };
+export type AuthSignupInput = ClinicSettings & { email: string; password?: string };
+
+export type AuthResponse = {
+  success: boolean;
+  token?: string;
+  user?: any;
+  error?: string;
+};
+
 // ─── Query / filter shapes ────────────────────────────────────────
 
 export interface PatientListParams {
@@ -86,6 +96,10 @@ export interface DashboardStats {
 // Switching between them only requires changing the factory in index.ts.
 
 export interface DataProvider {
+  // ── Auth ───────────────────────────────────────────────────────
+  authLogin(input: AuthLoginInput): Promise<AuthResponse>;
+  authSignup(input: AuthSignupInput): Promise<AuthResponse>;
+
   // ── Patients ───────────────────────────────────────────────────
   listPatients(params?: PatientListParams): Promise<Patient[]>;
   getPatient(patientId: string): Promise<Patient | undefined>;

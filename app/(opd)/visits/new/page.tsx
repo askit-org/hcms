@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+'use client';
+
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill } from 'lucide-react';
@@ -19,7 +21,7 @@ const QUICK_COMPLAINTS = [
 const DOSE_OPTIONS = ['1-0-1', '1-1-1', '0-0-1', '1-0-0', '0-1-0', '1/2-0-1/2', 'SOS', 'As needed', 'Stat'];
 const DURATION_OPTIONS = ['1 day', '3 days', '5 days', '7 days', '10 days', '14 days', '30 days', '90 days'];
 
-export default function NewVisitPage() {
+function NewVisitForm() {
   const router = useRouter();
   const sp = useSearchParams();
   const prePatientId = sp.get('patientId') || '';
@@ -301,5 +303,13 @@ export default function NewVisitPage() {
         </div>
       </form>
     </PageTransition>
+  );
+}
+
+export default function NewVisitPage() {
+  return (
+    <Suspense fallback={<div className="loading-state">Loading visit form...</div>}>
+      <NewVisitForm />
+    </Suspense>
   );
 }

@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProviderStore } from '../providers';
+import { useAuth } from './useAuth';
 import type { 
   PatientListParams, 
   VisitListParams, 
@@ -14,7 +15,9 @@ import type {
   CreateMedicineInput,
   UpdateMedicineInput,
   CreateTemplateInput,
-  ClinicSettings
+  ClinicSettings,
+  AuthLoginInput,
+  AuthSignupInput
 } from '../providers/types';
 
 // Query Keys
@@ -254,4 +257,31 @@ export function useSettingsMutations() {
   });
 
   return { update };
+}
+
+// ── Auth ───────────────────────────────────────────────────────
+
+export function useAuthMutations() {
+  const provider = useProviderStore(s => s.provider);
+  const { login } = useAuth();
+
+  const authLogin = useMutation({
+    mutationFn: (input: AuthLoginInput) => provider.authLogin(input),
+    onSuccess: (data) => {
+      if (data.success && data.user && data.token) {
+        login({ user: data.user, token: data.token });
+      }
+    }
+  });
+
+  const authSignup = useMutation({
+    mutationFn: (input: AuthSignupInput) => provider.authSignup(input),
+    onSuccess: (data) => {
+      if (data.success && data.user && data.token) {
+        login({ user: data.user, token: data.token });
+      }
+    }
+  });
+
+  return { authLogin, authSignup };
 }
