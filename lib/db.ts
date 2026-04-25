@@ -47,6 +47,8 @@ export interface Medicine {
   category: string;
   defaultDose: string;
   defaultDuration: string;
+  unit?: string;
+  strength?: string;
 }
 
 export interface Template {

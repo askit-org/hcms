@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Calendar,
-  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut
+  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/prescription', label: 'Prescription', icon: Pill, group: 'clinical' },
   { href: '/followup', label: 'Follow-Up', icon: Calendar, group: 'clinical' },
   { href: '/reports', label: 'Reports', icon: BarChart3, group: 'records' },
+  { href: '/medicines', label: 'Medicines', icon: Package, group: 'records' },
   { href: '/settings', label: 'Settings', icon: Settings, group: 'records' },
 ];
 
