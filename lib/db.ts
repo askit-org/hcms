@@ -10,6 +10,7 @@ export interface Patient {
   mobile: string;
   address?: string;
   occupation?: string;
+  category?: string; // e.g. OPD, IPD, Suwarna Pashan, Emergency, etc.
   createdAt: string;
 }
 

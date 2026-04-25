@@ -873,3 +873,216 @@ body::before {
   }
 }
 
+/* ─── Filter Category Cards Row ──────────────────────────────── */
+.filter-cards-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.filter-cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  min-width: 80px;
+  position: relative;
+  color: var(--text-secondary);
+  backdrop-filter: blur(12px);
+}
+.filter-cat-card:hover {
+  border-color: var(--fc-color, var(--accent));
+  background: var(--fc-bg, var(--accent-glow));
+  color: var(--fc-color, var(--accent-light));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+}
+.filter-cat-card.active {
+  border-color: var(--fc-color, var(--accent));
+  background: var(--fc-bg, var(--accent-glow));
+  color: var(--fc-color, var(--accent-light));
+  box-shadow: 0 0 0 1px var(--fc-color, var(--accent)) inset, 0 6px 20px rgba(0,0,0,0.18);
+}
+.fc-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--fc-bg, var(--accent-glow));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fc-color, var(--accent-light));
+  transition: all 0.18s;
+}
+.filter-cat-card:hover .fc-icon,
+.filter-cat-card.active .fc-icon {
+  background: var(--fc-color, var(--accent));
+  color: #fff;
+}
+.fc-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+.fc-active-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fc-color, var(--accent));
+}
+
+/* ─── Date Range Filter Card ─────────────────────────────────── */
+.date-range-card {
+  background: var(--surface-2);
+  border: 1.5px solid rgba(99,102,241,0.3);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.date-range-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(99,102,241,0.06);
+}
+.date-range-body { padding: 18px; }
+.date-range-input-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.date-range-point {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.drp-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-bottom: 11px;
+  flex-shrink: 0;
+}
+.drp-dot.from { background: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+.drp-dot.to   { background: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.2); }
+.drp-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+.drp-arrow { margin-bottom: 8px; display: flex; align-items: center; }
+.drp-summary {
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: #6366f1;
+  font-weight: 500;
+  padding: 6px 10px;
+  background: rgba(99,102,241,0.08);
+  border-radius: 6px;
+  border: 1px solid rgba(99,102,241,0.2);
+}
+
+/* ─── Patient Category Selection Cards (New Patient Form) ──────── */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+@media (max-width: 1024px) {
+  .category-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 600px) {
+  .category-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.category-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  color: var(--text-secondary);
+}
+.category-card:hover {
+  border-color: var(--cat-color, var(--accent));
+  background: var(--cat-bg, var(--accent-glow));
+  color: var(--cat-color, var(--accent-light));
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.category-card.selected {
+  border-color: var(--cat-color, var(--accent));
+  background: var(--cat-bg, var(--accent-glow));
+  color: var(--cat-color, var(--accent-light));
+  box-shadow: 0 0 0 2px var(--cat-color, var(--accent)) inset, 0 8px 24px rgba(0,0,0,0.2);
+}
+.category-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--cat-bg, var(--accent-glow));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cat-color, var(--accent-light));
+  transition: all 0.18s;
+}
+.category-card:hover .category-icon,
+.category-card.selected .category-icon {
+  background: var(--cat-color, var(--accent));
+  color: #fff;
+}
+.category-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+.category-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+}
+.category-card.selected .category-sub {
+  color: var(--cat-color, var(--accent-light));
+  opacity: 0.7;
+}
+.category-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cat-color, var(--accent));
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+

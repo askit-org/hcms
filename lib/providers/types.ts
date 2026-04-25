@@ -50,6 +50,9 @@ export interface PatientListParams {
   search?: string;
   page?: number;
   limit?: number;
+  category?: string; // 'OPD' | 'IPD' | 'Suwarna Pashan' | etc.
+  fromDate?: string; // ISO date YYYY-MM-DD
+  toDate?: string;   // ISO date YYYY-MM-DD
 }
 
 export interface VisitListParams {

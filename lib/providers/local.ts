@@ -53,11 +53,21 @@ export const LocalDataProvider: DataProvider = {
 
   // ── Patients ───────────────────────────────────────────────────
   async listPatients(params?: PatientListParams): Promise<Patient[]> {
+    let all: Patient[];
     if (params?.search) {
-      return searchPatients(params.search);
+      all = await searchPatients(params.search);
+    } else {
+      all = await dbGetAll<Patient>('patients');
     }
-    const all = await dbGetAll<Patient>('patients');
-    // Implement simple pagination if needed, for now return all sorting by createdAt
+    if (params?.category) {
+      all = all.filter((p) => (p.category || 'OPD') === params.category);
+    }
+    if (params?.fromDate) {
+      all = all.filter((p) => p.createdAt.split('T')[0] >= params.fromDate!);
+    }
+    if (params?.toDate) {
+      all = all.filter((p) => p.createdAt.split('T')[0] <= params.toDate!);
+    }
     return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
   async getPatient(patientId: string): Promise<Patient | undefined> {

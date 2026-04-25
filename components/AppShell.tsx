@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
 import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Patient } from '@/lib/providers/types';
 
 const navItems = [
@@ -100,6 +101,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: settings } = useSettings();
   const { today } = useFollowUps();
   const { isAuthenticated, user, logout } = useAuth();
@@ -185,6 +187,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             className="btn btn-ghost btn-sm" 
             style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--text-secondary)', marginTop: 8 }}
             onClick={() => {
+              queryClient.clear();
               logout();
               router.push('/login');
             }}
