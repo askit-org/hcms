@@ -7,24 +7,24 @@
 }
 
 :root {
-  --background: #0b1120;
-  --foreground: #f1f5f9;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 
   /* Brand */
   --accent: #0d9488;
   --accent-light: #14b8a6;
-  --accent-glow: rgba(13, 148, 136, 0.2);
+  --accent-glow: rgba(13, 148, 136, 0.15);
 
   /* Glass Surfaces */
-  --surface-1: rgba(15, 23, 42, 0.7);
-  --surface-2: rgba(24, 33, 50, 0.6);
-  --surface-3: rgba(36, 48, 70, 0.5);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-light: rgba(255, 255, 255, 0.03);
+  --surface-1: rgba(255, 255, 255, 0.8);
+  --surface-2: rgba(255, 255, 255, 0.6);
+  --surface-3: rgba(241, 245, 249, 0.6);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-light: rgba(0, 0, 0, 0.04);
 
   /* Text */
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
   --text-muted: #64748b;
 
   /* Status */
@@ -38,6 +38,37 @@
   --sidebar-width: 260px;
   --header-height: 64px;
   --radius: 10px;
+
+  --hover-btn: rgba(0,0,0,0.04);
+  --hover-table: rgba(0,0,0,0.025);
+  
+  --modal-bg: rgba(255,255,255,0.7);
+  --modal-shadow: 0 24px 80px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05) inset;
+}
+
+[data-theme='dark'] {
+  --background: #0b1120;
+  --foreground: #f1f5f9;
+
+  /* Glass Surfaces */
+  --surface-1: rgba(15, 23, 42, 0.7);
+  --surface-2: rgba(24, 33, 50, 0.6);
+  --surface-3: rgba(36, 48, 70, 0.5);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.03);
+
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-glow: rgba(13, 148, 136, 0.2);
+
+  --hover-btn: rgba(255,255,255,0.04);
+  --hover-table: rgba(255,255,255,0.025);
+  
+  --modal-bg: rgba(0,0,0,0.65);
+  --modal-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05) inset;
 }
 
 * { box-sizing: border-box; }
@@ -196,7 +227,7 @@ body::before {
   text-decoration: none;
 }
 .nav-item:hover {
-  background: rgba(255,255,255,0.04);
+  background: var(--hover-btn);
   color: var(--text-primary);
 }
 .nav-item.active {
@@ -390,7 +421,7 @@ body::before {
 .btn-success { background: var(--green); color: #fff; }
 .btn-success:hover { background: #059669; }
 .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
-.btn-ghost:hover { color: var(--text-primary); border-color: #475569; background: rgba(255,255,255,0.04); }
+.btn-ghost:hover { color: var(--text-primary); border-color: #475569; background: var(--hover-btn); }
 .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
 .btn-lg { padding: 12px 22px; font-size: 0.92rem; }
 .btn:disabled { opacity: 0.5; pointer-events: none; }
@@ -471,7 +502,7 @@ body::before {
   vertical-align: middle;
 }
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: rgba(255,255,255,0.025); }
+.data-table tr:hover td { background: var(--hover-table); }
 
 /* ─── Badges ──────────────────────────────────────────────────── */
 .badge {
@@ -494,7 +525,7 @@ body::before {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.65);
+  background: var(--modal-bg);
   backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
@@ -513,7 +544,7 @@ body::before {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05) inset;
+  box-shadow: var(--modal-shadow);
   animation: slideModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes slideModalIn {

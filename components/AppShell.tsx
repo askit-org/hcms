@@ -13,6 +13,7 @@ import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Patient } from '@/lib/providers/types';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'main' },
@@ -219,6 +220,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {followUpCount} follow-up{followUpCount > 1 ? 's' : ''} today
               </Link>
             )}
+            <ThemeToggle />
             <Link href="/visits/new" className="btn btn-primary btn-sm">
               <Stethoscope size={15} /> New Visit
             </Link>
