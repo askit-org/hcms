@@ -8,6 +8,13 @@ import type { Patient, Visit, Medicine, Template } from '@/lib/db';
 // ─── Re-export core domain types ─────────────────────────────────
 export type { Patient, Visit, Medicine, Template, PrescribedMedicine } from '@/lib/db';
 
+export interface AppOption {
+  id: number;
+  optionType: string;
+  value: string;
+  createdAt: string;
+}
+
 // ─── Input shapes (what you POST / PUT) ──────────────────────────
 
 export type CreatePatientInput = Omit<Patient, 'id' | 'patientId' | 'createdAt'>;
@@ -23,6 +30,8 @@ export type CreateMedicineInput = Omit<Medicine, 'id'>;
 export type UpdateMedicineInput = Partial<CreateMedicineInput>;
 
 export type CreateTemplateInput = Omit<Template, 'id' | 'createdAt'>;
+
+export type CreateAppOptionInput = Omit<AppOption, 'id' | 'createdAt'>;
 
 export type ClinicSettings = {
   doctorName: string;
@@ -141,4 +150,9 @@ export interface DataProvider {
 
   // ── Dashboard ──────────────────────────────────────────────────
   getDashboardStats(): Promise<DashboardStats>;
+
+  // ── App Options ────────────────────────────────────────────────
+  listOptions(type?: string): Promise<AppOption[]>;
+  createOption(input: CreateAppOptionInput): Promise<AppOption>;
+  deleteOption(id: number): Promise<void>;
 }

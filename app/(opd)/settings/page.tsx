@@ -4,6 +4,8 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { FileText, Trash2, AlertTriangle, User } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
+import SettingsTemplates from '@/components/SettingsTemplates';
+import SettingsOptions from '@/components/SettingsOptions';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -77,6 +79,12 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Configurable Options */}
+      <SettingsOptions />
+
+      {/* Prescription Templates */}
+      <SettingsTemplates />
 
       {/* Danger Zone */}
       <div className="card" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.04)' }}>

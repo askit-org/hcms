@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useVisitMutations, usePatient } from '@/lib/hooks/useQueries';
-import type { Patient, Medicine, PrescribedMedicine } from '@/lib/providers/types';
+import { useMedicines, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
+import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
 
@@ -36,14 +36,22 @@ function NewVisitForm() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
-    chiefComplaints: '', diagnosis: '', bp: '', pulse: '', temp: '', spo2: '',
+    category: '', chiefComplaints: '', diagnosis: '', bp: '', pulse: '', temp: '', spo2: '',
     weight: '', treatment: '', prescriptionNotes: '', followUpDate: '',
   });
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const provider = useProviderStore((s) => s.provider);
   const { create: createVisit } = useVisitMutations();
+  const { create: createOption } = useAppOptionMutations();
   const { data: medicinesData = [] } = useMedicines();
+  const { data: complaintOptions = [] } = useAppOptions('CHIEF_COMPLAINT');
+  const { data: diseaseOptions = [] } = useAppOptions('DISEASE');
+  const { data: categoryOptions = [] } = useAppOptions('CATEGORY');
+  const { data: templates = [] } = useTemplates();
+
+  const activeComplaints = [...new Set([...QUICK_COMPLAINTS, ...complaintOptions.map(o => o.value)])];
+  const activeDiseases = diseaseOptions.map(o => o.value);
 
   // Load pre-selected patient if URL param exists
   useEffect(() => {
@@ -73,9 +81,25 @@ function NewVisitForm() {
 
   const syncComplaints = (val: string) => {
     set('chiefComplaints', val);
-    // Sync quick buttons
-    const active = QUICK_COMPLAINTS.filter(c => val.toLowerCase().includes(c.toLowerCase()));
+    const active = activeComplaints.filter(c => val.toLowerCase().includes(c.toLowerCase()));
     setSelectedComplaints(active);
+  };
+
+  const applyTemplate = (tId: string) => {
+    if (!tId) return;
+    const t = templates.find(x => x.id?.toString() === tId);
+    if (!t) return;
+    
+    setForm(f => ({
+      ...f,
+      diagnosis: f.diagnosis ? `${f.diagnosis}, ${t.diagnosis}` : t.diagnosis,
+      prescriptionNotes: f.prescriptionNotes ? `${f.prescriptionNotes}\n${t.notes || ''}` : t.notes || '',
+    }));
+
+    if (t.medicines && Array.isArray(t.medicines)) {
+      setRxMeds(prev => [...prev, ...t.medicines!]);
+    }
+    toast('Template applied', 'success');
   };
 
   const addMedicine = (m: Medicine) => {
@@ -97,12 +121,14 @@ function NewVisitForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) { toast('Please select a patient first.', 'error'); return; }
+    if (!form.category) { toast('Please select a visit category.', 'error'); return; }
     if (!form.chiefComplaints.trim()) { toast('Chief complaints are required.', 'error'); return; }
     setSaving(true);
     try {
       const now = new Date();
       await createVisit.mutateAsync({
         patientId: selectedPatient.patientId,
+        category: form.category,
         date: now.toISOString(),
         chiefComplaints: form.chiefComplaints.trim(),
         diagnosis: form.diagnosis.trim(),
@@ -173,6 +199,39 @@ function NewVisitForm() {
           )}
         </div>
 
+        {/* Visit Details */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title" style={{ marginBottom: 12 }}>Visit Details</div>
+          <div className="form-group" style={{ maxWidth: 300 }}>
+            <label className="form-label">Visit Category <span className="required">*</span></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)} required>
+                <option value="" disabled>Select category...</option>
+                <option value="OPD">OPD</option>
+                <option value="IPD">IPD</option>
+                <option value="Emergency">Emergency</option>
+                {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value)).map(c => (
+                  <option key={c.id} value={c.value}>{c.value}</option>
+                ))}
+              </select>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={async () => {
+                  const val = prompt('Enter new category name:');
+                  if (val?.trim()) {
+                    await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
+                    set('category', val.trim());
+                    toast('Category added', 'success');
+                  }
+                }}
+              >
+                <Plus size={16} /> New
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Vitals */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Vitals</div>
@@ -201,7 +260,7 @@ function NewVisitForm() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Chief Complaints</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-            {QUICK_COMPLAINTS.map(c => (
+            {activeComplaints.map(c => (
               <button key={c} type="button" className={`quick-btn ${selectedComplaints.includes(c) ? 'selected' : ''}`}
                 onClick={() => toggleComplaint(c)}>{c}</button>
             ))}
@@ -212,9 +271,25 @@ function NewVisitForm() {
 
         {/* Diagnosis & Treatment */}
         <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>Diagnosis & Treatment</div>
+            {templates.length > 0 && (
+              <select className="form-select" style={{ width: 'auto', padding: '4px 28px 4px 10px', fontSize: '0.85rem' }} onChange={e => applyTemplate(e.target.value)} value="">
+                <option value="" disabled>Apply Template...</option>
+                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+          </div>
           <div className="form-grid form-grid-2">
             <div className="form-group">
               <label className="form-label">Diagnosis</label>
+              {activeDiseases.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {activeDiseases.map(d => (
+                    <button key={d} type="button" className="quick-btn" onClick={() => set('diagnosis', form.diagnosis ? `${form.diagnosis}, ${d}` : d)}>{d}</button>
+                  ))}
+                </div>
+              )}
               <textarea className="form-textarea" placeholder="Clinical diagnosis…" value={form.diagnosis} onChange={e => set('diagnosis', e.target.value)} style={{ minHeight: 100 }} />
             </div>
             <div className="form-group">
@@ -258,17 +333,17 @@ function NewVisitForm() {
               <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr auto', gap: 6, padding: '4px 6px', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 <span>Medicine</span><span>Dose</span><span>Duration</span><span>Instructions</span><span></span>
               </div>
+              <datalist id="dose-options">
+                {DOSE_OPTIONS.map(d => <option key={d} value={d} />)}
+              </datalist>
+              <datalist id="duration-options">
+                {DURATION_OPTIONS.map(d => <option key={d} value={d} />)}
+              </datalist>
               {rxMeds.map((m, i) => (
                 <div key={i} className="med-row">
                   <input className="form-input" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
-                  <select className="form-select" value={m.dose} onChange={e => updateMed(i, 'dose', e.target.value)}>
-                    {DOSE_OPTIONS.map(d => <option key={d}>{d}</option>)}
-                    {!DOSE_OPTIONS.includes(m.dose) && <option value={m.dose}>{m.dose}</option>}
-                  </select>
-                  <select className="form-select" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)}>
-                    {DURATION_OPTIONS.map(d => <option key={d}>{d}</option>)}
-                    {!DURATION_OPTIONS.includes(m.duration) && <option value={m.duration}>{m.duration}</option>}
-                  </select>
+                  <input className="form-input" list="dose-options" placeholder="Dose" value={m.dose} onChange={e => updateMed(i, 'dose', e.target.value)} />
+                  <input className="form-input" list="duration-options" placeholder="Duration" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)} />
                   <input className="form-input" placeholder="e.g. After food" value={m.instructions || ''} onChange={e => updateMed(i, 'instructions', e.target.value)} />
                   <button type="button" className="btn-icon" onClick={() => removeMed(i)}><Trash2 size={14} /></button>
                 </div>

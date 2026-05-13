@@ -17,7 +17,8 @@ import type {
   CreateTemplateInput,
   ClinicSettings,
   AuthLoginInput,
-  AuthSignupInput
+  AuthSignupInput,
+  CreateAppOptionInput
 } from '../providers/types';
 
 // Query Keys
@@ -33,6 +34,7 @@ export const keys = {
   settings: () => [...keys.all, 'settings'] as const,
   dashboard: () => [...keys.all, 'dashboard'] as const,
   followups: () => [...keys.all, 'followups'] as const,
+  options: () => [...keys.all, 'options'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
@@ -232,6 +234,33 @@ export function useTemplateMutations() {
   const remove = useMutation({
     mutationFn: (id: number) => provider.deleteTemplate(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.templates() }),
+  });
+
+  return { create, remove };
+}
+
+// ── App Options ────────────────────────────────────────────────
+
+export function useAppOptions(type?: string) {
+  const provider = useProviderStore(s => s.provider);
+  return useQuery({
+    queryKey: [...keys.options(), type],
+    queryFn: () => provider.listOptions(type),
+  });
+}
+
+export function useAppOptionMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore(s => s.provider);
+
+  const create = useMutation({
+    mutationFn: (input: CreateAppOptionInput) => provider.createOption(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.options() }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => provider.deleteOption(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.options() }),
   });
 
   return { create, remove };

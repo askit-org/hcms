@@ -8,6 +8,8 @@ import type {
   AuthSignupInput,
   AuthResponse,
   ClinicSettings,
+  CreateAppOptionInput,
+  AppOption,
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
@@ -145,5 +147,16 @@ export const ApiDataProvider: DataProvider = {
   // ── Dashboard ──────────────────────────────────────────────────
   async getDashboardStats(): Promise<DashboardStats> {
     return api.get<DashboardStats>('/dashboard/stats').then(res);
+  },
+
+  // ── App Options ────────────────────────────────────────────────
+  async listOptions(type?: string): Promise<AppOption[]> {
+    return api.get<AppOption[]>('/options', { params: { type } }).then(res);
+  },
+  async createOption(input: CreateAppOptionInput): Promise<AppOption> {
+    return api.post<AppOption>('/options', input).then(res);
+  },
+  async deleteOption(id: number): Promise<void> {
+    return api.delete(`/options/${id}`).then(res);
   },
 };

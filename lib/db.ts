@@ -10,7 +10,7 @@ export interface Patient {
   mobile: string;
   address?: string;
   occupation?: string;
-  category?: string; // e.g. OPD, IPD, Suwarna Pashan, Emergency, etc.
+  abhaNumber?: string;
   createdAt: string;
 }
 
@@ -25,6 +25,7 @@ export interface PrescribedMedicine {
 export interface Visit {
   id?: number;
   patientId: string;
+  category: string;
   date: string;
   chiefComplaints: string;
   diagnosis: string;
