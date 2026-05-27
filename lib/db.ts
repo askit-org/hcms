@@ -10,6 +10,7 @@ export interface Patient {
   mobile: string;
   address?: string;
   occupation?: string;
+  abhaNumber?: string;
   createdAt: string;
 }
 
@@ -24,6 +25,7 @@ export interface PrescribedMedicine {
 export interface Visit {
   id?: number;
   patientId: string;
+  category: string;
   date: string;
   chiefComplaints: string;
   diagnosis: string;
@@ -46,6 +48,8 @@ export interface Medicine {
   category: string;
   defaultDose: string;
   defaultDuration: string;
+  unit?: string;
+  strength?: string;
 }
 
 export interface Template {

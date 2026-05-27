@@ -2,8 +2,14 @@
 // REST API Data Provider (for future backend integration)
 
 import axios from 'axios';
+import { useAuth } from '../hooks/useAuth';
 import type {
+  AuthLoginInput,
+  AuthSignupInput,
+  AuthResponse,
   ClinicSettings,
+  CreateAppOptionInput,
+  AppOption,
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
@@ -25,13 +31,31 @@ import type {
 
 // The baseUrl can be configured via environment variables
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3009/api',
+});
+
+// Request Interceptor: Attach the current token from useAuth store to every request
+api.interceptors.request.use((config) => {
+  // Use useAuth.getState() to pull the token outside of React lifecycle
+  const token = useAuth.getState().token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // A small helper to process responses
 const res = <T>(response: { data: T }) => response.data;
 
 export const ApiDataProvider: DataProvider = {
+  // ── Auth ───────────────────────────────────────────────────────
+  async authLogin(input: AuthLoginInput): Promise<AuthResponse> {
+    return api.post<AuthResponse>('/auth/login', input).then(res);
+  },
+  async authSignup(input: AuthSignupInput): Promise<AuthResponse> {
+    return api.post<AuthResponse>('/auth/signup', input).then(res);
+  },
+
   // ── Patients ───────────────────────────────────────────────────
   async listPatients(params?: PatientListParams): Promise<Patient[]> {
     return api.get<Patient[]>('/patients', { params }).then(res);
@@ -123,5 +147,16 @@ export const ApiDataProvider: DataProvider = {
   // ── Dashboard ──────────────────────────────────────────────────
   async getDashboardStats(): Promise<DashboardStats> {
     return api.get<DashboardStats>('/dashboard/stats').then(res);
+  },
+
+  // ── App Options ────────────────────────────────────────────────
+  async listOptions(type?: string): Promise<AppOption[]> {
+    return api.get<AppOption[]>('/options', { params: { type } }).then(res);
+  },
+  async createOption(input: CreateAppOptionInput): Promise<AppOption> {
+    return api.post<AppOption>('/options', input).then(res);
+  },
+  async deleteOption(id: number): Promise<void> {
+    return api.delete(`/options/${id}`).then(res);
   },
 };

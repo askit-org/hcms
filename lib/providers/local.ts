@@ -19,7 +19,12 @@ import {
   setSetting,
 } from '@/lib/db';
 import type {
+  AuthLoginInput,
+  AuthSignupInput,
+  AuthResponse,
   ClinicSettings,
+  AppOption,
+  CreateAppOptionInput,
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
@@ -40,13 +45,42 @@ import type {
 } from './types';
 
 export const LocalDataProvider: DataProvider = {
+  // ── Auth ───────────────────────────────────────────────────────
+  async authLogin({ email }: AuthLoginInput): Promise<AuthResponse> {
+    throw new Error('Offline login not supported. Switch to API mode.');
+  },
+  async authSignup(input: AuthSignupInput): Promise<AuthResponse> {
+    throw new Error('Offline signup not supported. Switch to API mode.');
+  },
+
   // ── Patients ───────────────────────────────────────────────────
   async listPatients(params?: PatientListParams): Promise<Patient[]> {
+    let all: Patient[];
     if (params?.search) {
-      return searchPatients(params.search);
+      all = await searchPatients(params.search);
+    } else {
+      all = await dbGetAll<Patient>('patients');
     }
-    const all = await dbGetAll<Patient>('patients');
-    // Implement simple pagination if needed, for now return all sorting by createdAt
+    if (params?.category && params.category !== 'All') {
+      const allVisits = await dbGetAll<Visit>('visits');
+      const latestVisits = new Map<string, Visit>();
+      for (const v of allVisits) {
+         const existing = latestVisits.get(v.patientId);
+         if (!existing || new Date(v.date) > new Date(existing.date)) {
+             latestVisits.set(v.patientId, v);
+         }
+      }
+      all = all.filter(p => {
+         const latestVisit = latestVisits.get(p.patientId);
+         return latestVisit?.category === params.category;
+      });
+    }
+    if (params?.fromDate) {
+      all = all.filter((p) => p.createdAt.split('T')[0] >= params.fromDate!);
+    }
+    if (params?.toDate) {
+      all = all.filter((p) => p.createdAt.split('T')[0] <= params.toDate!);
+    }
     return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
   async getPatient(patientId: string): Promise<Patient | undefined> {
@@ -54,6 +88,14 @@ export const LocalDataProvider: DataProvider = {
     return pats[0];
   },
   async createPatient(input: CreatePatientInput): Promise<Patient> {
+    const allPats = await dbGetAll<Patient>('patients');
+    if (allPats.some(p => p.mobile === input.mobile)) {
+      throw new Error(`Mobile number ${input.mobile} is already registered.`);
+    }
+    if (input.dob && new Date(input.dob) > new Date()) {
+      throw new Error('Date of birth cannot be a future date.');
+    }
+
     const patientId = await generatePatientId();
     const newPatient: Patient = {
       ...input,
@@ -66,6 +108,17 @@ export const LocalDataProvider: DataProvider = {
   async updatePatient(patientId: string, input: UpdatePatientInput): Promise<Patient> {
     const existing = await this.getPatient(patientId);
     if (!existing) throw new Error(`Patient ${patientId} not found`);
+
+    if (input.mobile && input.mobile !== existing.mobile) {
+      const allPats = await dbGetAll<Patient>('patients');
+      if (allPats.some(p => p.mobile === input.mobile)) {
+        throw new Error(`Mobile number ${input.mobile} is already registered.`);
+      }
+    }
+    if (input.dob && new Date(input.dob) > new Date()) {
+      throw new Error('Date of birth cannot be a future date.');
+    }
+
     const updated = { ...existing, ...input };
     if (updated.id) {
       await dbPut('patients', updated);
@@ -150,7 +203,8 @@ export const LocalDataProvider: DataProvider = {
       const q = params.search.toLowerCase();
       all = all.filter((m) => m.name.toLowerCase().includes(q));
     }
-    return all;
+    // Return ordered by latest created (using id)
+    return all.sort((a, b) => (b.id || 0) - (a.id || 0));
   },
   async createMedicine(input: CreateMedicineInput): Promise<Medicine> {
     const id = await dbAdd('medicines', input);
@@ -247,5 +301,23 @@ export const LocalDataProvider: DataProvider = {
       recentVisits: recent,
       todayFollowUpList: todayFU,
     };
+  },
+
+  // ── App Options ────────────────────────────────────────────────
+  async listOptions(type?: string): Promise<AppOption[]> {
+    let all = await dbGetAll<AppOption>('options');
+    if (type) all = all.filter(o => o.optionType === type);
+    return all;
+  },
+  async createOption(input: CreateAppOptionInput): Promise<AppOption> {
+    const newOp: AppOption = {
+      ...input,
+      createdAt: new Date().toISOString(),
+    } as AppOption;
+    const id = await dbAdd('options', newOp);
+    return { ...newOp, id };
+  },
+  async deleteOption(id: number): Promise<void> {
+    await dbDelete('options', id);
   },
 };

@@ -15,8 +15,9 @@ export default function NewPatientPage() {
   const provider = useProviderStore((s) => s.provider);
   
   const [saving, setSaving] = useState(false);
+  
   const [form, setForm] = useState({
-    name: '', age: '', dob: '', gender: 'Male', mobile: '', address: '', occupation: '',
+    name: '', age: '', dob: '', gender: 'Male', mobile: '', address: '', occupation: '', abhaNumber: ''
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -29,10 +30,6 @@ export default function NewPatientPage() {
     }
     setSaving(true);
     try {
-      // First generate the ID
-      const patientId = await provider.generatePatientId();
-      
-      // Then create the patient
       await create.mutateAsync({
         name: form.name.trim(),
         age: form.age ? parseInt(form.age) : undefined,
@@ -41,18 +38,21 @@ export default function NewPatientPage() {
         mobile: form.mobile.trim(),
         address: form.address.trim() || undefined,
         occupation: form.occupation.trim() || undefined,
-      });
-      
-      toast(`Patient registered: ${patientId}`, 'success');
-      router.push(`/patients/${patientId}`);
-    } catch (err) {
-      toast('Failed to register patient.', 'error');
+        abhaNumber: form.abhaNumber.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      } as any);
+      // We don't get the generated patientId easily here without the result object from mutation,
+      // but assuming create returns the created patient. Wait, the hook mutation returns the created item.
+      toast('Patient registered successfully', 'success');
+      router.push('/patients');
+    } catch (err: any) {
+      toast(err.message || 'Failed to register patient.', 'error');
       setSaving(false);
     }
   };
 
   return (
-    <PageTransition className="page-transition" style={{ maxWidth: 700, margin: '0 auto' }}>
+    <PageTransition className="page-transition" style={{ maxWidth: 780, margin: '0 auto' }}>
       <div className="page-header">
         <div>
           <Link href="/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
@@ -77,7 +77,13 @@ export default function NewPatientPage() {
             </div>
             <div className="form-group">
               <label className="form-label">Date of Birth</label>
-              <input className="form-input" type="date" value={form.dob} onChange={e => set('dob', e.target.value)} />
+              <input 
+                className="form-input" 
+                type="date" 
+                max={new Date().toISOString().split('T')[0]}
+                value={form.dob} 
+                onChange={e => set('dob', e.target.value)} 
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Gender <span className="required">*</span></label>
@@ -90,6 +96,10 @@ export default function NewPatientPage() {
             <div className="form-group">
               <label className="form-label">Mobile Number <span className="required">*</span></label>
               <input className="form-input" type="tel" placeholder="10-digit mobile number" value={form.mobile} onChange={e => set('mobile', e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ABHA Number <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>
+              <input className="form-input" placeholder="e.g. 12-3456-7890-1234" value={form.abhaNumber} onChange={e => set('abhaNumber', e.target.value)} />
             </div>
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Address <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>

@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProviderStore } from '../providers';
+import { useAuth } from './useAuth';
 import type { 
   PatientListParams, 
   VisitListParams, 
@@ -14,7 +15,10 @@ import type {
   CreateMedicineInput,
   UpdateMedicineInput,
   CreateTemplateInput,
-  ClinicSettings
+  ClinicSettings,
+  AuthLoginInput,
+  AuthSignupInput,
+  CreateAppOptionInput
 } from '../providers/types';
 
 // Query Keys
@@ -30,6 +34,7 @@ export const keys = {
   settings: () => [...keys.all, 'settings'] as const,
   dashboard: () => [...keys.all, 'dashboard'] as const,
   followups: () => [...keys.all, 'followups'] as const,
+  options: () => [...keys.all, 'options'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
@@ -234,6 +239,33 @@ export function useTemplateMutations() {
   return { create, remove };
 }
 
+// ── App Options ────────────────────────────────────────────────
+
+export function useAppOptions(type?: string) {
+  const provider = useProviderStore(s => s.provider);
+  return useQuery({
+    queryKey: [...keys.options(), type],
+    queryFn: () => provider.listOptions(type),
+  });
+}
+
+export function useAppOptionMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore(s => s.provider);
+
+  const create = useMutation({
+    mutationFn: (input: CreateAppOptionInput) => provider.createOption(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.options() }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => provider.deleteOption(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.options() }),
+  });
+
+  return { create, remove };
+}
+
 // ── Settings ───────────────────────────────────────────────────
 
 export function useSettings() {
@@ -254,4 +286,31 @@ export function useSettingsMutations() {
   });
 
   return { update };
+}
+
+// ── Auth ───────────────────────────────────────────────────────
+
+export function useAuthMutations() {
+  const provider = useProviderStore(s => s.provider);
+  const { login } = useAuth();
+
+  const authLogin = useMutation({
+    mutationFn: (input: AuthLoginInput) => provider.authLogin(input),
+    onSuccess: (data) => {
+      if (data.success && data.user && data.token) {
+        login({ user: data.user, token: data.token });
+      }
+    }
+  });
+
+  const authSignup = useMutation({
+    mutationFn: (input: AuthSignupInput) => provider.authSignup(input),
+    onSuccess: (data) => {
+      if (data.success && data.user && data.token) {
+        login({ user: data.user, token: data.token });
+      }
+    }
+  });
+
+  return { authLogin, authSignup };
 }

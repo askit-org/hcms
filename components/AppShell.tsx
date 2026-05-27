@@ -5,12 +5,15 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Calendar,
-  BarChart3, Settings, Activity, Search, Bell, Menu, X
+  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
 import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Patient } from '@/lib/providers/types';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'main' },
@@ -19,6 +22,7 @@ const navItems = [
   { href: '/prescription', label: 'Prescription', icon: Pill, group: 'clinical' },
   { href: '/followup', label: 'Follow-Up', icon: Calendar, group: 'clinical' },
   { href: '/reports', label: 'Reports', icon: BarChart3, group: 'records' },
+  { href: '/medicines', label: 'Medicines', icon: Package, group: 'records' },
   { href: '/settings', label: 'Settings', icon: Settings, group: 'records' },
 ];
 
@@ -98,10 +102,21 @@ function GlobalSearch() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: settings } = useSettings();
   const { today } = useFollowUps();
+  const { isAuthenticated, user, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
 
-  const clinicName = settings?.clinicName || 'My Clinic';
+  useEffect(() => {
+    setMounted(true);
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
+
+  const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
 
   useEffect(() => {
@@ -116,7 +131,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ display: mounted && isAuthenticated ? 'flex' : 'none' }}>
       {/* Mobile Backdrop Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
@@ -170,6 +185,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="sidebar-footer">
           <DateTime />
+          <button 
+            className="btn btn-ghost btn-sm" 
+            style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--text-secondary)', marginTop: 8 }}
+            onClick={() => {
+              queryClient.clear();
+              logout();
+              router.push('/login');
+            }}
+          >
+            <LogOut size={16} style={{ marginRight: 8 }} /> Log Out
+          </button>
         </div>
       </aside>
 
@@ -186,17 +212,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
           
-          <GlobalSearch />
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
             {followUpCount > 0 && (
               <Link href="/followup" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--amber)' }}>
                 <Bell size={16} />
                 {followUpCount} follow-up{followUpCount > 1 ? 's' : ''} today
               </Link>
             )}
-            <Link href="/visits/new" className="btn btn-primary btn-sm">
-              <Stethoscope size={15} /> New Visit
-            </Link>
+            <ThemeToggle />
           </div>
         </header>
         <main className="page-content fade-up">
