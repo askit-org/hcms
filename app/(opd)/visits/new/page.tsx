@@ -5,12 +5,59 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
 import { useMedicines, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
+import { motion, AnimatePresence } from 'framer-motion';
+
+function DoseSelector({ value, onChange }: { value: string, onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const parts = value.split('-');
+  const morning = parts[0] === '1' || parts[0] === '1/2';
+  const afternoon = parts[1] === '1' || parts[1] === '1/2';
+  const night = parts[2] === '1' || parts[2] === '1/2';
+
+  const toggle = (idx: number) => {
+    const p = [...parts];
+    if (p.length < 3) { p[0] = '0'; p[1] = '0'; p[2] = '0'; }
+    p[idx] = (p[idx] === '1' || p[idx] === '1/2') ? '0' : '1';
+    onChange(p.join('-'));
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input 
+        className="form-input" 
+        value={value} 
+        onChange={e => onChange(e.target.value)} 
+        onFocus={() => setOpen(true)}
+        placeholder="Dose"
+      />
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpen(false)} />
+          <div className="dose-popover">
+            {[
+              { label: 'Morning', icon: <Sunrise size={18} />, active: morning },
+              { label: 'Afternoon', icon: <Sun size={18} />, active: afternoon },
+              { label: 'Night', icon: <Moon size={18} />, active: night },
+            ].map((d, i) => (
+              <div key={d.label} className={`dose-toggle ${d.active ? 'active' : ''}`} onClick={() => toggle(i)}>
+                {d.icon}
+                <span>{d.label}</span>
+                <div className="dose-toggle-val">{d.active ? '1' : '0'}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 const QUICK_COMPLAINTS = [
   'Fever', 'Cough', 'Cold', 'Body Ache', 'Headache',
@@ -34,6 +81,7 @@ function NewVisitForm() {
   const [rxMeds, setRxMeds] = useState<PrescribedMedicine[]>([]);
   const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   const [form, setForm] = useState({
     category: '', chiefComplaints: '', diagnosis: '', bp: '', pulse: '', temp: '', spo2: '',
@@ -73,9 +121,29 @@ function NewVisitForm() {
 
   const toggleComplaint = (c: string) => {
     setSelectedComplaints(prev => {
-      const nw = prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c];
-      setForm(f => ({ ...f, chiefComplaints: nw.join(', ') + (f.chiefComplaints.replace(new RegExp(prev.join('|') + ', ?', 'g'), '').trim() ? ', ' + f.chiefComplaints : '') }));
-      return nw;
+      const isSelected = prev.includes(c);
+      const next = isSelected ? prev.filter(x => x !== c) : [...prev, c];
+      
+      // Update the chiefComplaints string
+      let currentText = form.chiefComplaints;
+      if (!isSelected) {
+        // Add
+        if (currentText && !currentText.trim().endsWith(',')) {
+          currentText += ', ' + c;
+        } else if (currentText) {
+          currentText += ' ' + c;
+        } else {
+          currentText = c;
+        }
+      } else {
+        // Remove - handle various delimiters and spaces
+        const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(^|,\\s*)${escaped}(?=\\s*,|$)`, 'g');
+        currentText = currentText.replace(regex, '').replace(/^,\s*/, '').replace(/,\s*$/, '').replace(/,\s*,/g, ',');
+      }
+      
+      setForm(f => ({ ...f, chiefComplaints: currentText.trim() }));
+      return next;
     });
   };
 
@@ -168,7 +236,7 @@ function NewVisitForm() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Patient</div>
           {selectedPatient ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface-1)', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--accent)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface-1)', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--border)' }}>
               <div className="followup-avatar">{selectedPatient.name.charAt(0)}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
@@ -178,10 +246,12 @@ function NewVisitForm() {
             </div>
           ) : (
             <div style={{ position: 'relative' }}>
-              <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-              <input className="form-input" style={{ paddingLeft: 34 }}
-                placeholder="Search patient by name, mobile, or ID…"
-                value={patientQuery} onChange={e => setPatientQuery(e.target.value)} />
+              <div className="search-input-wrap">
+                <span className="s-icon"><Search /></span>
+                <input className="search-input"
+                  placeholder="Search patient by name, mobile, or ID…"
+                  value={patientQuery} onChange={e => setPatientQuery(e.target.value)} />
+              </div>
               {patientResults.length > 0 && (
                 <div className="search-dropdown">
                   {patientResults.map(p => (
@@ -274,10 +344,9 @@ function NewVisitForm() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>Diagnosis & Treatment</div>
             {templates.length > 0 && (
-              <select className="form-select" style={{ width: 'auto', padding: '4px 28px 4px 10px', fontSize: '0.85rem' }} onChange={e => applyTemplate(e.target.value)} value="">
-                <option value="" disabled>Apply Template...</option>
-                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTemplateModal(true)}>
+                <Pill size={14} /> Select Template
+              </button>
             )}
           </div>
           <div className="form-grid form-grid-2">
@@ -307,10 +376,12 @@ function NewVisitForm() {
 
           {/* Medicine Search */}
           <div style={{ position: 'relative', marginBottom: 14 }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <input className="form-input" style={{ paddingLeft: 34 }}
-              placeholder="Search medicine to add…"
-              value={medQuery} onChange={e => setMedQuery(e.target.value)} />
+            <div className="search-input-wrap">
+              <span className="s-icon"><Search /></span>
+              <input className="search-input"
+                placeholder="Search medicine to add…"
+                value={medQuery} onChange={e => setMedQuery(e.target.value)} />
+            </div>
             {medQuery && filteredMeds.length > 0 && (
               <div className="search-dropdown">
                 {filteredMeds.map(m => (
@@ -342,7 +413,7 @@ function NewVisitForm() {
               {rxMeds.map((m, i) => (
                 <div key={i} className="med-row">
                   <input className="form-input" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
-                  <input className="form-input" list="dose-options" placeholder="Dose" value={m.dose} onChange={e => updateMed(i, 'dose', e.target.value)} />
+                  <DoseSelector value={m.dose} onChange={v => updateMed(i, 'dose', v)} />
                   <input className="form-input" list="duration-options" placeholder="Duration" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)} />
                   <input className="form-input" placeholder="e.g. After food" value={m.instructions || ''} onChange={e => updateMed(i, 'instructions', e.target.value)} />
                   <button type="button" className="btn-icon" onClick={() => removeMed(i)}><Trash2 size={14} /></button>
@@ -377,7 +448,50 @@ function NewVisitForm() {
           </button>
         </div>
       </form>
+
+      {/* Template Modal */}
+      <AnimatePresence>
+        {showTemplateModal && (
+          <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
+            <motion.div 
+              className="modal modal-md" 
+              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            >
+              <div className="modal-header">
+                <h3>Select Prescription Template</h3>
+                <button className="btn-icon" onClick={() => setShowTemplateModal(false)}><X /></button>
+              </div>
+              <div className="modal-body">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                  {templates.map(t => (
+                    <div 
+                      key={t.id} 
+                      className="card card-sm" 
+                      style={{ cursor: 'pointer', transition: 'all 0.2s', border: '1px solid var(--border)' }}
+                      onClick={() => { applyTemplate(t.id!.toString()); setShowTemplateModal(false); }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                    >
+                      <div style={{ fontWeight: 700, color: 'var(--accent-light)', marginBottom: 4 }}>{t.name}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {t.diagnosis || 'No diagnosis info'}
+                      </div>
+                      <div style={{ marginTop: 8, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        {t.medicines?.length || 0} medicines included
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </PageTransition>
+
   );
 }
 

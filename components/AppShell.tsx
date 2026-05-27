@@ -212,8 +212,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
           
-          <GlobalSearch />
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
             {followUpCount > 0 && (
               <Link href="/followup" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--amber)' }}>
                 <Bell size={16} />
@@ -221,9 +220,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             )}
             <ThemeToggle />
-            <Link href="/visits/new" className="btn btn-primary btn-sm">
-              <Stethoscope size={15} /> New Visit
-            </Link>
           </div>
         </header>
         <main className="page-content fade-up">

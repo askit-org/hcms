@@ -78,7 +78,7 @@ export default function PatientsPage() {
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: 10, alignSelf: 'flex-end', marginTop: '10px' }}>
+        <div className="flex-wrap-header-actions" style={{ display: 'flex', gap: 10, alignSelf: 'flex-end', marginTop: '10px' }}>
           <select 
             className="form-select" 
             value={category} 
@@ -98,9 +98,9 @@ export default function PatientsPage() {
             onClick={() => setShowDateFilter(v => !v)}
             style={{ padding: '9px 14px' }}
           >
-            <Calendar size={16} /> {hasDateFilter ? 'Date Filter Applied' : 'Filter Date'}
+            <Calendar size={16} /> <span className="hide-mobile">{hasDateFilter ? 'Date Filter Applied' : 'Filter Date'}</span>
           </button>
-          <Link href={`/patients/new`} className="btn btn-primary"><UserPlus size={16} /> Register Patient</Link>
+          <Link href={`/patients/new`} className="btn btn-primary"><UserPlus size={16} /> <span className="hide-mobile">Register Patient</span></Link>
         </div>
       </div>
 
@@ -170,11 +170,10 @@ export default function PatientsPage() {
 
       {/* ── Search ──────────────────────────────────────────────────── */}
       <div className="card card-sm" style={{ marginBottom: 16 }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        <div className="search-input-wrap">
+          <span className="s-icon"><Search /></span>
           <input
-            className="form-input"
-            style={{ paddingLeft: 34 }}
+            className="search-input"
             placeholder="Search patients by name, mobile, or ID…"
             value={query}
             onChange={e => setQuery(e.target.value)}
