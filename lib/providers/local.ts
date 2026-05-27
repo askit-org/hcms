@@ -203,8 +203,8 @@ export const LocalDataProvider: DataProvider = {
       const q = params.search.toLowerCase();
       all = all.filter((m) => m.name.toLowerCase().includes(q));
     }
-    // Return ordered by latest created
-    return all.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    // Return ordered by latest created (using id)
+    return all.sort((a, b) => (b.id || 0) - (a.id || 0));
   },
   async createMedicine(input: CreateMedicineInput): Promise<Medicine> {
     const id = await dbAdd('medicines', input);
