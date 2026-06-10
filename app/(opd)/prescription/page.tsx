@@ -75,7 +75,7 @@ export default function PrescriptionPage() {
           <div className="page-title">Prescription</div>
           <div className="page-subtitle">{medicines.length} medicines · {templates.length} templates</div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="flex-wrap-header-actions">
           {tab === 'medicines' && (
             <button className="btn btn-primary" onClick={() => { setEditMed(null); setMedForm({ name: '', category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' }); setShowMedForm(true); }}>
               <Plus size={16} /> Add Medicine

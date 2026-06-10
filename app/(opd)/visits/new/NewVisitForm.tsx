@@ -439,7 +439,7 @@ export default function NewVisitForm() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <div className="form-actions">
           <Link href="/patients" className="btn btn-ghost">Cancel</Link>
           <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
             <Stethoscope size={18} /> {saving ? 'Saving…' : 'Save OPD Visit'}

@@ -40,7 +40,7 @@ export default function DashboardPage() {
           <div className="page-title">Good Morning 👋</div>
           <div className="page-subtitle">{today}</div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="flex-wrap-header-actions">
           <Link href="/patients/new" className="btn btn-secondary btn-sm"><UserPlus size={15} /> Register Patient</Link>
           <Link href="/visits/new" className="btn btn-primary btn-sm"><Stethoscope size={15} /> New Visit</Link>
         </div>

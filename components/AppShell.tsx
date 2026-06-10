@@ -108,13 +108,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { today } = useFollowUps();
   const { isAuthenticated, user, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    if (useAuth.persist.hasHydrated()) {
+      setHasHydrated(true);
+    } else {
+      const unsub = useAuth.persist.onFinishHydration(() => {
+        setHasHydrated(true);
+      });
+      return () => unsub();
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router]);
 
   const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
@@ -148,7 +160,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="logo-wrap">
+        <Link href="/dashboard" className="logo-wrap" style={{ textDecoration: 'none', display: 'block' }} onClick={() => setMobileMenuOpen(false)}>
           <div className="logo-row">
             <div className="logo-icon">
               <Activity />
@@ -159,7 +171,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="clinic-tagline">{clinicName}</div>
-        </div>
+        </Link>
 
         <nav className="nav-scroll">
           {groups.map(g => (
