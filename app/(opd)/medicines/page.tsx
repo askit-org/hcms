@@ -189,7 +189,7 @@ export default function MedicinesPage() {
           <div className="page-title">Medicine Inventory</div>
           <div className="page-subtitle">Manage your catalog, dosages, and units. Total: {medicines.length}</div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="flex-wrap-header-actions">
           <button className="btn btn-primary" onClick={openNew}><Plus size={16} /> Add Medicine</button>
         </div>
       </div>

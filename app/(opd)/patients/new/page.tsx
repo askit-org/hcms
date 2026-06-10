@@ -111,7 +111,7 @@ export default function NewPatientPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
+          <div className="form-actions">
             <Link href="/patients" className="btn btn-ghost">Cancel</Link>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <UserPlus size={16} /> {saving ? 'Registering…' : 'Register Patient'}

@@ -77,7 +77,9 @@ export default function FollowUpPage() {
             {todayFU.length} today · {upcomingFU.length} in next 30 days
           </div>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={load}><RefreshCw size={14} /> Refresh</button>
+        <div className="flex-wrap-header-actions">
+          <button className="btn btn-secondary btn-sm" onClick={load}><RefreshCw size={14} /> Refresh</button>
+        </div>
       </div>
 
       <div className="tabs">
@@ -103,32 +105,34 @@ export default function FollowUpPage() {
       ) : (
         <motion.div variants={containerAnimations} initial="hidden" animate="show" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {items.map(({ visit, patient }) => (
-            <motion.div variants={itemAnimations} key={visit.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              {/* Avatar */}
-              <div className="followup-avatar" style={{ width: 46, height: 46, fontSize: '1rem' }}>
-                {patient?.name?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-
-              {/* Info */}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700 }}>{patient?.name || visit.patientId}</span>
-                  <span className="badge badge-teal" style={{ fontSize: '0.65rem' }}>{visit.patientId}</span>
-                  {visit.followUpDate && getDaysLabel(visit.followUpDate)}
+            <motion.div variants={itemAnimations} key={visit.id} className="card card-sm followup-card">
+              <div className="followup-info-wrap">
+                {/* Avatar */}
+                <div className="followup-avatar" style={{ width: 46, height: 46, fontSize: '1rem' }}>
+                  {patient?.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  {patient?.mobile && <span>📞 {patient.mobile}</span>}
-                  {visit.diagnosis && <span>Dx: {visit.diagnosis}</span>}
-                  {visit.followUpDate && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Calendar size={12} /> {new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                  )}
+
+                {/* Info */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700 }}>{patient?.name || visit.patientId}</span>
+                    <span className="badge badge-teal" style={{ fontSize: '0.65rem' }}>{visit.patientId}</span>
+                    {visit.followUpDate && getDaysLabel(visit.followUpDate)}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {patient?.mobile && <span>📞 {patient.mobile}</span>}
+                    {visit.diagnosis && <span>Dx: {visit.diagnosis}</span>}
+                    {visit.followUpDate && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Calendar size={12} /> {new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+              <div className="followup-actions">
                 <Link href={`/patients/${visit.patientId}`} className="btn btn-ghost btn-sm">View Patient</Link>
                 <Link href={`/visits/new?patientId=${visit.patientId}`} className="btn btn-secondary btn-sm"><Stethoscope size={14} /> New Visit</Link>
                 <button className="btn btn-success btn-sm" onClick={() => markAttended(visit)}>

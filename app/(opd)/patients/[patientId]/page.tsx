@@ -168,7 +168,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex-wrap-header-actions">
           <Link href={`/visits/new?patientId=${patientId}`} className="btn btn-primary"><Stethoscope size={15} /> New Visit</Link>
           <button className="btn btn-danger btn-sm" onClick={deletePatient}><Trash2 size={14} /></button>
         </div>
