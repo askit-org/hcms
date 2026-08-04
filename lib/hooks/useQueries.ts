@@ -211,7 +211,12 @@ export function useMedicineMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.medicines() }),
   });
 
-  return { create, update, remove };
+  const bulkCreate = useMutation({
+    mutationFn: (inputs: CreateMedicineInput[]) => provider.bulkCreateMedicines(inputs),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.medicines() }),
+  });
+
+  return { create, update, remove, bulkCreate };
 }
 
 export function useTemplates() {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Pill, Plus, Search, Edit2, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Pill, Plus, Search, Edit2, Trash2, X, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { useMedicines, useMedicineMutations } from '@/lib/hooks/useQueries';
 import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -9,6 +9,7 @@ import ErrorState from '@/components/ErrorState';
 import { toast } from '@/components/Toast';
 import type { Medicine } from '@/lib/db';
 import { motion, AnimatePresence } from 'framer-motion';
+import BulkImportModal from '@/components/BulkImportModal';
 
 const MEDICINE_CATEGORIES = [
   'Antibiotic', 'Antipyretic', 'NSAID', 'Antacid', 'Antiemetic', 
@@ -29,6 +30,7 @@ export default function MedicinesPage() {
   const { create, update, remove } = useMedicineMutations();
   
   const [modalOpen, setModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   
   // Form State
@@ -184,13 +186,23 @@ export default function MedicinesPage() {
         )}
       </AnimatePresence>
 
+      <BulkImportModal 
+        isOpen={bulkModalOpen} 
+        onClose={() => setBulkModalOpen(false)} 
+      />
+
       <div className="page-header">
         <div>
           <div className="page-title">Medicine Inventory</div>
           <div className="page-subtitle">Manage your catalog, dosages, and units. Total: {medicines.length}</div>
         </div>
-        <div className="flex-wrap-header-actions">
-          <button className="btn btn-primary" onClick={openNew}><Plus size={16} /> Add Medicine</button>
+        <div className="flex-wrap-header-actions" style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>
+            <FileSpreadsheet size={16} /> Bulk Import (Excel/CSV)
+          </button>
+          <button className="btn btn-primary" onClick={openNew}>
+            <Plus size={16} /> Add Medicine
+          </button>
         </div>
       </div>
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, use } from 'react';
 import { useVisit, usePatient, useSettings } from '@/lib/hooks/useQueries';
-import { Printer } from 'lucide-react';
+import { Printer, MessageCircle, Share2 } from 'lucide-react';
+import { toast } from '@/components/Toast';
 
 export default function PrintRxPage({ params }: { params: Promise<{ visitId: string }> }) {
   const { visitId } = use(params);
@@ -29,8 +30,112 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
 
   return (
     <div>
-      <div className="no-print" style={{ padding: '16px 24px', display: 'flex', gap: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+      <div className="no-print" style={{ padding: '16px 24px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
         <button className="btn btn-primary" onClick={() => window.print()}><Printer size={15} /> Print Prescription</button>
+        <button 
+          className="btn" 
+          style={{ background: '#25D366', color: '#fff', border: 'none' }}
+          onClick={() => {
+            const numberEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+            const medsText = visit.medicines?.map((m, i) => {
+              const emoji = numberEmoji[i] || '💊';
+              return `${emoji} *${m.name}*\n   ↳ 🕒 ${m.dose} for ${m.duration}${m.instructions ? `\n   ↳ ℹ️ ${m.instructions}` : ''}`;
+            }).join('\n\n') || 'No medicines prescribed.';
+
+            const text = `🏥 *${clinic.clinicName}*\n👨‍⚕️ *${clinic.doctorName}*\n\nHello *${patient.name}*, 👋\nHere is the summary of your prescription visit on *${new Date(visit.date).toLocaleDateString('en-IN')}*.\n\n🩺 *Diagnosis:* \n${visit.diagnosis || 'N/A'}\n\n💊 *Prescribed Medicines:*\n${medsText}\n\n${visit.prescriptionNotes ? `📝 *Doctor's Advice:* \n${visit.prescriptionNotes}\n\n` : ''}${visit.followUpDate ? `📅 *Next Follow-up:* \n${new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` : ''}_Get well soon!_ 💙`;
+
+            const phone = patient.mobile.replace(/\D/g, '');
+            const targetPhone = phone.length === 10 ? `91${phone}` : phone;
+            window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`, '_blank');
+          }}
+        >
+          <MessageCircle size={15} /> Send via WhatsApp
+        </button>
+        <button 
+          className="btn btn-secondary" 
+          onClick={async () => {
+            try {
+              const { jsPDF } = await import('jspdf');
+              const doc = new jsPDF();
+              doc.setFontSize(16);
+              doc.setTextColor(13, 148, 136);
+              doc.text(clinic.doctorName, 20, 20);
+              doc.setFontSize(10);
+              doc.setTextColor(100, 100, 100);
+              doc.text(clinic.degree, 20, 26);
+              doc.text(clinic.clinicName, 20, 32);
+              doc.setDrawColor(200, 200, 200);
+              doc.line(20, 38, 190, 38);
+
+              doc.setFontSize(11);
+              doc.setTextColor(30, 30, 30);
+              doc.text(`Patient: ${patient.name}`, 20, 48);
+              doc.text(`ID: ${patient.patientId}`, 130, 48);
+              doc.text(`Age/Gender: ${age || '--'}y / ${patient.gender}`, 20, 56);
+              doc.text(`Date: ${new Date(visit.date).toLocaleDateString('en-IN')}`, 130, 56);
+              doc.line(20, 62, 190, 62);
+
+              let y = 72;
+              if (visit.diagnosis) {
+                doc.setFontSize(12);
+                doc.setTextColor(13, 148, 136);
+                doc.text(`Diagnosis: ${visit.diagnosis}`, 20, y);
+                y += 12;
+              }
+
+              if (visit.medicines && visit.medicines.length > 0) {
+                doc.setFontSize(14);
+                doc.text('Rx', 20, y);
+                y += 8;
+                doc.setFontSize(11);
+                doc.setTextColor(50, 50, 50);
+                visit.medicines.forEach((m, i) => {
+                  doc.text(`${i+1}. ${m.name}`, 25, y);
+                  doc.text(`${m.dose} x ${m.duration}`, 120, y);
+                  if (m.instructions) {
+                    y += 5;
+                    doc.setFontSize(9);
+                    doc.setTextColor(100, 100, 100);
+                    doc.text(`   ↳ ${m.instructions}`, 25, y);
+                    doc.setFontSize(11);
+                    doc.setTextColor(50, 50, 50);
+                  }
+                  y += 8;
+                });
+              }
+
+              if (visit.prescriptionNotes) {
+                y += 6;
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                const lines = doc.splitTextToSize(`Notes: ${visit.prescriptionNotes}`, 160);
+                doc.text(lines, 20, y);
+                y += lines.length * 6;
+              }
+
+              const blob = doc.output('blob');
+              const fileName = `${patient.name.replace(/\s+/g, '_')}_Prescription.pdf`;
+              const file = new File([blob], fileName, { type: 'application/pdf' });
+
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  files: [file],
+                  title: `${patient.name} Prescription`,
+                  text: `Prescription PDF for ${patient.name}`,
+                });
+              } else {
+                doc.save(fileName);
+                toast('PDF Downloaded successfully!', 'success');
+              }
+            } catch (err: any) {
+              if (err.name !== 'AbortError') {
+                toast('Could not generate PDF share.', 'error');
+              }
+            }
+          }}
+        >
+          <Share2 size={15} /> Share PDF
+        </button>
         <button className="btn btn-ghost" onClick={() => history.back()}>← Back</button>
       </div>
 
@@ -105,11 +210,19 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                 <div className="rx-symbol">℞</div>
                 <div style={{ overflow: 'hidden' }}>
                   {visit.medicines.map((m, i) => (
-                    <div key={i} className="rx-med-row">
-                      <span className="rx-med-num">{i + 1}.</span>
-                      <span className="rx-med-name">{m.name}</span>
-                      <span className="rx-med-dose">{m.dose} × {m.duration}</span>
-                      {m.instructions && <span style={{ color: '#64748b', fontSize: '0.78rem', marginLeft: 6 }}>({m.instructions})</span>}
+                    <div key={i} className="rx-med-row" style={{ marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <span className="rx-med-num">{i + 1}.</span>
+                        <span className="rx-med-name" style={{ fontWeight: 700 }}>{m.name}</span>
+                        <span className="rx-med-dose" style={{ marginLeft: 'auto', fontWeight: 600, color: '#0d9488' }}>
+                          {m.dose} × {m.duration}
+                        </span>
+                      </div>
+                      {m.instructions && (
+                        <div style={{ paddingLeft: 18, color: '#475569', fontSize: '0.8rem', fontStyle: 'italic', marginTop: 2 }}>
+                          👉 {m.instructions}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -210,6 +210,14 @@ export const LocalDataProvider: DataProvider = {
     const id = await dbAdd('medicines', input);
     return { ...input, id };
   },
+  async bulkCreateMedicines(inputs: CreateMedicineInput[]): Promise<Medicine[]> {
+    const results: Medicine[] = [];
+    for (const input of inputs) {
+      const id = await dbAdd('medicines', input);
+      results.push({ ...input, id });
+    }
+    return results;
+  },
   async updateMedicine(id: number, input: UpdateMedicineInput): Promise<Medicine> {
     const existing = await dbGet<Medicine>('medicines', id);
     if (!existing) throw new Error(`Medicine ${id} not found`);
