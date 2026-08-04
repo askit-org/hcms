@@ -115,6 +115,9 @@ export const ApiDataProvider: DataProvider = {
   async createMedicine(input: CreateMedicineInput): Promise<Medicine> {
     return api.post<Medicine>('/medicines', input).then(res);
   },
+  async bulkCreateMedicines(inputs: CreateMedicineInput[]): Promise<Medicine[]> {
+    return api.post<Medicine[]>('/medicines/bulk', { medicines: inputs }).then(res);
+  },
   async updateMedicine(id: number, input: UpdateMedicineInput): Promise<Medicine> {
     return api.put<Medicine>(`/medicines/${id}`, input).then(res);
   },

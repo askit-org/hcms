@@ -135,6 +135,7 @@ export interface DataProvider {
   // ── Medicines ──────────────────────────────────────────────────
   listMedicines(params?: MedicineListParams): Promise<Medicine[]>;
   createMedicine(input: CreateMedicineInput): Promise<Medicine>;
+  bulkCreateMedicines(inputs: CreateMedicineInput[]): Promise<Medicine[]>;
   updateMedicine(id: number, input: UpdateMedicineInput): Promise<Medicine>;
   deleteMedicine(id: number): Promise<void>;
   seedMedicines(): Promise<void>;

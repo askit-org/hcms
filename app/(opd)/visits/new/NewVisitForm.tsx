@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
@@ -10,6 +10,9 @@ import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/prov
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
 import { motion, AnimatePresence } from 'framer-motion';
+import VoiceInputButton from '@/components/VoiceInputButton';
+import { getVisitDraft, saveVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
+import InstructionPicker from '@/components/InstructionPicker';
 
 function DoseSelector({ value, onChange }: { value: string, onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -99,6 +102,64 @@ export default function NewVisitForm() {
   const activeComplaints = [...new Set([...QUICK_COMPLAINTS, ...complaintOptions.map(o => o.value)])];
   const activeDiseases = diseaseOptions.map(o => o.value);
 
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const [existingDraft, setExistingDraft] = useState<any>(null);
+  const isFormDirty = useRef(false);
+
+  // Check for existing draft on mount
+  useEffect(() => {
+    const d = getVisitDraft();
+    if (d && (d.patient || d.form.chiefComplaints || d.form.diagnosis || d.rxMeds.length > 0)) {
+      setExistingDraft(d);
+      setDraftModalOpen(true);
+    }
+  }, []);
+
+  // Auto-save draft when fields change
+  useEffect(() => {
+    const hasData = selectedPatient || form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0;
+    isFormDirty.current = !!hasData;
+    if (hasData) {
+      saveVisitDraft({
+        patient: selectedPatient,
+        form,
+        rxMeds,
+        selectedComplaints,
+      });
+    }
+  }, [selectedPatient, form, rxMeds, selectedComplaints]);
+
+  // Unsaved changes browser prompt on tab close / refresh
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isFormDirty.current) {
+        e.preventDefault();
+        e.returnValue = 'You have an incomplete visit. Changes will be saved as a draft.';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  const restoreDraft = () => {
+    if (existingDraft) {
+      if (existingDraft.patient) setSelectedPatient(existingDraft.patient);
+      if (existingDraft.form) setForm(existingDraft.form);
+      if (existingDraft.rxMeds) setRxMeds(existingDraft.rxMeds);
+      if (existingDraft.selectedComplaints) setSelectedComplaints(existingDraft.selectedComplaints);
+      toast('Incomplete visit draft restored!', 'success');
+    }
+    setDraftModalOpen(false);
+  };
+
+  const discardDraft = () => {
+    clearVisitDraft();
+    setExistingDraft(null);
+    setDraftModalOpen(false);
+    toast('Draft cleared.', 'info');
+  };
+
   // Load pre-selected patient if URL param exists
   useEffect(() => {
     if (!prePatientId) return;
@@ -182,7 +243,7 @@ export default function NewVisitForm() {
   const filteredMeds = medicinesData.filter(m =>
     m.name.toLowerCase().includes(medQuery.toLowerCase()) &&
     !rxMeds.find(r => r.name === m.name)
-  ).slice(0, 8);
+  ).slice(0, 50);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +270,8 @@ export default function NewVisitForm() {
         followUpDate: form.followUpDate || undefined,
         followUpAttended: false,
       });
+      clearVisitDraft();
+      isFormDirty.current = false;
       toast('OPD Visit saved successfully!', 'success');
       router.push(`/patients/${selectedPatient.patientId}`);
     } catch (err) {
@@ -231,7 +294,7 @@ export default function NewVisitForm() {
 
       <form onSubmit={handleSubmit}>
         {/* Patient Selection */}
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card" style={{ marginBottom: 16, position: 'relative', zIndex: 50 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Patient</div>
           {selectedPatient ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface-1)', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--border)' }}>
@@ -243,7 +306,7 @@ export default function NewVisitForm() {
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
             </div>
           ) : (
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', zIndex: 100 }}>
               <div className="search-input-wrap">
                 <span className="s-icon"><Search /></span>
                 <input className="search-input"
@@ -326,7 +389,15 @@ export default function NewVisitForm() {
 
         {/* Chief Complaints */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>Chief Complaints</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>Chief Complaints</div>
+            <VoiceInputButton
+              title="Dictate Chief Complaints"
+              onTranscript={(text) => {
+                syncComplaints(text);
+              }}
+            />
+          </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
             {activeComplaints.map(c => (
               <button key={c} type="button" className={`quick-btn ${selectedComplaints.includes(c) ? 'selected' : ''}`}
@@ -349,7 +420,15 @@ export default function NewVisitForm() {
           </div>
           <div className="form-grid form-grid-2">
             <div className="form-group">
-              <label className="form-label">Diagnosis</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Diagnosis</label>
+                <VoiceInputButton
+                  title="Dictate Diagnosis"
+                  onTranscript={(text) => {
+                    set('diagnosis', text);
+                  }}
+                />
+              </div>
               {activeDiseases.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   {activeDiseases.map(d => (
@@ -360,20 +439,26 @@ export default function NewVisitForm() {
               <textarea className="form-textarea" placeholder="Clinical diagnosis…" value={form.diagnosis} onChange={e => set('diagnosis', e.target.value)} style={{ minHeight: 100 }} />
             </div>
             <div className="form-group">
-              <label className="form-label">Treatment Given</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Treatment Given</label>
+                <VoiceInputButton
+                  title="Dictate Treatment Given"
+                  onTranscript={(text) => {
+                    set('treatment', text);
+                  }}
+                />
+              </div>
               <textarea className="form-textarea" placeholder="Procedures, injections, etc." value={form.treatment} onChange={e => set('treatment', e.target.value)} style={{ minHeight: 100 }} />
             </div>
           </div>
         </div>
 
         {/* Prescription */}
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="section-header" style={{ marginBottom: 12 }}>
-            <div className="section-title"><Pill size={18} /> Prescription</div>
-          </div>
+        <div className="card" style={{ marginBottom: 16, position: 'relative', zIndex: 40 }}>
+          <div className="card-title" style={{ marginBottom: 12 }}>Prescription</div>
 
           {/* Medicine Search */}
-          <div style={{ position: 'relative', marginBottom: 14 }}>
+          <div style={{ position: 'relative', zIndex: 100, marginBottom: 14 }}>
             <div className="search-input-wrap">
               <span className="s-icon"><Search /></span>
               <input className="search-input"
@@ -409,11 +494,24 @@ export default function NewVisitForm() {
                 {DURATION_OPTIONS.map(d => <option key={d} value={d} />)}
               </datalist>
               {rxMeds.map((m, i) => (
-                <div key={i} className="med-row">
+                <div key={i} className="med-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2.5fr auto', gap: 6, alignItems: 'center' }}>
                   <input className="form-input" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
                   <DoseSelector value={m.dose} onChange={v => updateMed(i, 'dose', v)} />
                   <input className="form-input" list="duration-options" placeholder="Duration" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)} />
-                  <input className="form-input" placeholder="e.g. After food" value={m.instructions || ''} onChange={e => updateMed(i, 'instructions', e.target.value)} />
+                  <InstructionPicker
+                    instructionKeys={m.instructionKeys}
+                    customInstruction={m.customInstruction}
+                    languages={m.instructionLangs}
+                    onChange={({ instructionKeys, customInstruction, languages, formattedText }) => {
+                      setRxMeds(prev => prev.map((item, idx) => idx === i ? {
+                        ...item,
+                        instructions: formattedText,
+                        instructionKeys,
+                        customInstruction,
+                        instructionLangs: languages
+                      } : item));
+                    }}
+                  />
                   <button type="button" className="btn-icon" onClick={() => removeMed(i)}><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -421,7 +519,15 @@ export default function NewVisitForm() {
           )}
 
           <div className="form-group" style={{ marginTop: 14 }}>
-            <label className="form-label">Prescription Notes</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Prescription Notes</label>
+              <VoiceInputButton
+                title="Dictate Prescription Notes"
+                onTranscript={(text) => {
+                  set('prescriptionNotes', form.prescriptionNotes ? `${form.prescriptionNotes}\n${text}` : text);
+                }}
+              />
+            </div>
             <textarea className="form-textarea" placeholder="Additional instructions, advice, diet, rest…"
               value={form.prescriptionNotes} onChange={e => set('prescriptionNotes', e.target.value)} style={{ minHeight: 70 }} />
           </div>
@@ -483,6 +589,66 @@ export default function NewVisitForm() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Restore Draft Modal */}
+      <AnimatePresence>
+        {draftModalOpen && existingDraft && (
+          <div className="modal-overlay" style={{ zIndex: 9999 }}>
+            <motion.div 
+              className="modal modal-md" 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              style={{ textAlign: 'left', padding: '24px' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--accent-glow)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Stethoscope size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Resume Incomplete Visit?</h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Saved {new Date(existingDraft.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface-1)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '20px' }}>
+                {existingDraft.patient ? (
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 2 }}>Patient</div>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{existingDraft.patient.name}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{existingDraft.patient.patientId} · {existingDraft.patient.mobile}</div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                    Incomplete visit with clinical notes / medicines.
+                  </div>
+                )}
+                {existingDraft.form?.chiefComplaints && (
+                  <div style={{ marginTop: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    <strong>Complaints:</strong> {existingDraft.form.chiefComplaints}
+                  </div>
+                )}
+                {existingDraft.rxMeds?.length > 0 && (
+                  <div style={{ marginTop: 4, fontSize: '0.8rem', color: 'var(--accent-light)' }}>
+                    {existingDraft.rxMeds.length} prescribed medicines draft saved
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-ghost" onClick={discardDraft}>
+                  Discard & Start Fresh
+                </button>
+                <button type="button" className="btn btn-primary" onClick={restoreDraft}>
+                  Continue Visit
+                </button>
               </div>
             </motion.div>
           </div>

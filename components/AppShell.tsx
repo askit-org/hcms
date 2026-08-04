@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Patient } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
+import { getVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'main' },
@@ -109,6 +110,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
+  const [navConfirmTarget, setNavConfirmTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (useAuth.persist.hasHydrated()) {
@@ -178,17 +180,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div key={g.key}>
               <div className="nav-group-label">{g.label}</div>
               {navItems.filter(n => n.group === g.key).map(item => {
-                const active = pathname === item.href || pathname.startsWith(item.href + '/');
+                const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
                 return (
-                  <Link key={item.href} href={item.href}
+                  <a 
+                    key={item.href} 
+                    href={item.href}
                     className={`nav-item ${active ? 'active' : ''}`}
-                    onClick={() => setMobileMenuOpen(false)}>
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      if (pathname.startsWith('/visits/new') && item.href !== '/visits/new') {
+                        const draft = getVisitDraft();
+                        if (draft && (draft.patient || draft.form.chiefComplaints || draft.form.diagnosis || draft.rxMeds.length > 0)) {
+                          setNavConfirmTarget(item.href);
+                          return;
+                        }
+                      }
+                      router.push(item.href);
+                    }}
+                  >
                     <item.icon />
                     {item.label}
                     {item.href === '/followup' && followUpCount > 0 && (
                       <span className="nav-badge">{followUpCount}</span>
                     )}
-                  </Link>
+                  </a>
                 );
               })}
             </div>
@@ -238,6 +254,63 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      {/* Navigation Guard Modal */}
+      <AnimatePresence>
+        {navConfirmTarget && (
+          <div className="modal-overlay" style={{ zIndex: 99999 }}>
+            <motion.div 
+              className="modal modal-md" 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              style={{ padding: '24px' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Stethoscope size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Leave OPD Visit Page?</h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>You have unsaved changes in your current visit.</span>
+                </div>
+              </div>
+
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px', background: 'var(--surface-1)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                Your visit progress (patient info, complaints, diagnosis, and prescription) is auto-saved as a draft. When you return to <strong>New OPD Visit</strong>, you can continue right where you left off.
+              </p>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setNavConfirmTarget(null)}>
+                  Stay on Visit
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-danger" 
+                  onClick={() => {
+                    const target = navConfirmTarget;
+                    clearVisitDraft();
+                    setNavConfirmTarget(null);
+                    router.push(target);
+                  }}
+                >
+                  Discard & Leave
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    const target = navConfirmTarget;
+                    setNavConfirmTarget(null);
+                    router.push(target);
+                  }}
+                >
+                  Save Draft & Leave
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

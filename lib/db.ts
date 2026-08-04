@@ -20,6 +20,9 @@ export interface PrescribedMedicine {
   dose: string;
   duration: string;
   instructions?: string;
+  instructionKeys?: string[];
+  customInstruction?: string;
+  instructionLangs?: ('en' | 'hi' | 'mr')[];
 }
 
 export interface Visit {

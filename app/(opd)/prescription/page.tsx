@@ -27,6 +27,7 @@ export default function PrescriptionPage() {
 
   const [medForm, setMedForm] = useState({ name: '', category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
   const [tplForm, setTplForm] = useState({ name: '', diagnosis: '', notes: '', medicines: [] as PrescribedMedicine[] });
+  const [tplMedQuery, setTplMedQuery] = useState('');
 
   const saveMed = async () => {
     if (!medForm.name.trim()) { toast('Medicine name required.', 'error'); return; }
@@ -241,20 +242,40 @@ export default function PrescriptionPage() {
                   <input className="form-input" placeholder="e.g. Viral Fever" value={tplForm.diagnosis} onChange={e => setTplForm(f => ({ ...f, diagnosis: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Add Medicines</label>
-                  {medicines.slice(0, 20).map(m => (
-                    <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: '0.84rem', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={tplForm.medicines.some(x => x.name === m.name)}
-                        onChange={e => {
-                          if (e.target.checked) {
-                            setTplForm(f => ({ ...f, medicines: [...f.medicines, { name: m.name, dose: m.defaultDose, duration: m.defaultDuration }] }));
-                          } else {
-                            setTplForm(f => ({ ...f, medicines: f.medicines.filter(x => x.name !== m.name) }));
-                          }
-                        }} />
-                      {m.name} — {m.defaultDose} × {m.defaultDuration}
-                    </label>
-                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Add Medicines ({tplForm.medicines.length} selected)</label>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total Available: {medicines.length}</span>
+                  </div>
+                  <div style={{ position: 'relative', marginBottom: 8 }}>
+                    <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input 
+                      className="form-input form-input-sm" 
+                      style={{ paddingLeft: 28 }} 
+                      placeholder="Search across all 200+ medicines…" 
+                      value={tplMedQuery}
+                      onChange={e => setTplMedQuery(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px' }}>
+                    {medicines
+                      .filter(m => !tplMedQuery || m.name.toLowerCase().includes(tplMedQuery.toLowerCase()) || (m.category && m.category.toLowerCase().includes(tplMedQuery.toLowerCase())))
+                      .map(m => (
+                        <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: '0.84rem', cursor: 'pointer', borderBottom: '1px solid var(--border-light)' }}>
+                          <input type="checkbox" checked={tplForm.medicines.some(x => x.name === m.name)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setTplForm(f => ({ ...f, medicines: [...f.medicines, { name: m.name, dose: m.defaultDose, duration: m.defaultDuration }] }));
+                              } else {
+                                setTplForm(f => ({ ...f, medicines: f.medicines.filter(x => x.name !== m.name) }));
+                              }
+                            }} />
+                          <span style={{ fontWeight: 500 }}>{m.name}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+                            {m.defaultDose} × {m.defaultDuration}
+                          </span>
+                        </label>
+                      ))}
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Notes</label>

@@ -6,6 +6,7 @@ import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
 import SettingsTemplates from '@/components/SettingsTemplates';
 import SettingsOptions from '@/components/SettingsOptions';
+import { clearVisitDraft } from '@/lib/visitDraft';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -85,6 +86,25 @@ export default function SettingsPage() {
 
       {/* Prescription Templates */}
       <SettingsTemplates />
+
+      {/* Draft Management */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <FileText size={16} /> OPD Visit Draft Management
+        </div>
+        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
+          If an incomplete visit form draft was saved when leaving the page, you can clear it here.
+        </p>
+        <button 
+          className="btn btn-secondary btn-sm" 
+          onClick={() => {
+            clearVisitDraft();
+            toast('Incomplete visit draft cleared successfully.', 'success');
+          }}
+        >
+          <Trash2 size={14} /> Clear Incomplete Visit Drafts
+        </button>
+      </div>
 
       {/* Danger Zone */}
       <div className="card" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.04)' }}>
