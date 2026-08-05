@@ -55,68 +55,18 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
           className="btn btn-secondary" 
           onClick={async () => {
             try {
+              toast('Preparing PDF...', 'info');
               const { jsPDF } = await import('jspdf');
-              const doc = new jsPDF();
-              doc.setFontSize(16);
-              doc.setTextColor(13, 148, 136);
-              doc.text(clinic.doctorName, 20, 20);
-              doc.setFontSize(10);
-              doc.setTextColor(100, 100, 100);
-              doc.text(clinic.degree, 20, 26);
-              doc.text(clinic.clinicName, 20, 32);
-              doc.setDrawColor(200, 200, 200);
-              doc.line(20, 38, 190, 38);
+              const html2canvas = (await import('html2canvas')).default;
+              const element = document.getElementById('prescription');
+              if (!element) return;
 
-              doc.setFontSize(11);
-              doc.setTextColor(30, 30, 30);
-              doc.text(`Patient: ${patient.name}`, 20, 48);
-              doc.text(`ID: ${patient.patientId}`, 130, 48);
-              doc.text(`Age/Gender: ${age || '--'}y / ${patient.gender}`, 20, 56);
-              doc.text(`Date: ${new Date(visit.date).toLocaleDateString('en-IN')}`, 130, 56);
-              if (patient.abhaNumber) {
-                doc.text(`ABHA No: ${patient.abhaNumber}`, 20, 64);
-                doc.line(20, 70, 190, 70);
-              } else {
-                doc.line(20, 62, 190, 62);
-              }
-
-              let y = patient.abhaNumber ? 80 : 72;
-              if (visit.diagnosis) {
-                doc.setFontSize(12);
-                doc.setTextColor(13, 148, 136);
-                doc.text(`Diagnosis: ${visit.diagnosis}`, 20, y);
-                y += 12;
-              }
-
-              if (visit.medicines && visit.medicines.length > 0) {
-                doc.setFontSize(14);
-                doc.text('Rx', 20, y);
-                y += 8;
-                doc.setFontSize(11);
-                doc.setTextColor(50, 50, 50);
-                visit.medicines.forEach((m, i) => {
-                  doc.text(`${i+1}. ${m.name}`, 25, y);
-                  doc.text(`${m.dose} x ${m.duration}`, 120, y);
-                  if (m.instructions) {
-                    y += 5;
-                    doc.setFontSize(9);
-                    doc.setTextColor(100, 100, 100);
-                    doc.text(`   ↳ ${m.instructions}`, 25, y);
-                    doc.setFontSize(11);
-                    doc.setTextColor(50, 50, 50);
-                  }
-                  y += 8;
-                });
-              }
-
-              if (visit.prescriptionNotes) {
-                y += 6;
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                const lines = doc.splitTextToSize(`Notes: ${visit.prescriptionNotes}`, 160);
-                doc.text(lines, 20, y);
-                y += lines.length * 6;
-              }
+              const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
+              const imgData = canvas.toDataURL('image/png');
+              const doc = new jsPDF('p', 'mm', 'a4');
+              const pdfWidth = doc.internal.pageSize.getWidth();
+              const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+              doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
               const blob = doc.output('blob');
               const fileName = `${patient.name.replace(/\s+/g, '_')}_Prescription.pdf`;

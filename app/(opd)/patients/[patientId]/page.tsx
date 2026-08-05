@@ -119,94 +119,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     show: { opacity: 1, y: 0 }
   };
 
-  const handleSharePDF = async (v: Visit) => {
-    const doc = new jsPDF();
-    
-    const clinicName = settings?.clinicName || 'Clinic Name';
-    const doctorName = settings?.doctorName || 'Dr. Name';
-    const degree = settings?.degree || '';
-    
-    doc.setFontSize(16);
-    doc.setTextColor(13, 148, 136);
-    doc.text(doctorName, 20, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(degree, 20, 26);
-    doc.text(clinicName, 20, 32);
-    
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 38, 190, 38);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(30, 30, 30);
-    doc.text(`Patient: ${patient.name}`, 20, 48);
-    doc.text(`ID: ${patient.patientId}`, 130, 48);
-    doc.text(`Age/Gender: ${age || '--'}y / ${patient.gender}`, 20, 56);
-    doc.text(`Date: ${new Date(v.date).toLocaleDateString('en-IN')}`, 130, 56);
-    
-    doc.line(20, 62, 190, 62);
-    
-    let y = 72;
-    if (v.diagnosis) {
-      doc.setFontSize(12);
-      doc.setTextColor(13, 148, 136);
-      doc.text(`Diagnosis: ${v.diagnosis}`, 20, y);
-      y += 12;
-    }
-    
-    if (v.medicines && v.medicines.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Rx', 20, y);
-      y += 8;
-      
-      doc.setFontSize(11);
-      doc.setTextColor(50, 50, 50);
-      v.medicines.forEach((m, i) => {
-        doc.text(`${i+1}. ${m.name}`, 25, y);
-        doc.text(`${m.dose} x ${m.duration}`, 120, y);
-        if (m.instructions) {
-          y += 5;
-          doc.setFontSize(9);
-          doc.setTextColor(100, 100, 100);
-          doc.text(`   ↳ ${m.instructions}`, 25, y);
-          doc.setFontSize(11);
-          doc.setTextColor(50, 50, 50);
-        }
-        y += 8;
-      });
-    }
-    
-    if (v.prescriptionNotes) {
-      y += 6;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      const lines = doc.splitTextToSize(`Notes: ${v.prescriptionNotes}`, 160);
-      doc.text(lines, 20, y);
-      y += lines.length * 6;
-    }
-    
-    if (v.followUpDate) {
-      y += 10;
-      doc.setTextColor(13, 148, 136);
-      doc.text(`Follow-up: ${new Date(v.followUpDate).toLocaleDateString('en-IN')}`, 20, y);
-    }
-    
-    const blob = doc.output('blob');
-    const file = new File([blob], `${patient.name.replace(/\s+/g, '_')}_Prescription.pdf`, { type: 'application/pdf' });
-    
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: 'Prescription',
-          text: 'Please find the attached prescription.',
-        });
-      } catch (e) {
-        console.log('Share failed', e);
-      }
-    } else {
-      doc.save(`${patient.name.replace(/\s+/g, '_')}_Prescription.pdf`);
-      toast('PDF Downloaded! You can now drag and attach it to WhatsApp.', 'info');
+  const handleSharePDF = (v: Visit) => {
+    if (v.id) {
+      router.push(`/visits/${v.id}/print`);
     }
   };
 
