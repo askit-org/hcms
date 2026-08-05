@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
+import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
@@ -240,6 +240,26 @@ export default function NewVisitForm() {
 
   const removeMed = (i: number) => setRxMeds(prev => prev.filter((_, idx) => idx !== i));
 
+  const { create: createMedMut } = useMedicineMutations();
+
+  const handleAddNewMedicineDirectly = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      const newMed = await createMedMut.mutateAsync({
+        name: trimmed,
+        category: 'Other',
+        defaultDose: '1-0-1',
+        defaultDuration: '5 days'
+      });
+      addMedicine(newMed);
+      toast(`Added "${trimmed}" to prescription & master list.`, 'success');
+    } catch (err) {
+      // Fallback: add directly to current prescription even if saving to DB fails
+      addMedicine({ name: trimmed, category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
+    }
+  };
+
   const filteredMeds = medicinesData.filter(m =>
     m.name.toLowerCase().includes(medQuery.toLowerCase()) &&
     !rxMeds.find(r => r.name === m.name)
@@ -465,7 +485,7 @@ export default function NewVisitForm() {
                 placeholder="Search medicine to add…"
                 value={medQuery} onChange={e => setMedQuery(e.target.value)} />
             </div>
-            {medQuery && filteredMeds.length > 0 && (
+            {medQuery.trim() !== '' && (
               <div className="search-dropdown">
                 {filteredMeds.map(m => (
                   <div key={m.id} className="search-result" onClick={() => addMedicine(m)}>
@@ -473,6 +493,21 @@ export default function NewVisitForm() {
                     <div className="sr-meta">{m.category} · {m.defaultDose} · {m.defaultDuration}</div>
                   </div>
                 ))}
+                <div
+                  className="search-result"
+                  style={{
+                    color: 'var(--primary)',
+                    fontWeight: 600,
+                    borderTop: filteredMeds.length > 0 ? '1px solid var(--border)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(13, 148, 136, 0.05)'
+                  }}
+                  onClick={() => handleAddNewMedicineDirectly(medQuery)}
+                >
+                  <Plus size={15} /> Add &quot;{medQuery.trim()}&quot; as new medicine
+                </div>
               </div>
             )}
           </div>

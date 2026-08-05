@@ -99,9 +99,9 @@ export default function ReportsPage() {
           <div className="page-title">Reports</div>
           <div className="page-subtitle">OPD visit records and analytics</div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary btn-sm" onClick={exportCSV}><Download size={15} /> Export CSV</button>
-          <button className="btn btn-secondary btn-sm" onClick={exportPDF}><FileText size={15} /> Print PDF</button>
+        <div className="flex-wrap-header-actions">
+          <button className="btn btn-secondary" onClick={exportCSV}><Download size={15} /> Export CSV</button>
+          <button className="btn btn-secondary" onClick={exportPDF}><FileText size={15} /> Print PDF</button>
         </div>
       </div>
 

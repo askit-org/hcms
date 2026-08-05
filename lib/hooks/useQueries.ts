@@ -18,6 +18,7 @@ import type {
   ClinicSettings,
   AuthLoginInput,
   AuthSignupInput,
+  UpdateUserInput,
   CreateAppOptionInput
 } from '../providers/types';
 
@@ -317,5 +318,17 @@ export function useAuthMutations() {
     }
   });
 
-  return { authLogin, authSignup };
+  const updateUser = useMutation({
+    mutationFn: (input: UpdateUserInput) => provider.updateUser(input),
+    onSuccess: (data) => {
+      if (data.success && data.user) {
+        useAuth.setState(state => ({
+          ...state,
+          user: data.user
+        }));
+      }
+    }
+  });
+
+  return { authLogin, authSignup, updateUser };
 }

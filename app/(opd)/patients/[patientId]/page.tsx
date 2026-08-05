@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X
 } from 'lucide-react';
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
-import type { Visit } from '@/lib/providers/types';
+import type { Visit, Patient } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import { jsPDF } from 'jspdf';
 import { motion } from 'framer-motion';
@@ -24,11 +24,73 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
   const { data: patient, isLoading: patientLoading } = usePatient(patientId);
   const { data: visits = [], isLoading: visitsLoading } = usePatientVisits(patientId);
   const { data: settings } = useSettings();
-  const { remove: removePatient } = usePatientMutations();
+  const { remove: removePatient, update: updatePatientMut } = usePatientMutations();
   const { update: updateVisit } = useVisitMutations();
 
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
   const [tab, setTab] = useState<'overview' | 'visits'>('overview');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    age: '',
+    dob: '',
+    gender: 'Male',
+    mobile: '',
+    address: '',
+    occupation: '',
+    abhaNumber: ''
+  });
+
+  useEffect(() => {
+    if (patient) {
+      setEditForm({
+        name: patient.name || '',
+        age: patient.age ? String(patient.age) : '',
+        dob: patient.dob || '',
+        gender: patient.gender || 'Male',
+        mobile: patient.mobile || '',
+        address: patient.address || '',
+        occupation: patient.occupation || '',
+        abhaNumber: patient.abhaNumber || ''
+      });
+    }
+  }, [patient]);
+
+  const handleUpdatePatient = async () => {
+    if (!editForm.name.trim()) {
+      toast('Patient name is required.', 'error');
+      return;
+    }
+    const mobileDigits = editForm.mobile.replace(/\D/g, '');
+    if (mobileDigits.length < 10) {
+      toast('Please enter a valid 10-digit mobile number.', 'error');
+      return;
+    }
+    if (editForm.abhaNumber.trim() && !/^\d{14}$/.test(editForm.abhaNumber.trim())) {
+      toast('ABHA number must be exactly 14 numeric digits.', 'error');
+      return;
+    }
+
+    try {
+      await updatePatientMut.mutateAsync({
+        id: patient!.patientId,
+        input: {
+          name: editForm.name.trim(),
+          age: editForm.age ? parseInt(editForm.age) : undefined,
+          dob: editForm.dob || undefined,
+          gender: editForm.gender,
+          mobile: editForm.mobile.trim(),
+          address: editForm.address.trim() || undefined,
+          occupation: editForm.occupation.trim() || undefined,
+          abhaNumber: editForm.abhaNumber.trim() || undefined,
+        }
+      });
+      toast('Patient details updated successfully!', 'success');
+      setIsEditing(false);
+    } catch (err: any) {
+      toast(err.message || 'Failed to update patient.', 'error');
+    }
+  };
 
   const deletePatient = async () => {
     if (!patient) return;
@@ -102,6 +164,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
       v.medicines.forEach((m, i) => {
         doc.text(`${i+1}. ${m.name}`, 25, y);
         doc.text(`${m.dose} x ${m.duration}`, 120, y);
+        if (m.instructions) {
+          y += 5;
+          doc.setFontSize(9);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`   ↳ ${m.instructions}`, 25, y);
+          doc.setFontSize(11);
+          doc.setTextColor(50, 50, 50);
+        }
         y += 8;
       });
     }
@@ -169,6 +239,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           </div>
         </div>
         <div className="flex-wrap-header-actions">
+          <button className="btn btn-secondary btn-sm" onClick={() => setIsEditing(!isEditing)}>
+            {isEditing ? <><X size={14} /> Cancel</> : <><Edit2 size={14} /> Edit Patient</>}
+          </button>
           <Link href={`/visits/new?patientId=${patientId}`} className="btn btn-primary"><Stethoscope size={15} /> New Visit</Link>
           <button className="btn btn-danger btn-sm" onClick={deletePatient}><Trash2 size={14} /></button>
         </div>
@@ -185,22 +258,70 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
       {tab === 'overview' && (
         <div className="form-grid-2">
           <div className="card">
-            <div className="card-title">Patient Information</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
-              {[
-                { icon: <Phone size={15} />, label: 'Mobile', value: patient.mobile },
-                { icon: <MapPin size={15} />, label: 'Address', value: patient.address || '—' },
-                { icon: <Briefcase size={15} />, label: 'Occupation', value: patient.occupation || '—' },
-                { icon: <Calendar size={15} />, label: 'DOB', value: patient.dob ? new Date(patient.dob).toLocaleDateString('en-IN') : '—' },
-                { icon: <Activity size={15} />, label: 'Registered', value: new Date(patient.createdAt).toLocaleDateString('en-IN') },
-              ].map(item => (
-                <div key={item.label} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{item.icon}</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', minWidth: 80 }}>{item.label}</span>
-                  <span style={{ fontWeight: 500 }}>{item.value}</span>
-                </div>
-              ))}
+            <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Patient Information</span>
+              {isEditing && (
+                <button className="btn btn-primary btn-sm" onClick={handleUpdatePatient} disabled={updatePatientMut.isPending}>
+                  <Save size={14} /> Save Changes
+                </button>
+              )}
             </div>
+
+            {isEditing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
+                <div>
+                  <label className="form-label">Full Name <span className="required">*</span></label>
+                  <input className="form-input" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label className="form-label">Age (years)</label>
+                    <input className="form-input" type="number" value={editForm.age} onChange={e => setEditForm(f => ({ ...f, age: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="form-label">Gender</label>
+                    <select className="form-select" value={editForm.gender} onChange={e => setEditForm(f => ({ ...f, gender: e.target.value }))}>
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Mobile Number <span className="required">*</span></label>
+                  <input className="form-input" type="tel" maxLength={10} placeholder="10-digit mobile number" value={editForm.mobile} onChange={e => setEditForm(f => ({ ...f, mobile: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">ABHA Number</label>
+                  <input className="form-input" placeholder="14-digit ABHA number" maxLength={14} value={editForm.abhaNumber} onChange={e => setEditForm(f => ({ ...f, abhaNumber: e.target.value.replace(/\D/g, '') }))} />
+                </div>
+                <div>
+                  <label className="form-label">Address</label>
+                  <input className="form-input" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Occupation</label>
+                  <input className="form-input" value={editForm.occupation} onChange={e => setEditForm(f => ({ ...f, occupation: e.target.value }))} />
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                {[
+                  { icon: <Phone size={15} />, label: 'Mobile', value: patient.mobile },
+                  { icon: <ClipboardList size={15} />, label: 'ABHA No.', value: patient.abhaNumber || '—' },
+                  { icon: <MapPin size={15} />, label: 'Address', value: patient.address || '—' },
+                  { icon: <Briefcase size={15} />, label: 'Occupation', value: patient.occupation || '—' },
+                  { icon: <Calendar size={15} />, label: 'DOB', value: patient.dob ? new Date(patient.dob).toLocaleDateString('en-IN') : '—' },
+                  { icon: <Activity size={15} />, label: 'Registered', value: new Date(patient.createdAt).toLocaleDateString('en-IN') },
+                ].map(item => (
+                  <div key={item.label} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{item.icon}</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', minWidth: 80 }}>{item.label}</span>
+                    <span style={{ fontWeight: 500 }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="card">

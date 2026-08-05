@@ -1,6 +1,7 @@
 // lib/providers/local.ts
 // IndexedDB Local Data Provider
 
+import { useAuth } from '../hooks/useAuth';
 import {
   dbAdd,
   dbDelete,
@@ -51,6 +52,13 @@ export const LocalDataProvider: DataProvider = {
   },
   async authSignup(input: AuthSignupInput): Promise<AuthResponse> {
     throw new Error('Offline signup not supported. Switch to API mode.');
+  },
+  async updateUser(input: Partial<ClinicSettings> & { email?: string; password?: string }): Promise<AuthResponse> {
+    const current = useAuth.getState().user;
+    if (!current) throw new Error('Not authenticated');
+    const updatedUser = { ...current, ...input };
+    useAuth.setState({ user: updatedUser });
+    return { success: true, user: updatedUser };
   },
 
   // ── Patients ───────────────────────────────────────────────────

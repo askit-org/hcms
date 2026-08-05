@@ -73,9 +73,14 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
               doc.text(`ID: ${patient.patientId}`, 130, 48);
               doc.text(`Age/Gender: ${age || '--'}y / ${patient.gender}`, 20, 56);
               doc.text(`Date: ${new Date(visit.date).toLocaleDateString('en-IN')}`, 130, 56);
-              doc.line(20, 62, 190, 62);
+              if (patient.abhaNumber) {
+                doc.text(`ABHA No: ${patient.abhaNumber}`, 20, 64);
+                doc.line(20, 70, 190, 70);
+              } else {
+                doc.line(20, 62, 190, 62);
+              }
 
-              let y = 72;
+              let y = patient.abhaNumber ? 80 : 72;
               if (visit.diagnosis) {
                 doc.setFontSize(12);
                 doc.setTextColor(13, 148, 136);
@@ -180,6 +185,10 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                 <div className="rx-info-label">Mobile</div>
                 <div className="rx-info-value">{patient.mobile}</div>
               </div>
+              {patient.abhaNumber && <div className="rx-info-item">
+                <div className="rx-info-label">ABHA No.</div>
+                <div className="rx-info-value">{patient.abhaNumber}</div>
+              </div>}
               {visit.bp && <div className="rx-info-item">
                 <div className="rx-info-label">BP / Pulse</div>
                 <div className="rx-info-value">{visit.bp} / {visit.pulse}</div>

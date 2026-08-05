@@ -206,28 +206,33 @@ export default function MedicinesPage() {
         </div>
       </div>
 
-      <div className="card card-sm" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) auto', gap: 10 }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              className="form-input"
-              style={{ paddingLeft: 34 }}
-              placeholder="Search by name or category…"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-          </div>
-          <select 
-            className="form-select" 
-            value={filterCategory} 
-            onChange={e => setFilterCategory(e.target.value)}
-            style={{ width: '180px' }}
-          >
-            <option value="All">All Categories</option>
-            {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+      <div className="filter-bar" style={{ marginBottom: 16 }}>
+        <div className="search-input-wrap" style={{ flex: 1, minWidth: 220, position: 'relative' }}>
+          <span className="s-icon"><Search size={15} /></span>
+          <input
+            className="search-input"
+            placeholder="Search by name or category…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+              onClick={() => setQuery('')}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
+        <select 
+          className="form-select" 
+          value={filterCategory} 
+          onChange={e => setFilterCategory(e.target.value)}
+          style={{ width: '180px' }}
+        >
+          <option value="All">All Categories</option>
+          {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       {filteredMedicines.length === 0 ? (

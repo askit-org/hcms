@@ -24,8 +24,17 @@ export default function NewPatientPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.mobile.trim()) {
-      toast('Name and mobile are required.', 'error');
+    if (!form.name.trim()) {
+      toast('Patient full name is required.', 'error');
+      return;
+    }
+    const mobileDigits = form.mobile.replace(/\D/g, '');
+    if (mobileDigits.length < 10) {
+      toast('Please enter a valid 10-digit mobile number.', 'error');
+      return;
+    }
+    if (form.abhaNumber.trim() && !/^\d{14}$/.test(form.abhaNumber.trim())) {
+      toast('ABHA number must be exactly 14 numeric digits.', 'error');
       return;
     }
     setSaving(true);
@@ -98,8 +107,8 @@ export default function NewPatientPage() {
               <input className="form-input" type="tel" placeholder="10-digit mobile number" value={form.mobile} onChange={e => set('mobile', e.target.value)} required />
             </div>
             <div className="form-group">
-              <label className="form-label">ABHA Number <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>
-              <input className="form-input" placeholder="e.g. 12-3456-7890-1234" value={form.abhaNumber} onChange={e => set('abhaNumber', e.target.value)} />
+              <label className="form-label">ABHA Number <span style={{ color: 'var(--text-muted)' }}>(14 digits)</span></label>
+              <input className="form-input" placeholder="14-digit ABHA number" maxLength={14} value={form.abhaNumber} onChange={e => set('abhaNumber', e.target.value.replace(/\D/g, ''))} />
             </div>
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Address <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>

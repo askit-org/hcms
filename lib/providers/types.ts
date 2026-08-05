@@ -45,6 +45,7 @@ export type ClinicSettings = {
 
 export type AuthLoginInput = { email: string; password?: string };
 export type AuthSignupInput = ClinicSettings & { email: string; password?: string };
+export type UpdateUserInput = Partial<ClinicSettings> & { email?: string; password?: string };
 
 export type AuthResponse = {
   success: boolean;
@@ -111,6 +112,7 @@ export interface DataProvider {
   // ── Auth ───────────────────────────────────────────────────────
   authLogin(input: AuthLoginInput): Promise<AuthResponse>;
   authSignup(input: AuthSignupInput): Promise<AuthResponse>;
+  updateUser(input: UpdateUserInput): Promise<AuthResponse>;
 
   // ── Patients ───────────────────────────────────────────────────
   listPatients(params?: PatientListParams): Promise<Patient[]>;

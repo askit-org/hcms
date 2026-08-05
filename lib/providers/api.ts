@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import type {
   AuthLoginInput,
   AuthSignupInput,
+  UpdateUserInput,
   AuthResponse,
   ClinicSettings,
   CreateAppOptionInput,
@@ -54,6 +55,9 @@ export const ApiDataProvider: DataProvider = {
   },
   async authSignup(input: AuthSignupInput): Promise<AuthResponse> {
     return api.post<AuthResponse>('/auth/signup', input).then(res);
+  },
+  async updateUser(input: UpdateUserInput): Promise<AuthResponse> {
+    return api.put<AuthResponse>('/auth/user', input).then(res);
   },
 
   // ── Patients ───────────────────────────────────────────────────
