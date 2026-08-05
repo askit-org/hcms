@@ -20,9 +20,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
     regNo: settings?.regNo || ''
   };
 
-  useEffect(() => {
-    if (visit && patient && settings) window.print();
-  }, [visit, patient, settings]);
+  // Print prescription when user clicks Print button, not automatically on load
 
   if (!visit || !patient) return <div style={{ padding: 40, color: '#888', textAlign: 'center' }}>Loading prescription…</div>;
 

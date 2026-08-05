@@ -314,10 +314,19 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 6 }}>Prescription ({v.medicines.length} medicines)</div>
                       {v.medicines.map((m, i) => (
-                        <div key={i} style={{ fontSize: '0.82rem', padding: '4px 0', borderBottom: '1px dashed var(--border-light)', display: 'flex', gap: 8 }}>
-                          <span style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{i + 1}.</span>
-                          <span style={{ fontWeight: 600 }}>{m.name}</span>
-                          <span style={{ color: 'var(--text-muted)' }}>{m.dose} · {m.duration}</span>
+                        <div key={i} style={{ fontSize: '0.84rem', padding: '6px 0', borderBottom: '1px dashed var(--border-light)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                              <span style={{ color: 'var(--accent-light)', fontWeight: 700, marginRight: 6 }}>{i + 1}.</span>
+                              <span style={{ fontWeight: 600 }}>{m.name}</span>
+                            </div>
+                            <span style={{ color: 'var(--accent-light)', fontWeight: 600, fontSize: '0.8rem' }}>{m.dose} · {m.duration}</span>
+                          </div>
+                          {m.instructions && (
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic', paddingLeft: 20 }}>
+                              👉 {m.instructions}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -327,32 +336,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                       <strong>Notes:</strong> {v.prescriptionNotes}
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                    <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print Rx</Link>
-                    <button className="btn btn-sm" style={{ background: '#25D366', color: 'white', borderColor: '#25D366' }} onClick={(e) => {
-                      e.stopPropagation();
-                      const clinicName = settings?.clinicName || 'Clinic';
-                      const doctorName = settings?.doctorName || 'Doctor';
-                      const numberEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-                      
-                      const medsText = v.medicines?.map((m, i) => {
-                        const emoji = numberEmoji[i] || '\uD83D\uDC8A'; // 💊
-                        return `${emoji} *${m.name}*\n   \u21B3 \uD83D\uDD52 ${m.dose} for ${m.duration}${m.instructions ? `\n   \u21B3 \u2139\uFE0F ${m.instructions}` : ''}`;
-                      }).join('\n\n') || 'No medicines prescribed.';
-                      
-                      const text = `\uD83C\uDFE5 *${clinicName}*\n\uD83D\uDC68\u200D\u2695\uFE0F *${doctorName}*\n\nHello *${patient.name}*, \uD83D\uDC4B\nHere is the summary of your visit on *${new Date(v.date).toLocaleDateString('en-IN')}*.\n\n\uD83E\uDE7A *Diagnosis:* \n${v.diagnosis || 'N/A'}\n\n\uD83D\uDC8A *Prescribed Medicines:*\n${medsText}\n\n${v.prescriptionNotes ? `\uD83D\uDCDD *Doctor's Advice:* \n${v.prescriptionNotes}\n\n` : ''}${v.followUpDate ? `\uD83D\uDCC5 *Next Follow-up:* \n${new Date(v.followUpDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` : ''}_Get well soon!_ \uD83D\uDC99`;
-                      
-                      const whatsappUrl = `https://api.whatsapp.com/send?phone=91${patient.mobile.replace(/\D/g, '')}&text=${encodeURIComponent(text)}`;
-                      window.open(whatsappUrl, '_blank');
-                    }}>
-                      <MessageCircle size={14} /> WhatsApp Text
-                    </button>
-                    <button className="btn btn-sm" style={{ background: '#1e293b', color: 'white', borderColor: '#1e293b' }} onClick={(e) => {
-                      e.stopPropagation();
-                      handleSharePDF(v);
-                    }}>
-                      Share PDF
-                    </button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print / Share Rx</Link>
                     {v.followUpDate && !v.followUpAttended && (
                       <button className="btn btn-success btn-sm" onClick={async (e) => {
                         e.stopPropagation();
