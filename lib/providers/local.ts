@@ -299,7 +299,16 @@ export const LocalDataProvider: DataProvider = {
         if (!patientFirstVisit.has(v.patientId)) patientFirstVisit.set(v.patientId, v.date);
       });
 
-    const todayNew = todayVisits.filter((v) => patientFirstVisit.get(v.patientId)?.startsWith(today)).length;
+    // A patient is considered "New Today" if:
+    // 1) Their patient profile was registered today (createdAt starts with today), OR
+    // 2) Their first OPD visit was recorded today
+    const todayNewPatients = (allPatients as Patient[]).filter((p) => {
+      const isRegisteredToday = p.createdAt ? p.createdAt.startsWith(today) : false;
+      const isFirstVisitToday = patientFirstVisit.get(p.patientId)?.startsWith(today);
+      return isRegisteredToday || isFirstVisitToday;
+    }).length;
+
+    const todayNew = todayNewPatients;
 
     const recent = allVisits
       .slice()

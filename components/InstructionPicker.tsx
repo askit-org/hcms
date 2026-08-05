@@ -145,7 +145,7 @@ export default function InstructionPicker({
               right: 0,
               width: '350px',
               maxWidth: '90vw',
-              background: 'var(--background)',
+              background: 'var(--surface-solid)',
               border: '1px solid var(--border)',
               borderRadius: '12px',
               boxShadow: '0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px var(--border)',

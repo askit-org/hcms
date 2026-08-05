@@ -147,6 +147,79 @@ export const MedicationInstructionLabels: Record<MedicationInstruction, Instruct
   }
 };
 
+export interface DoseWords {
+  en: string;
+  hi: string;
+  mr: string;
+}
+
+export function parseDoseToWords(doseStr: string): DoseWords {
+  if (!doseStr || !doseStr.trim()) {
+    return { en: '', hi: '', mr: '' };
+  }
+
+  const s = doseStr.trim();
+  const lower = s.toLowerCase();
+
+  if (lower === 'sos' || lower.includes('needed')) {
+    return { en: 'As needed (SOS)', hi: 'ज़रूरत पड़ने पर', mr: 'गरज असल्यास' };
+  }
+  if (lower === 'stat' || lower.includes('immediately')) {
+    return { en: 'Immediately (STAT)', hi: 'तुरंत', mr: 'त्वरित' };
+  }
+
+  const parts = s.split('-').map(p => p.trim());
+  if (parts.length === 3) {
+    const [m, a, n] = parts;
+
+    const enParts: string[] = [];
+    const hiParts: string[] = [];
+    const mrParts: string[] = [];
+
+    const formatTime = (timeEn: string, timeHi: string, timeMr: string, qty: string) => {
+      if (qty === '1/2' || qty === '0.5') {
+        return { en: `1/2 ${timeEn}`, hi: `1/2 ${timeHi}`, mr: `1/2 ${timeMr}` };
+      }
+      if (qty === '2') {
+        return { en: `2 ${timeEn}`, hi: `2 ${timeHi}`, mr: `2 ${timeMr}` };
+      }
+      if (qty !== '1' && qty !== '0' && qty !== '') {
+        return { en: `${qty} ${timeEn}`, hi: `${qty} ${timeHi}`, mr: `${qty} ${timeMr}` };
+      }
+      return { en: timeEn, hi: timeHi, mr: timeMr };
+    };
+
+    if (m !== '0' && m !== '') {
+      const t = formatTime('Morning', 'सुबह', 'सकाळी', m);
+      enParts.push(t.en);
+      hiParts.push(t.hi);
+      mrParts.push(t.mr);
+    }
+    if (a !== '0' && a !== '') {
+      const t = formatTime('Afternoon', 'दोपहर', 'दुपारी', a);
+      enParts.push(t.en);
+      hiParts.push(t.hi);
+      mrParts.push(t.mr);
+    }
+    if (n !== '0' && n !== '') {
+      const t = formatTime('Night', 'रात', 'रात्री', n);
+      enParts.push(t.en);
+      hiParts.push(t.hi);
+      mrParts.push(t.mr);
+    }
+
+    if (enParts.length > 0) {
+      return {
+        en: enParts.join(' - '),
+        hi: hiParts.join(' - '),
+        mr: mrParts.join(' - ')
+      };
+    }
+  }
+
+  return { en: s, hi: s, mr: s };
+}
+
 /**
  * Format instructions array or keys into human readable string for chosen languages.
  * Languages default to ['en', 'hi'] if not specified.

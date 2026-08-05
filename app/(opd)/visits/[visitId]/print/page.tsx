@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useVisit, usePatient, useSettings } from '@/lib/hooks/useQueries';
 import { Printer, MessageCircle, Share2 } from 'lucide-react';
 import { toast } from '@/components/Toast';
+import { parseDoseToWords } from '@/lib/medicationInstructions';
 
 export default function PrintRxPage({ params }: { params: Promise<{ visitId: string }> }) {
   const { visitId } = use(params);
@@ -163,25 +164,44 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
 
             {/* Medicines */}
             {visit.medicines && visit.medicines.length > 0 && (
-              <div className="rx-medicines">
-                <div className="rx-symbol">℞</div>
-                <div style={{ overflow: 'hidden' }}>
-                  {visit.medicines.map((m, i) => (
-                    <div key={i} className="rx-med-row" style={{ marginBottom: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                        <span className="rx-med-num">{i + 1}.</span>
-                        <span className="rx-med-name" style={{ fontWeight: 700 }}>{m.name}</span>
-                        <span className="rx-med-dose" style={{ marginLeft: 'auto', fontWeight: 600, color: '#0d9488' }}>
-                          {m.dose} × {m.duration}
-                        </span>
-                      </div>
-                      {m.instructions && (
-                        <div style={{ paddingLeft: 18, color: '#475569', fontSize: '0.8rem', fontStyle: 'italic', marginTop: 2 }}>
-                          👉 {m.instructions}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              <div className="rx-medicines" style={{ marginTop: 12 }}>
+                <div className="rx-symbol" style={{ marginBottom: 6 }}>℞</div>
+                <div style={{ width: '100%', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '1.5px solid #cbd5e1', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 10px', width: '35px', textAlign: 'center' }}>#</th>
+                        <th style={{ padding: '8px 10px' }}>Medicine Name</th>
+                        <th style={{ padding: '8px 10px' }}>Dose Schedule (खुराक)</th>
+                        <th style={{ padding: '8px 10px', width: '90px' }}>Duration</th>
+                        <th style={{ padding: '8px 10px' }}>Instructions (निर्देश)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visit.medicines.map((m, i) => {
+                        const doseWords = parseDoseToWords(m.dose);
+                        return (
+                          <tr key={i} style={{ borderBottom: '1px solid #e2e8f0', background: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'center', color: '#0d9488' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>{m.name}</td>
+                            <td style={{ padding: '8px 10px' }}>
+                              <div style={{ fontWeight: 600, color: '#0d9488' }}>{doseWords.en}</div>
+                              {doseWords.hi && doseWords.hi !== doseWords.en && (
+                                <div style={{ fontSize: '0.74rem', color: '#475569', marginTop: 1 }}>{doseWords.hi}</div>
+                              )}
+                              {doseWords.mr && doseWords.mr !== doseWords.en && doseWords.mr !== doseWords.hi && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 1 }}>{doseWords.mr}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px 10px', fontWeight: 600, color: '#334155' }}>{m.duration}</td>
+                            <td style={{ padding: '8px 10px', color: '#475569', fontSize: '0.78rem' }}>
+                              {m.instructions || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
@@ -201,14 +221,34 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
               </div>
             )}
 
-            {/* Footer */}
-            <div className="rx-footer">
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                {new Date(visit.date).toLocaleString('en-IN')}
+            {/* Footer / Digital Signature */}
+            <div className="rx-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                <div><strong>Prescription Date:</strong> {new Date(visit.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                <div style={{ marginTop: 2 }}><strong>Generated:</strong> {new Date(visit.date).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
               </div>
-              <div style={{ fontWeight: 700, color: '#0d9488', fontSize: '0.9rem' }}>
-                Signature & Stamp
-                <div style={{ width: 120, borderBottom: '1px solid #cbd5e1', marginTop: 20 }}></div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ 
+                  display: 'inline-block', 
+                  border: '1.5px solid #0d9488', 
+                  borderRadius: 8, 
+                  padding: '6px 12px', 
+                  background: 'rgba(13, 148, 136, 0.04)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0d9488', fontWeight: 700 }}>
+                    Digitally Signed & Verified
+                  </div>
+                  <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem', marginTop: 2 }}>
+                    {clinic.doctorName}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: 1 }}>
+                    {clinic.degree ? `${clinic.degree} ` : ''}{clinic.regNo ? `| Reg: ${clinic.regNo}` : ''}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600, marginTop: 2 }}>
+                    🕒 {new Date(visit.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

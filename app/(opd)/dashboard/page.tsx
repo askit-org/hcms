@@ -53,37 +53,45 @@ export default function DashboardPage() {
         initial="hidden" 
         animate="show"
       >
-        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--accent)', '--stat-bg': 'var(--accent-glow)' } as React.CSSProperties}>
-          <div className="stat-icon"><Activity /></div>
-          <div className="stat-info">
-            <div className="stat-value">{s.todayTotal}</div>
-            <div className="stat-label">Patients Today</div>
-            <div className="stat-sub">{s.todayNew} new · {s.todayReturning} returning</div>
-          </div>
+        <motion.div variants={item}>
+          <Link href="/reports" className="stat-card" style={{ '--stat-color': 'var(--accent)', '--stat-bg': 'var(--accent-glow)' } as React.CSSProperties}>
+            <div className="stat-icon"><Activity /></div>
+            <div className="stat-info">
+              <div className="stat-value">{s.todayTotal}</div>
+              <div className="stat-label">Patients Today</div>
+              <div className="stat-sub">{s.todayNew} new · {s.todayReturning} returning</div>
+            </div>
+          </Link>
         </motion.div>
-        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--blue)', '--stat-bg': 'rgba(59,130,246,0.1)' } as React.CSSProperties}>
-          <div className="stat-icon" style={{ '--stat-color': 'var(--blue)' } as React.CSSProperties}><Users style={{ color: 'var(--blue)' }} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{s.totalPatients}</div>
-            <div className="stat-label">Total Patients</div>
-            <div className="stat-sub">Registered in system</div>
-          </div>
+        <motion.div variants={item}>
+          <Link href="/patients" className="stat-card" style={{ '--stat-color': 'var(--blue)', '--stat-bg': 'rgba(59,130,246,0.1)' } as React.CSSProperties}>
+            <div className="stat-icon" style={{ '--stat-color': 'var(--blue)' } as React.CSSProperties}><Users style={{ color: 'var(--blue)' }} /></div>
+            <div className="stat-info">
+              <div className="stat-value">{s.totalPatients}</div>
+              <div className="stat-label">Total Patients</div>
+              <div className="stat-sub">Registered in system</div>
+            </div>
+          </Link>
         </motion.div>
-        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--amber)', '--stat-bg': 'rgba(245,158,11,0.1)' } as React.CSSProperties}>
-          <div className="stat-icon" style={{ '--stat-color': 'var(--amber)' } as React.CSSProperties}><Calendar style={{ color: 'var(--amber)' }} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{s.followUpsToday}</div>
-            <div className="stat-label">Follow-ups Today</div>
-            <div className="stat-sub">{s.upcomingFollowUps} in next 7 days</div>
-          </div>
+        <motion.div variants={item}>
+          <Link href="/followup" className="stat-card" style={{ '--stat-color': 'var(--amber)', '--stat-bg': 'rgba(245,158,11,0.1)' } as React.CSSProperties}>
+            <div className="stat-icon" style={{ '--stat-color': 'var(--amber)' } as React.CSSProperties}><Calendar style={{ color: 'var(--amber)' }} /></div>
+            <div className="stat-info">
+              <div className="stat-value">{s.followUpsToday}</div>
+              <div className="stat-label">Follow-ups Today</div>
+              <div className="stat-sub">{s.upcomingFollowUps} in next 7 days</div>
+            </div>
+          </Link>
         </motion.div>
-        <motion.div variants={item} className="stat-card" style={{ '--stat-color': 'var(--green)', '--stat-bg': 'rgba(16,185,129,0.1)' } as React.CSSProperties}>
-          <div className="stat-icon" style={{ '--stat-color': 'var(--green)' } as React.CSSProperties}><TrendingUp style={{ color: 'var(--green)' }} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{s.todayNew}</div>
-            <div className="stat-label">New Patients Today</div>
-            <div className="stat-sub">{s.todayTotal > 0 ? Math.round((s.todayNew / s.todayTotal) * 100) : 0}% of today</div>
-          </div>
+        <motion.div variants={item}>
+          <Link href="/patients/new" className="stat-card" style={{ '--stat-color': 'var(--green)', '--stat-bg': 'rgba(16,185,129,0.1)' } as React.CSSProperties}>
+            <div className="stat-icon" style={{ '--stat-color': 'var(--green)' } as React.CSSProperties}><TrendingUp style={{ color: 'var(--green)' }} /></div>
+            <div className="stat-info">
+              <div className="stat-value">{s.todayNew}</div>
+              <div className="stat-label">New Patients Today</div>
+              <div className="stat-sub">{s.todayTotal > 0 ? Math.round((s.todayNew / s.todayTotal) * 100) : 0}% of today</div>
+            </div>
+          </Link>
         </motion.div>
       </motion.div>
 

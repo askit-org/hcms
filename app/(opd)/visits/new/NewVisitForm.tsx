@@ -16,10 +16,21 @@ import InstructionPicker from '@/components/InstructionPicker';
 
 function DoseSelector({ value, onChange }: { value: string, onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const parts = value.split('-');
   const morning = parts[0] === '1' || parts[0] === '1/2';
   const afternoon = parts[1] === '1' || parts[1] === '1/2';
   const night = parts[2] === '1' || parts[2] === '1/2';
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggle = (idx: number) => {
     const p = [...parts];
@@ -29,7 +40,7 @@ function DoseSelector({ value, onChange }: { value: string, onChange: (v: string
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }} ref={containerRef}>
       <input 
         className="form-input" 
         value={value} 
@@ -38,22 +49,19 @@ function DoseSelector({ value, onChange }: { value: string, onChange: (v: string
         placeholder="Dose"
       />
       {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpen(false)} />
-          <div className="dose-popover">
-            {[
-              { label: 'Morning', icon: <Sunrise size={18} />, active: morning },
-              { label: 'Afternoon', icon: <Sun size={18} />, active: afternoon },
-              { label: 'Night', icon: <Moon size={18} />, active: night },
-            ].map((d, i) => (
-              <div key={d.label} className={`dose-toggle ${d.active ? 'active' : ''}`} onClick={() => toggle(i)}>
-                {d.icon}
-                <span>{d.label}</span>
-                <div className="dose-toggle-val">{d.active ? '1' : '0'}</div>
-              </div>
-            ))}
-          </div>
-        </>
+        <div className="dose-popover">
+          {[
+            { label: 'Morning', icon: <Sunrise size={18} />, active: morning },
+            { label: 'Afternoon', icon: <Sun size={18} />, active: afternoon },
+            { label: 'Night', icon: <Moon size={18} />, active: night },
+          ].map((d, i) => (
+            <div key={d.label} className={`dose-toggle ${d.active ? 'active' : ''}`} onClick={() => toggle(i)}>
+              {d.icon}
+              <span>{d.label}</span>
+              <div className="dose-toggle-val">{d.active ? '1' : '0'}</div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -519,7 +527,7 @@ export default function NewVisitForm() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr auto', gap: 6, padding: '4px 6px', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div className="med-row-header" style={{ display: 'grid', gridTemplateColumns: '2.2fr 1.1fr 1.1fr 2.5fr auto', gap: 8, padding: '4px 6px', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
                 <span>Medicine</span><span>Dose</span><span>Duration</span><span>Instructions</span><span></span>
               </div>
               <datalist id="dose-options">
@@ -529,25 +537,46 @@ export default function NewVisitForm() {
                 {DURATION_OPTIONS.map(d => <option key={d} value={d} />)}
               </datalist>
               {rxMeds.map((m, i) => (
-                <div key={i} className="med-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2.5fr auto', gap: 6, alignItems: 'center' }}>
-                  <input className="form-input" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
-                  <DoseSelector value={m.dose} onChange={v => updateMed(i, 'dose', v)} />
-                  <input className="form-input" list="duration-options" placeholder="Duration" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)} />
-                  <InstructionPicker
-                    instructionKeys={m.instructionKeys}
-                    customInstruction={m.customInstruction}
-                    languages={m.instructionLangs}
-                    onChange={({ instructionKeys, customInstruction, languages, formattedText }) => {
-                      setRxMeds(prev => prev.map((item, idx) => idx === i ? {
-                        ...item,
-                        instructions: formattedText,
-                        instructionKeys,
-                        customInstruction,
-                        instructionLangs: languages
-                      } : item));
-                    }}
-                  />
-                  <button type="button" className="btn-icon" onClick={() => removeMed(i)}><Trash2 size={14} /></button>
+                <div key={i} className="med-row">
+                  <div className="med-row-field">
+                    <span className="med-row-field-label" style={{ display: 'none' }}>Medicine Name</span>
+                    <input className="form-input" placeholder="Medicine Name" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
+                  </div>
+                  
+                  <div className="med-row-grid-2">
+                    <div className="med-row-field">
+                      <span className="med-row-field-label" style={{ display: 'none' }}>Dose</span>
+                      <DoseSelector value={m.dose} onChange={v => updateMed(i, 'dose', v)} />
+                    </div>
+                    <div className="med-row-field">
+                      <span className="med-row-field-label" style={{ display: 'none' }}>Duration</span>
+                      <input className="form-input" list="duration-options" placeholder="Duration" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="med-row-field">
+                    <span className="med-row-field-label" style={{ display: 'none' }}>Instructions</span>
+                    <InstructionPicker
+                      instructionKeys={m.instructionKeys}
+                      customInstruction={m.customInstruction}
+                      languages={m.instructionLangs}
+                      onChange={({ instructionKeys, customInstruction, languages, formattedText }) => {
+                        setRxMeds(prev => prev.map((item, idx) => idx === i ? {
+                          ...item,
+                          instructions: formattedText,
+                          instructionKeys,
+                          customInstruction,
+                          instructionLangs: languages
+                        } : item));
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeMed(i)}>
+                      <Trash2 size={15} /> <span className="mobile-only-inline">Remove Medicine</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </>
