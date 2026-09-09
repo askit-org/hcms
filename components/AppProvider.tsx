@@ -22,7 +22,7 @@ export default function AppProvider({ children }: { children: React.ReactNode })
   );
 
   return (
-    <ThemeProvider attribute="data-theme" defaultTheme="dark" enableSystem={false} disableTransitionOnChange scriptProps={{ 'aria-hidden': true }}>
+    <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem={false} disableTransitionOnChange scriptProps={{ 'aria-hidden': true }}>
       <QueryClientProvider client={queryClient}>
         {children}
         <ReactQueryDevtools initialIsOpen={false} position="bottom" />
