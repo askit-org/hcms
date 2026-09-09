@@ -137,10 +137,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                 <div className="rx-info-label">Patient Name</div>
                 <div className="rx-info-value">{patient.name}</div>
               </div>
-              <div className="rx-info-item">
-                <div className="rx-info-label">Patient ID</div>
-                <div className="rx-info-value">{patient.patientId}</div>
-              </div>
+
               <div className="rx-info-item">
                 <div className="rx-info-label">Age / Gender</div>
                 <div className="rx-info-value">{age}y / {patient.gender}</div>

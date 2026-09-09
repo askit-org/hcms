@@ -317,7 +317,7 @@ export default function NewVisitForm() {
               <div className="followup-avatar">{selectedPatient.name.charAt(0)}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.patientId} · {selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
               </div>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
             </div>
@@ -326,7 +326,7 @@ export default function NewVisitForm() {
               <div className="search-input-wrap">
                 <span className="s-icon"><Search /></span>
                 <input className="search-input"
-                  placeholder="Search patient by name, mobile, or ID…"
+                  placeholder="Search patient by name or mobile…"
                   value={patientQuery} onChange={e => setPatientQuery(e.target.value)} />
               </div>
               {patientResults.length > 0 && (
@@ -334,7 +334,7 @@ export default function NewVisitForm() {
                   {patientResults.map(p => (
                     <div key={p.id} className="search-result" onClick={() => { setSelectedPatient(p); setPatientQuery(''); setPatientResults([]); }}>
                       <div className="sr-name">{p.name}</div>
-                      <div className="sr-meta">{p.patientId} · {p.mobile} · {p.gender}, {p.age}y</div>
+                      <div className="sr-meta">{p.mobile} · {p.gender}, {p.age}y</div>
                     </div>
                   ))}
                 </div>
@@ -714,7 +714,7 @@ export default function NewVisitForm() {
                   <div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 2 }}>Patient</div>
                     <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{existingDraft.patient.name}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{existingDraft.patient.patientId} · {existingDraft.patient.mobile}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{existingDraft.patient.mobile}</div>
                   </div>
                 ) : (
                   <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
