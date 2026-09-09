@@ -284,7 +284,7 @@ export default function PatientsPage() {
           <input
             className="search-input"
             style={{ padding: '12px 14px 12px 42px', fontSize: '0.9rem', borderRadius: 12 }}
-            placeholder="Search name, mobile, ABHA, or ID…"
+            placeholder="Search name, mobile, or ABHA…"
             value={query}
             onChange={e => { setQuery(e.target.value); setDisplayedLimit(25); }}
           />
@@ -339,7 +339,6 @@ export default function PatientsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Patient ID</th>
                 <th>Name</th>
                 <th>Age / Gender</th>
                 <th>Mobile</th>
@@ -352,7 +351,6 @@ export default function PatientsPage() {
             <motion.tbody variants={container} initial="hidden" animate="show">
               {visiblePatients.map(p => (
                 <motion.tr variants={item} key={p.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/patients/${p.patientId}`)}>
-                  <td><span className="badge badge-teal">{p.patientId}</span></td>
                   <td style={{ fontWeight: 600 }}>{p.name}</td>
                   <td>
                     <span className={`badge ${genderColor(p.gender)}`} style={{ marginRight: 6 }}>{p.gender}</span>
@@ -419,7 +417,7 @@ export default function PatientsPage() {
           <div className="card" style={{ width: '100%', maxWidth: 540, zIndex: 1001, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>
-                Edit Patient ({editingPatient.patientId})
+                Edit Patient Details
               </div>
               <button className="btn-icon" onClick={() => setEditingPatient(null)}>
                 <X size={16} />

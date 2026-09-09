@@ -147,7 +147,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           <div>
             <div className="page-title">{patient.name}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-              <span className="badge badge-teal">{patient.patientId}</span>
               <span className="badge badge-blue">{patient.gender}</span>
               {age && <span className="badge">{age} yrs</span>}
               {lastVisit && <span className="text-muted text-sm">Last visit: {new Date(lastVisit.date).toLocaleDateString('en-IN')}</span>}

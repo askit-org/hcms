@@ -180,7 +180,6 @@ export default function ReportsPage() {
             <thead>
               <tr>
                 <th>Date & Time</th>
-                <th>Patient ID</th>
                 <th>Patient Name</th>
                 <th>Age</th>
                 <th>Chief Complaints</th>
@@ -198,7 +197,6 @@ export default function ReportsPage() {
                       {new Date(v.date).toLocaleDateString('en-IN')}<br />
                       <span style={{ opacity: 0.6 }}>{new Date(v.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
                     </td>
-                    <td><span className="badge badge-teal">{v.patientId}</span></td>
                     <td style={{ fontWeight: 600 }}>{p?.name || '—'}</td>
                     <td style={{ color: 'var(--text-muted)' }}>{p?.age ? `${p.age}y` : '—'}</td>
                     <td style={{ maxWidth: 160, color: 'var(--text-secondary)' }} className="truncate">{v.chiefComplaints || '—'}</td>
