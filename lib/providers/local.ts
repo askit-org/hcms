@@ -43,15 +43,65 @@ import type {
   UpdateVisitInput,
   Visit,
   VisitListParams,
+  UserSubscription,
+  SelectPlanInput,
+  VerifyPaymentInput,
+  SubscriptionResponse,
 } from './types';
 
 export const LocalDataProvider: DataProvider = {
   // ── Auth ───────────────────────────────────────────────────────
   async authLogin({ email }: AuthLoginInput): Promise<AuthResponse> {
-    throw new Error('Offline login not supported. Switch to API mode.');
+    const now = new Date();
+    const trialEndDate = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
+    const user = {
+      id: `local_usr_${Date.now()}`,
+      doctorName: email?.split('@')[0] || 'Doctor',
+      email: email || 'doctor@clinic.com',
+      degree: 'MBBS',
+      clinicName: 'My Clinic',
+      address: '',
+      phone: '',
+      regNo: '',
+      city: '',
+      createdAt: now.toISOString(),
+      subscription: {
+        planType: 'trial' as const,
+        subscriptionStatus: 'trialing' as const,
+        trialStartDate: now.toISOString(),
+        trialEndDate,
+        hasSelectedPlan: true,
+        activatedAt: now.toISOString(),
+      },
+    };
+    const token = `local_token_${Date.now()}`;
+    return { success: true, user, token };
   },
   async authSignup(input: AuthSignupInput): Promise<AuthResponse> {
-    throw new Error('Offline signup not supported. Switch to API mode.');
+    const now = new Date();
+    const trialEndDate = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
+    const user = {
+      id: `local_usr_${Date.now()}`,
+      doctorName: input.doctorName || 'Doctor',
+      email: input.email || 'doctor@clinic.com',
+      degree: input.degree || 'MBBS',
+      clinicName: input.clinicName || 'My Clinic',
+      address: input.address || '',
+      phone: input.phone || '',
+      regNo: input.regNo || '',
+      city: input.city || '',
+      createdAt: now.toISOString(),
+      subscription: {
+        planType: 'trial' as const,
+        subscriptionStatus: 'trialing' as const,
+        trialStartDate: now.toISOString(),
+        trialEndDate,
+        hasSelectedPlan: true,
+        activatedAt: now.toISOString(),
+      },
+    };
+    const token = `local_token_${Date.now()}`;
+    return { success: true, user, token };
   },
   async updateUser(input: Partial<ClinicSettings> & { email?: string; password?: string }): Promise<AuthResponse> {
     const current = useAuth.getState().user;
@@ -59,6 +109,93 @@ export const LocalDataProvider: DataProvider = {
     const updatedUser = { ...current, ...input };
     useAuth.setState({ user: updatedUser });
     return { success: true, user: updatedUser };
+  },
+
+  // ── Subscription ───────────────────────────────────────────────
+  async getSubscriptionStatus(): Promise<UserSubscription> {
+    const user = useAuth.getState().user;
+    if (user?.subscription) {
+      const sub = { ...user.subscription };
+      const now = Date.now();
+      // Auto-expire trial if trialEndDate has passed
+      if (sub.planType === 'trial' && sub.trialEndDate) {
+        if (new Date(sub.trialEndDate).getTime() < now) {
+          sub.subscriptionStatus = 'expired';
+        }
+      }
+      // Auto-expire premium if subscriptionEndDate has passed
+      if (sub.planType === 'premium' && sub.subscriptionEndDate) {
+        if (new Date(sub.subscriptionEndDate).getTime() < now) {
+          sub.subscriptionStatus = 'expired';
+        }
+      }
+      return sub;
+    }
+    return {
+      planType: 'none',
+      subscriptionStatus: 'expired',
+      hasSelectedPlan: false,
+    };
+  },
+  async selectPlan({ planType, paymentRef }: SelectPlanInput): Promise<SubscriptionResponse> {
+    const user = useAuth.getState().user;
+    const now = new Date();
+    let subscription: UserSubscription;
+
+    if (planType === 'trial') {
+      const trialEndDate = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
+      subscription = {
+        planType: 'trial',
+        subscriptionStatus: 'trialing',
+        trialStartDate: now.toISOString(),
+        trialEndDate,
+        hasSelectedPlan: true,
+        activatedAt: now.toISOString(),
+      };
+    } else {
+      const monthlyEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      subscription = {
+        planType: 'premium',
+        subscriptionStatus: paymentRef ? 'active' : 'pending_payment',
+        hasSelectedPlan: true,
+        paidAmount: 299,
+        paymentRef,
+        billingCycle: 'monthly',
+        subscriptionStartDate: now.toISOString(),
+        subscriptionEndDate: monthlyEndDate,
+        activatedAt: now.toISOString(),
+      };
+    }
+
+    if (user) {
+      const updatedUser = { ...user, subscription };
+      useAuth.setState({ user: updatedUser });
+      return { success: true, subscription, user: updatedUser };
+    }
+    return { success: true, subscription };
+  },
+  async verifyPayment({ paymentRef, amount = 299 }: VerifyPaymentInput): Promise<SubscriptionResponse> {
+    const user = useAuth.getState().user;
+    const now = new Date();
+    const monthlyEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const subscription: UserSubscription = {
+      planType: 'premium',
+      subscriptionStatus: 'active',
+      hasSelectedPlan: true,
+      paidAmount: amount,
+      paymentRef,
+      billingCycle: 'monthly',
+      subscriptionStartDate: now.toISOString(),
+      subscriptionEndDate: monthlyEndDate,
+      activatedAt: now.toISOString(),
+    };
+
+    if (user) {
+      const updatedUser = { ...user, subscription };
+      useAuth.setState({ user: updatedUser });
+      return { success: true, subscription, user: updatedUser };
+    }
+    return { success: true, subscription };
   },
 
   // ── Patients ───────────────────────────────────────────────────

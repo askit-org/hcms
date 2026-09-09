@@ -19,7 +19,9 @@ import type {
   AuthLoginInput,
   AuthSignupInput,
   UpdateUserInput,
-  CreateAppOptionInput
+  CreateAppOptionInput,
+  SelectPlanInput,
+  VerifyPaymentInput
 } from '../providers/types';
 
 // Query Keys
@@ -36,6 +38,7 @@ export const keys = {
   dashboard: () => [...keys.all, 'dashboard'] as const,
   followups: () => [...keys.all, 'followups'] as const,
   options: () => [...keys.all, 'options'] as const,
+  subscription: () => [...keys.all, 'subscription'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
@@ -331,4 +334,51 @@ export function useAuthMutations() {
   });
 
   return { authLogin, authSignup, updateUser };
+}
+
+// ── Subscription ───────────────────────────────────────────────
+
+export function useSubscription() {
+  const provider = useProviderStore(s => s.provider);
+  const { updateSubscription } = useAuth();
+  return useQuery({
+    queryKey: keys.subscription(),
+    queryFn: async () => {
+      const sub = await provider.getSubscriptionStatus();
+      if (sub) {
+        updateSubscription(sub);
+      }
+      return sub;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useSubscriptionMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore(s => s.provider);
+  const { updateSubscription } = useAuth();
+
+  const selectPlan = useMutation({
+    mutationFn: (input: SelectPlanInput) => provider.selectPlan(input),
+    onSuccess: (data) => {
+      if (data.subscription) {
+        updateSubscription(data.subscription);
+      }
+      qc.invalidateQueries({ queryKey: keys.subscription() });
+    },
+  });
+
+  const verifyPayment = useMutation({
+    mutationFn: (input: VerifyPaymentInput) => provider.verifyPayment(input),
+    onSuccess: (data) => {
+      if (data.subscription) {
+        updateSubscription(data.subscription);
+      }
+      qc.invalidateQueries({ queryKey: keys.subscription() });
+    },
+  });
+
+  return { selectPlan, verifyPayment };
 }

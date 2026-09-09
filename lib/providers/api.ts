@@ -28,12 +28,19 @@ import type {
   UpdateVisitInput,
   Visit,
   VisitListParams,
+  UserSubscription,
+  SelectPlanInput,
+  VerifyPaymentInput,
+  SubscriptionResponse,
 } from './types';
 
 // The baseUrl can be configured via environment variables
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3009/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
+  timeout: 5000, // 5s timeout to prevent hanging browser network sockets
 });
+
+import { toast } from '@/components/Toast';
 
 // Request Interceptor: Attach the current token from useAuth store to every request
 api.interceptors.request.use((config) => {
@@ -44,6 +51,28 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Response Interceptor: Surface any backend/API error message automatically in toast notification
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    let message = 'An unexpected error occurred';
+    if (error.response?.data?.message) {
+      message = Array.isArray(error.response.data.message)
+        ? error.response.data.message.join(', ')
+        : error.response.data.message;
+    } else if (error.response?.data?.error) {
+      message = error.response.data.error;
+    } else if (error.message) {
+      message = error.message;
+    }
+
+    // Trigger global toast alert for any failed API call
+    toast(message, 'error');
+
+    return Promise.reject(error);
+  }
+);
 
 // A small helper to process responses
 const res = <T>(response: { data: T }) => response.data;
@@ -58,6 +87,15 @@ export const ApiDataProvider: DataProvider = {
   },
   async updateUser(input: UpdateUserInput): Promise<AuthResponse> {
     return api.put<AuthResponse>('/auth/user', input).then(res);
+  },
+  async getSubscriptionStatus(): Promise<UserSubscription> {
+    return api.get<{ subscription: UserSubscription }>('/subscription/status').then((r) => r.data.subscription);
+  },
+  async selectPlan(input: SelectPlanInput): Promise<SubscriptionResponse> {
+    return api.post<SubscriptionResponse>('/subscription/select-plan', input).then(res);
+  },
+  async verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse> {
+    return api.post<SubscriptionResponse>('/subscription/verify-payment', input).then(res);
   },
 
   // ── Patients ───────────────────────────────────────────────────

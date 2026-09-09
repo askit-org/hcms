@@ -10,6 +10,7 @@ import { toast } from '@/components/Toast';
 import type { Medicine } from '@/lib/db';
 import { motion, AnimatePresence } from 'framer-motion';
 import BulkImportModal from '@/components/BulkImportModal';
+import DoseSelector, { DoseDisplay, DurationSelect } from '@/components/DoseSelector';
 
 const MEDICINE_CATEGORIES = [
   'Antibiotic', 'Antipyretic', 'NSAID', 'Antacid', 'Antiemetic', 
@@ -148,12 +149,12 @@ export default function MedicinesPage() {
 
                   <div className="form-group">
                     <label className="form-label">Default Dosage <span style={{ color: 'var(--text-muted)' }}>(opt)</span></label>
-                    <input className="form-input" placeholder="e.g. 1-0-1" value={form.defaultDose} onChange={e => setF('defaultDose', e.target.value)} />
+                    <DoseSelector value={form.defaultDose} onChange={v => setF('defaultDose', v)} />
                   </div>
                   
                   <div className="form-group">
                     <label className="form-label">Default Duration <span style={{ color: 'var(--text-muted)' }}>(opt)</span></label>
-                    <input className="form-input" placeholder="e.g. 5 days" value={form.defaultDuration} onChange={e => setF('defaultDuration', e.target.value)} />
+                    <DurationSelect value={form.defaultDuration} onChange={v => setF('defaultDuration', v)} />
                   </div>
                 </div>
                 <div className="modal-footer">
@@ -268,7 +269,7 @@ export default function MedicinesPage() {
                   <td><span className="badge badge-purple">{m.category}</span></td>
                   <td>
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      {m.defaultDose ? <strong>{m.defaultDose}</strong> : '—'} · {m.defaultDuration || '—'}
+                      {m.defaultDose ? <DoseDisplay dose={m.defaultDose} /> : '—'} · {m.defaultDuration || '—'}
                     </div>
                   </td>
                   <td style={{ textAlign: 'right' }}>

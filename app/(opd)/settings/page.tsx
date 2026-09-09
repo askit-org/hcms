@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useAuthMutations } from '@/lib/hooks/useQueries';
-import { FileText, Trash2, AlertTriangle, User, Edit2, Save, X } from 'lucide-react';
+import { useAuthMutations, useSubscription } from '@/lib/hooks/useQueries';
+import { FileText, Trash2, AlertTriangle, User, Edit2, Save, X, CreditCard, Sparkles, ShieldCheck, Clock, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
 import SettingsTemplates from '@/components/SettingsTemplates';
 import SettingsOptions from '@/components/SettingsOptions';
+import PaymentModal from '@/components/PaymentModal';
 import { clearVisitDraft } from '@/lib/visitDraft';
 
 export default function SettingsPage() {
@@ -60,15 +61,142 @@ export default function SettingsPage() {
     };
   };
 
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { refetch: checkStatusApi, isFetching: isCheckingStatus } = useSubscription();
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
+
+  const handleCheckSubscriptionStatus = async () => {
+    try {
+      const res = await checkStatusApi();
+      const updatedSub = res.data;
+      setLastCheckedAt(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+      if (updatedSub) {
+        if (updatedSub.planType === 'premium' && updatedSub.subscriptionStatus === 'active') {
+          toast('API Check Success: Premium subscription is Active!', 'success');
+        } else if (updatedSub.planType === 'trial' && updatedSub.subscriptionStatus === 'trialing') {
+          let days = '15';
+          if (updatedSub.trialEndDate) {
+            const diff = Math.max(0, Math.ceil((new Date(updatedSub.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+            days = `${diff}`;
+          }
+          toast(`API Check Success: Free Trial Active (${days} days remaining)`, 'info');
+        } else if (updatedSub.subscriptionStatus === 'expired') {
+          toast('API Check Notice: Subscription has Expired. Please upgrade to continue.', 'error');
+        } else {
+          toast(`API Check Status: ${updatedSub.subscriptionStatus}`, 'info');
+        }
+      }
+    } catch (err: any) {
+      toast(err.message || 'Failed to fetch subscription status from API', 'error');
+    }
+  };
+
   if (!user) return null;
+
+  const sub = user.subscription;
+  let trialDaysLeft: number | null = null;
+  let premiumDaysLeft: number | null = null;
+  if (sub?.planType === 'trial' && sub.trialEndDate) {
+    const end = new Date(sub.trialEndDate).getTime();
+    const now = new Date().getTime();
+    trialDaysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+  }
+  if (sub?.planType === 'premium' && sub.subscriptionEndDate) {
+    const end = new Date(sub.subscriptionEndDate).getTime();
+    const now = new Date().getTime();
+    premiumDaysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+  }
 
   return (
     <PageTransition className="page-transition" style={{ maxWidth: 780 }}>
       <div className="page-header">
         <div>
           <div className="page-title">Settings</div>
-          <div className="page-subtitle">Your profile and application settings</div>
+          <div className="page-subtitle">Your profile, subscription, and application settings</div>
         </div>
+      </div>
+
+      {/* Plan & Subscription Card */}
+      <div className="card" style={{ marginBottom: 16, border: '1px solid rgba(13, 148, 136, 0.25)', background: 'linear-gradient(135deg, var(--accent-glow), transparent)' }}>
+        <div className="card-title" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)', fontWeight: 700 }}>
+            <CreditCard size={18} color="var(--accent)" /> Plan & Subscription Status
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleCheckSubscriptionStatus}
+              disabled={isCheckingStatus}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <RefreshCw size={14} className={isCheckingStatus ? 'spin' : ''} />
+              {isCheckingStatus ? 'Checking API…' : 'Check Status (API)'}
+            </button>
+
+            <button 
+              className="btn btn-primary btn-sm" 
+              onClick={() => setShowPaymentModal(true)}
+              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-light))', border: 'none', boxShadow: '0 4px 12px var(--accent-glow)' }}
+            >
+              <Sparkles size={14} /> {sub?.planType === 'premium' ? 'Manage Plan' : 'Upgrade to Premium (₹299)'}
+            </button>
+          </div>
+        </div>
+
+        <div className="form-grid form-grid-3" style={{ gap: 16 }}>
+          <div style={{ background: 'var(--surface-1)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Current Plan</div>
+            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              {sub?.planType === 'premium' ? (
+                <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <ShieldCheck size={16} /> Premium Monthly (₹299/mo)
+                </span>
+              ) : sub?.planType === 'trial' ? (
+                <span style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={16} /> 15-Day Free Trial
+                </span>
+              ) : (
+                <span style={{ color: 'var(--text-muted)' }}>No Active Plan</span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--surface-1)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Status / Validity</div>
+            <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginTop: 2 }}>
+              {sub?.subscriptionStatus === 'expired' ? (
+                <span style={{ color: '#ef4444' }}>Subscription Expired</span>
+              ) : sub?.planType === 'trial' ? (
+                <span>{trialDaysLeft !== null ? `${trialDaysLeft} Days Remaining` : 'Trial Active'}</span>
+              ) : sub?.planType === 'premium' ? (
+                <span style={{ color: '#10b981' }}>
+                  {premiumDaysLeft !== null ? `${premiumDaysLeft} Days Left (Monthly)` : 'Active Monthly Plan'}
+                </span>
+              ) : (
+                <span style={{ color: '#ef4444' }}>Plan Selection Required</span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--surface-1)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Payment Ref / Price</div>
+            <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginTop: 2 }}>
+              {sub?.planType === 'premium' ? (
+                <span>₹{sub.paidAmount || 299}/mo • {sub.paymentRef || 'Paid'}</span>
+              ) : (
+                <span>₹0 (Free Trial)</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {lastCheckedAt && (
+          <div style={{ marginTop: 12, fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>Last checked via API at {lastCheckedAt}</span>
+          </div>
+        )}
       </div>
 
       {/* Account Info Profile (Editable) */}
@@ -232,6 +360,11 @@ export default function SettingsPage() {
           <Trash2 size={14} /> Clear Local Database
         </button>
       </div>
+
+      <PaymentModal 
+        isOpen={showPaymentModal} 
+        onClose={() => setShowPaymentModal(false)} 
+      />
     </PageTransition>
   );
 }

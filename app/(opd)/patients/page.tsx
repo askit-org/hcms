@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Users, UserPlus, Search, Eye, Stethoscope, Phone,
-  Calendar, X, ChevronRight, Edit2, Save
+  Calendar, X, Edit2, Save, AlertTriangle, ArrowLeftRight
 } from 'lucide-react';
 import { usePatients, useAppOptions, usePatientMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import type { Patient } from '@/lib/providers/types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
@@ -21,6 +21,8 @@ export default function PatientsPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [displayedLimit, setDisplayedLimit] = useState(25);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -33,6 +35,18 @@ export default function PatientsPage() {
   const { data: allPatients = [], isLoading: loading, error } = usePatients({
     category: category !== 'All' ? category : undefined
   });
+
+  // Date range validation check
+  const isInvalidDateRange = useMemo(() => {
+    return !!(fromDate && toDate && fromDate > toDate);
+  }, [fromDate, toDate]);
+
+  const swapDates = () => {
+    const temp = fromDate;
+    setFromDate(toDate);
+    setToDate(temp);
+    toast('Date range swapped!', 'info');
+  };
 
   const openEditModal = (p: Patient) => {
     setEditingPatient(p);
@@ -86,6 +100,8 @@ export default function PatientsPage() {
   };
 
   const filteredPatients = useMemo(() => {
+    if (isInvalidDateRange) return [];
+
     return allPatients.filter(p => {
       // Date filter
       const d = p.createdAt.split('T')[0];
@@ -104,7 +120,29 @@ export default function PatientsPage() {
       }
       return true;
     });
-  }, [allPatients, fromDate, toDate, query]);
+  }, [allPatients, fromDate, toDate, query, isInvalidDateRange]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && displayedLimit < filteredPatients.length) {
+          setDisplayedLimit(prev => prev + 25);
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [displayedLimit, filteredPatients.length]);
+
+  const visiblePatients = useMemo(() => {
+    return filteredPatients.slice(0, displayedLimit);
+  }, [filteredPatients, displayedLimit]);
 
   const hasDateFilter = !!(fromDate || toDate);
   const clearDateFilter = () => { setFromDate(''); setToDate(''); };
@@ -127,7 +165,7 @@ export default function PatientsPage() {
   };
 
   if (loading) return <LoadingScreen message="Loading patient records..." />;
-  if (error) return <ErrorState title="Error Loading Patients" message="Failed to connect to local database." />;
+  if (error) return <ErrorState title="Error Loading Patients" message="Failed to connect to backend database." />;
 
   return (
     <PageTransition>
@@ -151,7 +189,7 @@ export default function PatientsPage() {
             <button
               key={cat}
               className={`cat-pill ${category === cat ? 'active' : ''}`}
-              onClick={() => setCategory(cat)}
+              onClick={() => { setCategory(cat); setDisplayedLimit(25); }}
             >
               {cat}
             </button>
@@ -171,24 +209,59 @@ export default function PatientsPage() {
 
         {/* Date Pickers Row */}
         {showDateFilter && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', padding: '4px 8px', borderRadius: 8, border: isInvalidDateRange ? '1px solid var(--red)' : '1px solid var(--border)', flexWrap: 'wrap' }}>
             <input
               type="date"
               className="form-input"
-              style={{ padding: '4px 8px', fontSize: '0.8rem', width: 'auto' }}
+              style={{
+                padding: '4px 8px', fontSize: '0.8rem', width: 'auto',
+                ...(isInvalidDateRange ? { border: '1.5px solid var(--red)' } : {})
+              }}
               value={fromDate}
-              onChange={e => setFromDate(e.target.value)}
+              max={toDate || new Date().toISOString().split('T')[0]}
+              onChange={e => {
+                const val = e.target.value;
+                setFromDate(val);
+                if (toDate && val > toDate) {
+                  setToDate(val);
+                }
+                setDisplayedLimit(25);
+              }}
               title="From Registration Date"
             />
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>to</span>
             <input
               type="date"
               className="form-input"
-              style={{ padding: '4px 8px', fontSize: '0.8rem', width: 'auto' }}
+              style={{
+                padding: '4px 8px', fontSize: '0.8rem', width: 'auto',
+                ...(isInvalidDateRange ? { border: '1.5px solid var(--red)' } : {})
+              }}
               value={toDate}
-              onChange={e => setToDate(e.target.value)}
+              min={fromDate}
+              onChange={e => {
+                const val = e.target.value;
+                if (fromDate && val < fromDate) {
+                  toast('To Date cannot be older than From Date.', 'error');
+                  setToDate(fromDate);
+                  return;
+                }
+                setToDate(val);
+                setDisplayedLimit(25);
+              }}
               title="To Registration Date"
             />
+            {isInvalidDateRange && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={swapDates}
+                style={{ padding: '3px 8px', fontSize: '0.75rem', gap: 4 }}
+                title="Swap From and To dates"
+              >
+                <ArrowLeftRight size={12} /> Swap
+              </button>
+            )}
             {hasDateFilter && (
               <button className="btn-icon" onClick={clearDateFilter} title="Clear Date Filter">
                 <X size={13} />
@@ -204,7 +277,7 @@ export default function PatientsPage() {
             className="search-input"
             placeholder="Search name, mobile, ABHA, or ID…"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => { setQuery(e.target.value); setDisplayedLimit(25); }}
           />
           {query && (
             <button
@@ -217,14 +290,33 @@ export default function PatientsPage() {
         </div>
       </div>
 
+      {/* Date Range Error Warning Banner */}
+      {isInvalidDateRange && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 16, color: 'var(--red)',
+          fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={16} />
+            <span>Invalid Date Range: <strong>From Date</strong> ({fromDate}) cannot be after <strong>To Date</strong> ({toDate}).</span>
+          </div>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={swapDates} style={{ background: '#ffffff', color: 'var(--red)', border: '1px solid var(--red)' }}>
+            <ArrowLeftRight size={13} /> Swap Dates
+          </button>
+        </div>
+      )}
+
       {/* ── Table ───────────────────────────────────────────────────── */}
       {filteredPatients.length === 0 ? (
         <div className="empty-state">
           <Users size={48} style={{ opacity: 0.3, marginBottom: 14 }} />
           <h4>No Patients Found</h4>
           <p>
-            {query
-              ? 'No patients match your search.'
+            {isInvalidDateRange
+              ? 'Please fix the date range filter above.'
+              : query
+              ? 'No patients match your search query.'
               : hasDateFilter
               ? 'No patients registered in the selected date range.'
               : 'Register your first patient to get started.'}
@@ -243,12 +335,13 @@ export default function PatientsPage() {
                 <th>Age / Gender</th>
                 <th>Mobile</th>
                 <th>ABHA Number</th>
+                <th>Conditions</th>
                 <th>Registered</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <motion.tbody variants={container} initial="hidden" animate="show">
-              {filteredPatients.map(p => (
+              {visiblePatients.map(p => (
                 <motion.tr variants={item} key={p.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/patients/${p.patientId}`)}>
                   <td><span className="badge badge-teal">{p.patientId}</span></td>
                   <td style={{ fontWeight: 600 }}>{p.name}</td>
@@ -263,6 +356,22 @@ export default function PatientsPage() {
                     </div>
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>{p.abhaNumber || '—'}</td>
+                  <td>
+                    {p.permanentConditions && p.permanentConditions.length > 0 ? (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 180 }}>
+                        {p.permanentConditions.slice(0, 2).map(c => (
+                          <span key={c} className="badge badge-amber" style={{ fontSize: '0.7rem' }}>
+                            {c}
+                          </span>
+                        ))}
+                        {p.permanentConditions.length > 2 && (
+                          <span className="text-muted text-xs">+{p.permanentConditions.length - 2}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                    )}
+                  </td>
                   <td style={{ color: 'var(--text-muted)' }}>{new Date(p.createdAt).toLocaleDateString('en-IN')}</td>
                   <td onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -281,6 +390,13 @@ export default function PatientsPage() {
               ))}
             </motion.tbody>
           </table>
+
+          {/* Infinite Scroll Sentinel */}
+          {displayedLimit < filteredPatients.length && (
+            <div ref={loadMoreRef} style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Loading more patients ({visiblePatients.length} of {filteredPatients.length})…
+            </div>
+          )}
         </div>
       )}
 
@@ -309,7 +425,7 @@ export default function PatientsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label className="form-label">Age (years)</label>
-                  <input className="form-input" type="number" value={editForm.age} onChange={e => setEditForm(f => ({ ...f, age: e.target.value }))} />
+                  <input className="form-input" type="number" min="0" value={editForm.age} onChange={e => setEditForm(f => ({ ...f, age: e.target.value.replace(/-/g, '') }))} />
                 </div>
                 <div>
                   <label className="form-label">Gender</label>

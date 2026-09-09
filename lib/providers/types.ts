@@ -54,6 +54,38 @@ export type AuthResponse = {
   error?: string;
 };
 
+export interface UserSubscription {
+  planType: 'trial' | 'premium' | 'none';
+  subscriptionStatus: 'active' | 'trialing' | 'expired' | 'pending_payment';
+  trialStartDate?: string;
+  trialEndDate?: string;
+  hasSelectedPlan: boolean;
+  paidAmount?: number;
+  paymentRef?: string;
+  activatedAt?: string;
+  billingCycle?: 'monthly';
+  subscriptionStartDate?: string;
+  subscriptionEndDate?: string;
+}
+
+export type SelectPlanInput = {
+  planType: 'trial' | 'premium';
+  paymentRef?: string;
+};
+
+export type VerifyPaymentInput = {
+  paymentRef: string;
+  amount?: number;
+  planType?: 'premium';
+};
+
+export interface SubscriptionResponse {
+  success: boolean;
+  subscription: UserSubscription;
+  user?: any;
+  error?: string;
+}
+
 // ─── Query / filter shapes ────────────────────────────────────────
 
 export interface PatientListParams {
@@ -109,10 +141,13 @@ export interface DashboardStats {
 // Switching between them only requires changing the factory in index.ts.
 
 export interface DataProvider {
-  // ── Auth ───────────────────────────────────────────────────────
+  // ── Auth & Subscription ─────────────────────────────────────────
   authLogin(input: AuthLoginInput): Promise<AuthResponse>;
   authSignup(input: AuthSignupInput): Promise<AuthResponse>;
   updateUser(input: UpdateUserInput): Promise<AuthResponse>;
+  getSubscriptionStatus(): Promise<UserSubscription>;
+  selectPlan(input: SelectPlanInput): Promise<SubscriptionResponse>;
+  verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse>;
 
   // ── Patients ───────────────────────────────────────────────────
   listPatients(params?: PatientListParams): Promise<Patient[]>;

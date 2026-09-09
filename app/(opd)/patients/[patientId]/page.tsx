@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
+import { DoseDisplay } from '@/components/DoseSelector';
 
 export default function PatientDetailPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = use(params);
@@ -151,6 +152,15 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               {age && <span className="badge">{age} yrs</span>}
               {lastVisit && <span className="text-muted text-sm">Last visit: {new Date(lastVisit.date).toLocaleDateString('en-IN')}</span>}
             </div>
+            {patient.permanentConditions && patient.permanentConditions.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {patient.permanentConditions.map(cond => (
+                  <span key={cond} className="badge badge-amber" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                    🩺 {cond}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex-wrap-header-actions">
@@ -320,7 +330,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                               <span style={{ color: 'var(--accent-light)', fontWeight: 700, marginRight: 6 }}>{i + 1}.</span>
                               <span style={{ fontWeight: 600 }}>{m.name}</span>
                             </div>
-                            <span style={{ color: 'var(--accent-light)', fontWeight: 600, fontSize: '0.8rem' }}>{m.dose} · {m.duration}</span>
+                            <span style={{ color: 'var(--accent-light)', fontWeight: 600, fontSize: '0.8rem' }}><DoseDisplay dose={m.dose} /> · {m.duration}</span>
                           </div>
                           {m.instructions && (
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic', paddingLeft: 20 }}>

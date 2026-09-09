@@ -60,12 +60,31 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
               const element = document.getElementById('prescription');
               if (!element) return;
 
-              const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
+              const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: 1200,
+              });
               const imgData = canvas.toDataURL('image/png');
               const doc = new jsPDF('p', 'mm', 'a4');
               const pdfWidth = doc.internal.pageSize.getWidth();
-              const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-              doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+              const pageHeight = doc.internal.pageSize.getHeight();
+              const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+              
+              let heightLeft = imgHeight;
+              let position = 0;
+
+              doc.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+              heightLeft -= pageHeight;
+
+              while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                doc.addPage();
+                doc.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pageHeight;
+              }
 
               const blob = doc.output('blob');
               const fileName = `${patient.name.replace(/\s+/g, '_')}_Prescription.pdf`;

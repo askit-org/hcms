@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { BarChart3, Download, FileText, Calendar, Users, Search } from 'lucide-react';
 import { useReports, usePatients } from '@/lib/hooks/useQueries';
 import PageTransition from '@/components/PageTransition';
+import { toast } from '@/components/Toast';
 
 export default function ReportsPage() {
   const [startDate, setStartDate] = useState(() => {
@@ -110,11 +111,39 @@ export default function ReportsPage() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 0 }}>
             <label className="form-label" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>From</label>
-            <input className="form-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ width: 170 }} />
+            <input
+              className="form-input"
+              type="date"
+              value={startDate}
+              max={endDate || new Date().toISOString().split('T')[0]}
+              onChange={e => {
+                const val = e.target.value;
+                setStartDate(val);
+                if (endDate && val > endDate) {
+                  setEndDate(val);
+                }
+              }}
+              style={{ width: 170 }}
+            />
           </div>
           <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 0 }}>
             <label className="form-label" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>To</label>
-            <input className="form-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ width: 170 }} />
+            <input
+              className="form-input"
+              type="date"
+              value={endDate}
+              min={startDate}
+              onChange={e => {
+                const val = e.target.value;
+                if (startDate && val < startDate) {
+                  toast('To Date cannot be older than From Date.', 'error');
+                  setEndDate(startDate);
+                  return;
+                }
+                setEndDate(val);
+              }}
+              style={{ width: 170 }}
+            />
           </div>
           <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
             <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
