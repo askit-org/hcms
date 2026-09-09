@@ -115,8 +115,7 @@ export default function FollowUpPage() {
                 {/* Info */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700 }}>{patient?.name || visit.patientId}</span>
-                    <span className="badge badge-teal" style={{ fontSize: '0.65rem' }}>{visit.patientId}</span>
+                    <span style={{ fontWeight: 700 }}>{patient?.name || 'Patient'}</span>
                     {visit.followUpDate && getDaysLabel(visit.followUpDate)}
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
