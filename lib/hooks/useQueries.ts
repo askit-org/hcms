@@ -19,6 +19,8 @@ import type {
   AuthLoginInput,
   AuthSignupInput,
   UpdateUserInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
   CreateAppOptionInput,
   SelectPlanInput,
   VerifyPaymentInput
@@ -333,7 +335,15 @@ export function useAuthMutations() {
     }
   });
 
-  return { authLogin, authSignup, updateUser };
+  const forgotPassword = useMutation({
+    mutationFn: (input: ForgotPasswordInput) => provider.forgotPassword(input),
+  });
+
+  const resetPassword = useMutation({
+    mutationFn: (input: ResetPasswordInput) => provider.resetPassword(input),
+  });
+
+  return { authLogin, authSignup, updateUser, forgotPassword, resetPassword };
 }
 
 // ── Subscription ───────────────────────────────────────────────
