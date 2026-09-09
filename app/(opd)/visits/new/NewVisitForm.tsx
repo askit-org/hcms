@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
+import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
@@ -13,51 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import VoiceInputButton from '@/components/VoiceInputButton';
 import { getVisitDraft, saveVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 import InstructionPicker from '@/components/InstructionPicker';
-
-function DoseSelector({ value, onChange }: { value: string, onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const parts = value.split('-');
-  const morning = parts[0] === '1' || parts[0] === '1/2';
-  const afternoon = parts[1] === '1' || parts[1] === '1/2';
-  const night = parts[2] === '1' || parts[2] === '1/2';
-
-  const toggle = (idx: number) => {
-    const p = [...parts];
-    if (p.length < 3) { p[0] = '0'; p[1] = '0'; p[2] = '0'; }
-    p[idx] = (p[idx] === '1' || p[idx] === '1/2') ? '0' : '1';
-    onChange(p.join('-'));
-  };
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <input 
-        className="form-input" 
-        value={value} 
-        onChange={e => onChange(e.target.value)} 
-        onFocus={() => setOpen(true)}
-        placeholder="Dose"
-      />
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpen(false)} />
-          <div className="dose-popover">
-            {[
-              { label: 'Morning', icon: <Sunrise size={18} />, active: morning },
-              { label: 'Afternoon', icon: <Sun size={18} />, active: afternoon },
-              { label: 'Night', icon: <Moon size={18} />, active: night },
-            ].map((d, i) => (
-              <div key={d.label} className={`dose-toggle ${d.active ? 'active' : ''}`} onClick={() => toggle(i)}>
-                {d.icon}
-                <span>{d.label}</span>
-                <div className="dose-toggle-val">{d.active ? '1' : '0'}</div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
 
 
 const QUICK_COMPLAINTS = [
@@ -240,21 +196,100 @@ export default function NewVisitForm() {
 
   const removeMed = (i: number) => setRxMeds(prev => prev.filter((_, idx) => idx !== i));
 
+  const { create: createMedMut } = useMedicineMutations();
+
+  const handleAddNewMedicineDirectly = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      const newMed = await createMedMut.mutateAsync({
+        name: trimmed,
+        category: 'Other',
+        defaultDose: '1-0-1',
+        defaultDuration: '5 days'
+      });
+      addMedicine(newMed);
+      toast(`Added "${trimmed}" to prescription & master list.`, 'success');
+    } catch (err) {
+      // Fallback: add directly to current prescription even if saving to DB fails
+      addMedicine({ name: trimmed, category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
+    }
+  };
+
   const filteredMeds = medicinesData.filter(m =>
     m.name.toLowerCase().includes(medQuery.toLowerCase()) &&
     !rxMeds.find(r => r.name === m.name)
   ).slice(0, 50);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const scrollToError = (fieldName: string) => {
+    setTimeout(() => {
+      const el = document.querySelector(`[data-field="${fieldName}"]`) as HTMLElement;
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+      }
+    }, 50);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPatient) { toast('Please select a patient first.', 'error'); return; }
-    if (!form.category) { toast('Please select a visit category.', 'error'); return; }
-    if (!form.chiefComplaints.trim()) { toast('Chief complaints are required.', 'error'); return; }
+    const newErrors: Record<string, string> = {};
+
+    if (!selectedPatient) {
+      newErrors.patient = 'Please select a patient first.';
+    }
+    if (!form.category) {
+      newErrors.category = 'Please select a visit category.';
+    }
+    if (!form.chiefComplaints.trim()) {
+      newErrors.chiefComplaints = 'Chief complaints are required.';
+    }
+
+    // Validate Vitals if entered
+    if (form.bp.trim() && !/^\d{2,3}\/\d{2,3}$/.test(form.bp.trim())) {
+      newErrors.bp = 'BP must be in format Systolic/Diastolic (e.g. 120/80).';
+    }
+    if (form.pulse.trim()) {
+      const p = parseInt(form.pulse.trim(), 10);
+      if (isNaN(p) || p < 30 || p > 250) {
+        newErrors.pulse = 'Pulse must be between 30 and 250 bpm.';
+      }
+    }
+    if (form.temp.trim()) {
+      const t = parseFloat(form.temp.trim());
+      if (isNaN(t) || t < 90 || t > 110) {
+        newErrors.temp = 'Temp must be between 90°F and 110°F.';
+      }
+    }
+    if (form.spo2.trim()) {
+      const s = parseInt(form.spo2.trim(), 10);
+      if (isNaN(s) || s < 50 || s > 100) {
+        newErrors.spo2 = 'SpO2 must be between 50% and 100%.';
+      }
+    }
+    if (form.weight.trim()) {
+      const w = parseFloat(form.weight.trim());
+      if (isNaN(w) || w <= 0 || w > 300) {
+        newErrors.weight = 'Weight must be between 1kg and 300kg.';
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      const firstKey = Object.keys(newErrors)[0];
+      toast(newErrors[firstKey], 'error');
+      scrollToError(firstKey);
+      return;
+    }
+
+    setErrors({});
     setSaving(true);
     try {
       const now = new Date();
       await createVisit.mutateAsync({
-        patientId: selectedPatient.patientId,
+        patientId: selectedPatient!.patientId,
         category: form.category,
         date: now.toISOString(),
         chiefComplaints: form.chiefComplaints.trim(),
@@ -273,7 +308,7 @@ export default function NewVisitForm() {
       clearVisitDraft();
       isFormDirty.current = false;
       toast('OPD Visit saved successfully!', 'success');
-      router.push(`/patients/${selectedPatient.patientId}`);
+      router.push(`/patients/${selectedPatient!.patientId}`);
     } catch (err) {
       toast('Failed to save visit.', 'error');
       setSaving(false);
@@ -375,22 +410,50 @@ export default function NewVisitForm() {
             ].map(v => (
               <div key={v.key} className="vital-card" style={{ textAlign: 'left' }}>
                 <div className="vital-label">{v.label}</div>
-                <input className="form-input" placeholder={v.placeholder}
-                  value={form[v.key as keyof typeof form]} onChange={e => set(v.key, e.target.value)}
-                  style={{ marginTop: 4 }} />
+                <input
+                  data-field={v.key}
+                  className={`form-input ${errors[v.key] ? 'has-error' : ''}`}
+                  placeholder={v.placeholder}
+                  value={form[v.key as keyof typeof form]}
+                  onChange={e => {
+                    const val = v.key === 'bp' ? e.target.value : e.target.value.replace(/-/g, '');
+                    set(v.key, val);
+                    if (errors[v.key]) {
+                      setErrors(err => { const c = { ...err }; delete c[v.key]; return c; });
+                    }
+                  }}
+                  style={{
+                    marginTop: 4,
+                    ...(errors[v.key] ? { border: '2px solid var(--red)' } : {})
+                  }}
+                />
+                {errors[v.key] && <span style={{ color: 'var(--red)', fontSize: '0.72rem', marginTop: 2, display: 'block' }}>{errors[v.key]}</span>}
               </div>
             ))}
           </div>
           <div className="form-group" style={{ marginTop: 12, maxWidth: 200 }}>
             <label className="form-label">Weight (kg)</label>
-            <input className="form-input" placeholder="e.g. 65" value={form.weight} onChange={e => set('weight', e.target.value)} />
+            <input
+              data-field="weight"
+              className={`form-input ${errors.weight ? 'has-error' : ''}`}
+              style={errors.weight ? { border: '2px solid var(--red)' } : {}}
+              placeholder="e.g. 65"
+              type="number"
+              min="0"
+              value={form.weight}
+              onChange={e => {
+                set('weight', e.target.value.replace(/-/g, ''));
+                if (errors.weight) { setErrors(err => { const c = { ...err }; delete c.weight; return c; }); }
+              }}
+            />
+            {errors.weight && <span style={{ color: 'var(--red)', fontSize: '0.72rem', marginTop: 2, display: 'block' }}>{errors.weight}</span>}
           </div>
         </div>
 
         {/* Chief Complaints */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>Chief Complaints</div>
+            <div className="card-title" style={{ marginBottom: 0 }}>Chief Complaints <span className="required">*</span></div>
             <VoiceInputButton
               title="Dictate Chief Complaints"
               onTranscript={(text) => {
@@ -404,8 +467,21 @@ export default function NewVisitForm() {
                 onClick={() => toggleComplaint(c)}>{c}</button>
             ))}
           </div>
-          <textarea className="form-textarea" placeholder="Describe chief complaints in detail…"
-            value={form.chiefComplaints} onChange={e => syncComplaints(e.target.value)} style={{ minHeight: 80 }} />
+          <textarea
+            data-field="chiefComplaints"
+            className={`form-textarea ${errors.chiefComplaints ? 'has-error' : ''}`}
+            style={{
+              minHeight: 80,
+              ...(errors.chiefComplaints ? { border: '2px solid var(--red)' } : {})
+            }}
+            placeholder="Describe chief complaints in detail…"
+            value={form.chiefComplaints}
+            onChange={e => {
+              syncComplaints(e.target.value);
+              if (errors.chiefComplaints) { setErrors(err => { const c = { ...err }; delete c.chiefComplaints; return c; }); }
+            }}
+          />
+          {errors.chiefComplaints && <span style={{ color: 'var(--red)', fontSize: '0.75rem', marginTop: 4, display: 'block' }}>{errors.chiefComplaints}</span>}
         </div>
 
         {/* Diagnosis & Treatment */}
@@ -465,7 +541,7 @@ export default function NewVisitForm() {
                 placeholder="Search medicine to add…"
                 value={medQuery} onChange={e => setMedQuery(e.target.value)} />
             </div>
-            {medQuery && filteredMeds.length > 0 && (
+            {medQuery.trim() !== '' && (
               <div className="search-dropdown">
                 {filteredMeds.map(m => (
                   <div key={m.id} className="search-result" onClick={() => addMedicine(m)}>
@@ -473,6 +549,21 @@ export default function NewVisitForm() {
                     <div className="sr-meta">{m.category} · {m.defaultDose} · {m.defaultDuration}</div>
                   </div>
                 ))}
+                <div
+                  className="search-result"
+                  style={{
+                    color: 'var(--primary)',
+                    fontWeight: 600,
+                    borderTop: filteredMeds.length > 0 ? '1px solid var(--border)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(13, 148, 136, 0.05)'
+                  }}
+                  onClick={() => handleAddNewMedicineDirectly(medQuery)}
+                >
+                  <Plus size={15} /> Add &quot;{medQuery.trim()}&quot; as new medicine
+                </div>
               </div>
             )}
           </div>
@@ -484,7 +575,7 @@ export default function NewVisitForm() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 1fr 1fr auto', gap: 6, padding: '4px 6px', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div className="med-row-header" style={{ display: 'grid', gridTemplateColumns: '2.2fr 1.1fr 1.1fr 2.5fr auto', gap: 8, padding: '4px 6px', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
                 <span>Medicine</span><span>Dose</span><span>Duration</span><span>Instructions</span><span></span>
               </div>
               <datalist id="dose-options">
@@ -494,25 +585,44 @@ export default function NewVisitForm() {
                 {DURATION_OPTIONS.map(d => <option key={d} value={d} />)}
               </datalist>
               {rxMeds.map((m, i) => (
-                <div key={i} className="med-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2.5fr auto', gap: 6, alignItems: 'center' }}>
-                  <input className="form-input" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
-                  <DoseSelector value={m.dose} onChange={v => updateMed(i, 'dose', v)} />
-                  <input className="form-input" list="duration-options" placeholder="Duration" value={m.duration} onChange={e => updateMed(i, 'duration', e.target.value)} />
-                  <InstructionPicker
-                    instructionKeys={m.instructionKeys}
-                    customInstruction={m.customInstruction}
-                    languages={m.instructionLangs}
-                    onChange={({ instructionKeys, customInstruction, languages, formattedText }) => {
-                      setRxMeds(prev => prev.map((item, idx) => idx === i ? {
-                        ...item,
-                        instructions: formattedText,
-                        instructionKeys,
-                        customInstruction,
-                        instructionLangs: languages
-                      } : item));
-                    }}
-                  />
-                  <button type="button" className="btn-icon" onClick={() => removeMed(i)}><Trash2 size={14} /></button>
+                <div key={i} className="med-row">
+                  <div className="med-row-field">
+                    <span className="med-row-field-label" style={{ display: 'none' }}>Medicine Name</span>
+                    <input className="form-input" placeholder="Medicine Name" value={m.name} onChange={e => updateMed(i, 'name', e.target.value)} />
+                  </div>
+                  
+                  <div className="med-row-field">
+                    <span className="med-row-field-label" style={{ display: 'none' }}>Dose</span>
+                    <DoseSelector value={m.dose} onChange={v => updateMed(i, 'dose', v)} />
+                  </div>
+                  <div className="med-row-field">
+                    <span className="med-row-field-label" style={{ display: 'none' }}>Duration</span>
+                    <DurationSelect value={m.duration} onChange={v => updateMed(i, 'duration', v)} />
+                  </div>
+
+                  <div className="med-row-field">
+                    <span className="med-row-field-label" style={{ display: 'none' }}>Instructions</span>
+                    <InstructionPicker
+                      instructionKeys={m.instructionKeys}
+                      customInstruction={m.customInstruction}
+                      languages={m.instructionLangs}
+                      onChange={({ instructionKeys, customInstruction, languages, formattedText }) => {
+                        setRxMeds(prev => prev.map((item, idx) => idx === i ? {
+                          ...item,
+                          instructions: formattedText,
+                          instructionKeys,
+                          customInstruction,
+                          instructionLangs: languages
+                        } : item));
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeMed(i)}>
+                      <Trash2 size={15} /> <span className="mobile-only-inline">Remove Medicine</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </>

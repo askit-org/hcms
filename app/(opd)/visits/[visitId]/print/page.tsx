@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useVisit, usePatient, useSettings } from '@/lib/hooks/useQueries';
 import { Printer, MessageCircle, Share2 } from 'lucide-react';
 import { toast } from '@/components/Toast';
+import { parseDoseToWords } from '@/lib/medicationInstructions';
 
 export default function PrintRxPage({ params }: { params: Promise<{ visitId: string }> }) {
   const { visitId } = use(params);
@@ -20,9 +21,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
     regNo: settings?.regNo || ''
   };
 
-  useEffect(() => {
-    if (visit && patient && settings) window.print();
-  }, [visit, patient, settings]);
+  // Print prescription when user clicks Print button, not automatically on load
 
   if (!visit || !patient) return <div style={{ padding: 40, color: '#888', textAlign: 'center' }}>Loading prescription…</div>;
 
@@ -55,62 +54,36 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
           className="btn btn-secondary" 
           onClick={async () => {
             try {
+              toast('Preparing PDF...', 'info');
               const { jsPDF } = await import('jspdf');
-              const doc = new jsPDF();
-              doc.setFontSize(16);
-              doc.setTextColor(13, 148, 136);
-              doc.text(clinic.doctorName, 20, 20);
-              doc.setFontSize(10);
-              doc.setTextColor(100, 100, 100);
-              doc.text(clinic.degree, 20, 26);
-              doc.text(clinic.clinicName, 20, 32);
-              doc.setDrawColor(200, 200, 200);
-              doc.line(20, 38, 190, 38);
+              const html2canvas = (await import('html2canvas')).default;
+              const element = document.getElementById('prescription');
+              if (!element) return;
 
-              doc.setFontSize(11);
-              doc.setTextColor(30, 30, 30);
-              doc.text(`Patient: ${patient.name}`, 20, 48);
-              doc.text(`ID: ${patient.patientId}`, 130, 48);
-              doc.text(`Age/Gender: ${age || '--'}y / ${patient.gender}`, 20, 56);
-              doc.text(`Date: ${new Date(visit.date).toLocaleDateString('en-IN')}`, 130, 56);
-              doc.line(20, 62, 190, 62);
+              const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: 1200,
+              });
+              const imgData = canvas.toDataURL('image/png');
+              const doc = new jsPDF('p', 'mm', 'a4');
+              const pdfWidth = doc.internal.pageSize.getWidth();
+              const pageHeight = doc.internal.pageSize.getHeight();
+              const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+              
+              let heightLeft = imgHeight;
+              let position = 0;
 
-              let y = 72;
-              if (visit.diagnosis) {
-                doc.setFontSize(12);
-                doc.setTextColor(13, 148, 136);
-                doc.text(`Diagnosis: ${visit.diagnosis}`, 20, y);
-                y += 12;
-              }
+              doc.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+              heightLeft -= pageHeight;
 
-              if (visit.medicines && visit.medicines.length > 0) {
-                doc.setFontSize(14);
-                doc.text('Rx', 20, y);
-                y += 8;
-                doc.setFontSize(11);
-                doc.setTextColor(50, 50, 50);
-                visit.medicines.forEach((m, i) => {
-                  doc.text(`${i+1}. ${m.name}`, 25, y);
-                  doc.text(`${m.dose} x ${m.duration}`, 120, y);
-                  if (m.instructions) {
-                    y += 5;
-                    doc.setFontSize(9);
-                    doc.setTextColor(100, 100, 100);
-                    doc.text(`   ↳ ${m.instructions}`, 25, y);
-                    doc.setFontSize(11);
-                    doc.setTextColor(50, 50, 50);
-                  }
-                  y += 8;
-                });
-              }
-
-              if (visit.prescriptionNotes) {
-                y += 6;
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                const lines = doc.splitTextToSize(`Notes: ${visit.prescriptionNotes}`, 160);
-                doc.text(lines, 20, y);
-                y += lines.length * 6;
+              while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                doc.addPage();
+                doc.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pageHeight;
               }
 
               const blob = doc.output('blob');
@@ -180,6 +153,10 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                 <div className="rx-info-label">Mobile</div>
                 <div className="rx-info-value">{patient.mobile}</div>
               </div>
+              {patient.abhaNumber && <div className="rx-info-item">
+                <div className="rx-info-label">ABHA No.</div>
+                <div className="rx-info-value">{patient.abhaNumber}</div>
+              </div>}
               {visit.bp && <div className="rx-info-item">
                 <div className="rx-info-label">BP / Pulse</div>
                 <div className="rx-info-value">{visit.bp} / {visit.pulse}</div>
@@ -206,25 +183,44 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
 
             {/* Medicines */}
             {visit.medicines && visit.medicines.length > 0 && (
-              <div className="rx-medicines">
-                <div className="rx-symbol">℞</div>
-                <div style={{ overflow: 'hidden' }}>
-                  {visit.medicines.map((m, i) => (
-                    <div key={i} className="rx-med-row" style={{ marginBottom: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                        <span className="rx-med-num">{i + 1}.</span>
-                        <span className="rx-med-name" style={{ fontWeight: 700 }}>{m.name}</span>
-                        <span className="rx-med-dose" style={{ marginLeft: 'auto', fontWeight: 600, color: '#0d9488' }}>
-                          {m.dose} × {m.duration}
-                        </span>
-                      </div>
-                      {m.instructions && (
-                        <div style={{ paddingLeft: 18, color: '#475569', fontSize: '0.8rem', fontStyle: 'italic', marginTop: 2 }}>
-                          👉 {m.instructions}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              <div className="rx-medicines" style={{ marginTop: 12 }}>
+                <div className="rx-symbol" style={{ marginBottom: 6 }}>℞</div>
+                <div style={{ width: '100%', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '1.5px solid #cbd5e1', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 10px', width: '35px', textAlign: 'center' }}>#</th>
+                        <th style={{ padding: '8px 10px' }}>Medicine Name</th>
+                        <th style={{ padding: '8px 10px' }}>Dose Schedule (खुराक)</th>
+                        <th style={{ padding: '8px 10px', width: '90px' }}>Duration</th>
+                        <th style={{ padding: '8px 10px' }}>Instructions (निर्देश)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visit.medicines.map((m, i) => {
+                        const doseWords = parseDoseToWords(m.dose);
+                        return (
+                          <tr key={i} style={{ borderBottom: '1px solid #e2e8f0', background: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'center', color: '#0d9488' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>{m.name}</td>
+                            <td style={{ padding: '8px 10px' }}>
+                              <div style={{ fontWeight: 600, color: '#0d9488' }}>{doseWords.en}</div>
+                              {doseWords.hi && doseWords.hi !== doseWords.en && (
+                                <div style={{ fontSize: '0.74rem', color: '#475569', marginTop: 1 }}>{doseWords.hi}</div>
+                              )}
+                              {doseWords.mr && doseWords.mr !== doseWords.en && doseWords.mr !== doseWords.hi && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 1 }}>{doseWords.mr}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px 10px', fontWeight: 600, color: '#334155' }}>{m.duration}</td>
+                            <td style={{ padding: '8px 10px', color: '#475569', fontSize: '0.78rem' }}>
+                              {m.instructions || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
@@ -244,14 +240,34 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
               </div>
             )}
 
-            {/* Footer */}
-            <div className="rx-footer">
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                {new Date(visit.date).toLocaleString('en-IN')}
+            {/* Footer / Digital Signature */}
+            <div className="rx-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                <div><strong>Prescription Date:</strong> {new Date(visit.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                <div style={{ marginTop: 2 }}><strong>Generated:</strong> {new Date(visit.date).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
               </div>
-              <div style={{ fontWeight: 700, color: '#0d9488', fontSize: '0.9rem' }}>
-                Signature & Stamp
-                <div style={{ width: 120, borderBottom: '1px solid #cbd5e1', marginTop: 20 }}></div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ 
+                  display: 'inline-block', 
+                  border: '1.5px solid #0d9488', 
+                  borderRadius: 8, 
+                  padding: '6px 12px', 
+                  background: 'rgba(13, 148, 136, 0.04)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0d9488', fontWeight: 700 }}>
+                    Digitally Signed & Verified
+                  </div>
+                  <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem', marginTop: 2 }}>
+                    {clinic.doctorName}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: 1 }}>
+                    {clinic.degree ? `${clinic.degree} ` : ''}{clinic.regNo ? `| Reg: ${clinic.regNo}` : ''}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600, marginTop: 2 }}>
+                    🕒 {new Date(visit.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

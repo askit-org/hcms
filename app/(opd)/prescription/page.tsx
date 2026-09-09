@@ -1,15 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit2, Pill, Save, X, Search } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, Edit2, Pill, Save, X, Search, Sunrise, Sun, Moon } from 'lucide-react';
 import { useMedicines, useTemplates, useMedicineMutations, useTemplateMutations } from '@/lib/hooks/useQueries';
-import type { Medicine, Template, PrescribedMedicine } from '@/lib/providers/types';
+import type { Medicine, PrescribedMedicine } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
+import DoseSelector, { DoseDisplay, DurationSelect } from '@/components/DoseSelector';
 
 const CATEGORIES = ['All', 'Antipyretic', 'NSAID', 'Antibiotic', 'Antacid', 'Antiemetic', 'Antidiabetic',
   'Antihypertensive', 'Antihistamine', 'Expectorant', 'Bronchodilator', 'Vitamin', 'Supplement',
   'Antifungal', 'Antiparasitic', 'Antimalarial', 'Thyroid', 'Rehydration', 'Antileukotriene', 'Other'];
+
+const DURATION_PRESETS = ['3 days', '5 days', '7 days', '10 days', '14 days', '30 days'];
+
+
 
 export default function PrescriptionPage() {
   const [tab, setTab] = useState<'medicines' | 'templates'>('medicines');
@@ -24,22 +29,34 @@ export default function PrescriptionPage() {
   const [showMedForm, setShowMedForm] = useState(false);
   const [editMed, setEditMed] = useState<Medicine | null>(null);
   const [showTplForm, setShowTplForm] = useState(false);
+  const [savingMed, setSavingMed] = useState(false);
+  const [savingTpl, setSavingTpl] = useState(false);
 
   const [medForm, setMedForm] = useState({ name: '', category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
   const [tplForm, setTplForm] = useState({ name: '', diagnosis: '', notes: '', medicines: [] as PrescribedMedicine[] });
   const [tplMedQuery, setTplMedQuery] = useState('');
 
   const saveMed = async () => {
+    if (savingMed) return; // Prevent double execution
     if (!medForm.name.trim()) { toast('Medicine name required.', 'error'); return; }
-    if (editMed?.id) {
-      await updateMed.mutateAsync({ id: editMed.id, input: medForm });
-      toast('Medicine updated.', 'success');
-    } else {
-      await createMed.mutateAsync(medForm);
-      toast('Medicine added.', 'success');
+    
+    setSavingMed(true);
+    try {
+      if (editMed?.id) {
+        await updateMed.mutateAsync({ id: editMed.id, input: medForm });
+        toast('Medicine updated.', 'success');
+      } else {
+        await createMed.mutateAsync(medForm);
+        toast('Medicine added.', 'success');
+      }
+      setShowMedForm(false);
+      setEditMed(null);
+      setMedForm({ name: '', category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
+    } catch (err: any) {
+      toast(err.message || 'Failed to save medicine', 'error');
+    } finally {
+      setSavingMed(false);
     }
-    setShowMedForm(false); setEditMed(null);
-    setMedForm({ name: '', category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
   };
 
   const attemptDeleteMed = async (m: Medicine) => {
@@ -49,11 +66,20 @@ export default function PrescriptionPage() {
   };
 
   const saveTpl = async () => {
+    if (savingTpl) return;
     if (!tplForm.name.trim()) { toast('Template name required.', 'error'); return; }
-    await createTpl.mutateAsync(tplForm);
-    toast('Template saved.', 'success');
-    setShowTplForm(false);
-    setTplForm({ name: '', diagnosis: '', notes: '', medicines: [] });
+    
+    setSavingTpl(true);
+    try {
+      await createTpl.mutateAsync(tplForm);
+      toast('Template saved.', 'success');
+      setShowTplForm(false);
+      setTplForm({ name: '', diagnosis: '', notes: '', medicines: [] });
+    } catch (err: any) {
+      toast(err.message || 'Failed to save template', 'error');
+    } finally {
+      setSavingTpl(false);
+    }
   };
 
   const filtered = medicines.filter(m => {
@@ -103,12 +129,17 @@ export default function PrescriptionPage() {
         <>
           {/* Search & Filter */}
           <div className="card card-sm" style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ position: 'relative', flex: 1 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
                 <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                 <input className="form-input" style={{ paddingLeft: 34 }} placeholder="Search medicines…" value={query} onChange={e => setQuery(e.target.value)} />
               </div>
-              <select className="form-select" style={{ width: 180 }} value={catFilter} onChange={e => setCatFilter(e.target.value)}>
+              <select
+                className="form-select"
+                style={{ width: '100%', maxWidth: 200, zIndex: 10 }}
+                value={catFilter}
+                onChange={e => setCatFilter(e.target.value)}
+              >
                 {CATEGORIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
@@ -132,7 +163,7 @@ export default function PrescriptionPage() {
                       {meds.map(m => (
                         <tr key={m.id}>
                           <td style={{ fontWeight: 600 }}>{m.name}</td>
-                          <td><span className="badge badge-blue">{m.defaultDose}</span></td>
+                          <td><DoseDisplay dose={m.defaultDose} /></td>
                           <td style={{ color: 'var(--text-secondary)' }}>{m.defaultDuration}</td>
                           <td>
                             <div style={{ display: 'flex', gap: 6 }}>
@@ -188,7 +219,7 @@ export default function PrescriptionPage() {
       {/* Medicine Form Modal */}
       {showMedForm && (
         <div className="modal-overlay" onClick={() => setShowMedForm(false)}>
-          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+          <div className="modal modal-md" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editMed ? 'Edit Medicine' : 'Add Medicine'}</h3>
               <button className="btn-icon" onClick={() => setShowMedForm(false)}><X size={16} /></button>
@@ -207,17 +238,22 @@ export default function PrescriptionPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Default Dose</label>
-                  <input className="form-input" placeholder="e.g. 1-0-1" value={medForm.defaultDose} onChange={e => setMedForm(f => ({ ...f, defaultDose: e.target.value }))} />
+                  <DoseSelector
+                    value={medForm.defaultDose}
+                    onChange={val => setMedForm(f => ({ ...f, defaultDose: val }))}
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Default Duration</label>
-                  <input className="form-input" placeholder="e.g. 5 days" value={medForm.defaultDuration} onChange={e => setMedForm(f => ({ ...f, defaultDuration: e.target.value }))} />
+                  <DurationSelect value={medForm.defaultDuration} onChange={val => setMedForm(f => ({ ...f, defaultDuration: val }))} />
                 </div>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setShowMedForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveMed}><Save size={15} /> {editMed ? 'Update' : 'Add'} Medicine</button>
+              <button className="btn btn-primary" onClick={saveMed} disabled={savingMed}>
+                <Save size={15} /> {savingMed ? 'Saving…' : editMed ? 'Update Medicine' : 'Add Medicine'}
+              </button>
             </div>
           </div>
         </div>
@@ -251,7 +287,7 @@ export default function PrescriptionPage() {
                     <input 
                       className="form-input form-input-sm" 
                       style={{ paddingLeft: 28 }} 
-                      placeholder="Search across all 200+ medicines…" 
+                      placeholder="Search across medicines…" 
                       value={tplMedQuery}
                       onChange={e => setTplMedQuery(e.target.value)}
                     />
@@ -285,7 +321,9 @@ export default function PrescriptionPage() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setShowTplForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveTpl}><Save size={15} /> Save Template</button>
+              <button className="btn btn-primary" onClick={saveTpl} disabled={savingTpl}>
+                <Save size={15} /> {savingTpl ? 'Saving…' : 'Save Template'}
+              </button>
             </div>
           </div>
         </div>

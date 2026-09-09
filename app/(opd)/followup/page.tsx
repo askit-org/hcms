@@ -78,7 +78,7 @@ export default function FollowUpPage() {
           </div>
         </div>
         <div className="flex-wrap-header-actions">
-          <button className="btn btn-secondary btn-sm" onClick={load}><RefreshCw size={14} /> Refresh</button>
+          <button className="btn btn-secondary" onClick={load}><RefreshCw size={15} /> Refresh</button>
         </div>
       </div>
 

@@ -14,6 +14,8 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Patient } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
+import SubscriptionBanner from '@/components/SubscriptionBanner';
+import OnboardingPlansModal from '@/components/OnboardingPlansModal';
 import { getVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 
 const navItems = [
@@ -27,7 +29,9 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings, group: 'records' },
 ];
 
-function DateTime() {
+import { memo } from 'react';
+
+const DateTime = memo(function DateTime() {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     setNow(new Date());
@@ -41,7 +45,7 @@ function DateTime() {
       <div className="dt-time">{now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
     </div>
   );
-}
+});
 
 function GlobalSearch() {
   const [query, setQuery] = useState('');
@@ -111,6 +115,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [navConfirmTarget, setNavConfirmTarget] = useState<string | null>(null);
+  const [showOnboardingPlans, setShowOnboardingPlans] = useState(false);
 
   useEffect(() => {
     if (useAuth.persist.hasHydrated()) {
@@ -125,10 +130,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    if (hasHydrated && !isAuthenticated) {
-      router.push('/login');
+    if (hasHydrated) {
+      if (!isAuthenticated) {
+        router.push('/login');
+      } else if (user && user.subscription && user.subscription.hasSelectedPlan === false) {
+        setShowOnboardingPlans(true);
+      }
     }
-  }, [hasHydrated, isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, user, router]);
 
   const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
@@ -247,6 +256,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {followUpCount} follow-up{followUpCount > 1 ? 's' : ''} today
               </Link>
             )}
+            <SubscriptionBanner />
             <ThemeToggle />
           </div>
         </header>
@@ -311,6 +321,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </AnimatePresence>
+      {/* Onboarding Welcome & Plan Selection Modal */}
+      <OnboardingPlansModal 
+        isOpen={showOnboardingPlans} 
+        onClose={() => setShowOnboardingPlans(false)} 
+      />
     </div>
   );
 }

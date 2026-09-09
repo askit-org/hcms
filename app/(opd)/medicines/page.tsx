@@ -10,6 +10,7 @@ import { toast } from '@/components/Toast';
 import type { Medicine } from '@/lib/db';
 import { motion, AnimatePresence } from 'framer-motion';
 import BulkImportModal from '@/components/BulkImportModal';
+import DoseSelector, { DoseDisplay, DurationSelect } from '@/components/DoseSelector';
 
 const MEDICINE_CATEGORIES = [
   'Antibiotic', 'Antipyretic', 'NSAID', 'Antacid', 'Antiemetic', 
@@ -148,12 +149,12 @@ export default function MedicinesPage() {
 
                   <div className="form-group">
                     <label className="form-label">Default Dosage <span style={{ color: 'var(--text-muted)' }}>(opt)</span></label>
-                    <input className="form-input" placeholder="e.g. 1-0-1" value={form.defaultDose} onChange={e => setF('defaultDose', e.target.value)} />
+                    <DoseSelector value={form.defaultDose} onChange={v => setF('defaultDose', v)} />
                   </div>
                   
                   <div className="form-group">
                     <label className="form-label">Default Duration <span style={{ color: 'var(--text-muted)' }}>(opt)</span></label>
-                    <input className="form-input" placeholder="e.g. 5 days" value={form.defaultDuration} onChange={e => setF('defaultDuration', e.target.value)} />
+                    <DurationSelect value={form.defaultDuration} onChange={v => setF('defaultDuration', v)} />
                   </div>
                 </div>
                 <div className="modal-footer">
@@ -206,28 +207,33 @@ export default function MedicinesPage() {
         </div>
       </div>
 
-      <div className="card card-sm" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) auto', gap: 10 }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              className="form-input"
-              style={{ paddingLeft: 34 }}
-              placeholder="Search by name or category…"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-          </div>
-          <select 
-            className="form-select" 
-            value={filterCategory} 
-            onChange={e => setFilterCategory(e.target.value)}
-            style={{ width: '180px' }}
-          >
-            <option value="All">All Categories</option>
-            {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+      <div className="filter-bar" style={{ marginBottom: 16 }}>
+        <div className="search-input-wrap" style={{ flex: 1, minWidth: 220, position: 'relative' }}>
+          <span className="s-icon"><Search size={15} /></span>
+          <input
+            className="search-input"
+            placeholder="Search by name or category…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+              onClick={() => setQuery('')}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
+        <select 
+          className="form-select" 
+          value={filterCategory} 
+          onChange={e => setFilterCategory(e.target.value)}
+          style={{ width: '180px' }}
+        >
+          <option value="All">All Categories</option>
+          {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       {filteredMedicines.length === 0 ? (
@@ -263,7 +269,7 @@ export default function MedicinesPage() {
                   <td><span className="badge badge-purple">{m.category}</span></td>
                   <td>
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      {m.defaultDose ? <strong>{m.defaultDose}</strong> : '—'} · {m.defaultDuration || '—'}
+                      {m.defaultDose ? <DoseDisplay dose={m.defaultDose} /> : '—'} · {m.defaultDuration || '—'}
                     </div>
                   </td>
                   <td style={{ textAlign: 'right' }}>
