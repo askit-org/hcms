@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, QrCode, CheckCircle2, ShieldCheck, Copy, Sparkles, CreditCard } from 'lucide-react';
 import { toast } from '@/components/Toast';
@@ -16,7 +17,23 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
   const [paymentRef, setPaymentRef] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { verifyPayment } = useSubscriptionMutations();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   const upiId = 'hcms.pay@upi';
   const price = 299;
@@ -55,13 +72,14 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
     }
   };
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="modal-overlay" style={{ zIndex: 100000, background: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(8px)' }}>
+      <div className="modal-overlay" style={{ zIndex: 1000010, background: 'rgba(10, 15, 30, 0.88)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
         <motion.div
           className="modal payment-modal"
+          style={{ zIndex: 1000020 }}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -70,7 +88,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
           <div
             style={{
               position: 'absolute',
-              top: -60,
+              top: 0,
               left: '50%',
               transform: 'translateX(-50%)',
               width: 320,
@@ -288,6 +306,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

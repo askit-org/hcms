@@ -284,15 +284,60 @@ body::before {
   width: 100%;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px 8px 34px;
+  border-radius: 10px;
+  padding: 10px 14px 10px 38px;
   color: var(--text-primary);
-  font-size: 0.84rem;
+  font-size: 0.88rem;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.search-input:focus { border-color: var(--accent); }
+.search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .search-input::placeholder { color: var(--text-muted); }
+
+/* ─── Filter Bar & Category Pills ────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.cat-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cat-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cat-pill:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.cat-pill.active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
 .search-dropdown {
   position: absolute;
   top: calc(100% + 6px);
@@ -580,13 +625,16 @@ body::before {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: var(--modal-bg);
-  backdrop-filter: blur(4px);
-  z-index: 1000;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 999999;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation: fadeModalIn 0.15s ease;
 }
 @keyframes fadeModalIn { from { opacity: 0; } to { opacity: 1; } }
@@ -595,15 +643,16 @@ body::before {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 14px;
+  border-radius: 20px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
+  margin: auto;
   box-shadow: var(--modal-shadow);
   animation: slideModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes slideModalIn {
-  from { transform: translateY(20px) scale(0.98); opacity: 0; }
+  from { transform: translateY(16px) scale(0.98); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 .modal-sm { max-width: 440px; }
@@ -615,9 +664,10 @@ body::before {
 
 /* ─── Subscription & Payment Modals ────────────────────────────── */
 .subscription-modal, .payment-modal {
-  width: 94%;
-  max-height: 90vh;
+  width: 100%;
+  max-height: calc(100vh - 48px);
   overflow-y: auto !important;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: var(--surface-solid);
   border-radius: 24px;
