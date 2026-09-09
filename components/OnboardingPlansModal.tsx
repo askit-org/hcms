@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -20,6 +21,22 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
   const { selectPlan } = useSubscriptionMutations();
   const [loadingTrial, setLoadingTrial] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   const doctorName = user?.doctorName || 'Doctor';
 
@@ -44,17 +61,18 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       <AnimatePresence>
         <div
           className="modal-overlay"
           style={{
-            zIndex: 99990,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(12px)',
+            zIndex: 999999,
+            background: 'rgba(10, 15, 30, 0.85)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
           }}
           onClick={(e) => {
             if (isLockout) e.stopPropagation();
@@ -62,6 +80,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
         >
           <motion.div
             className="modal subscription-modal"
+            style={{ display: showPaymentModal ? 'none' : 'block', zIndex: 1000000 }}
             initial={{ opacity: 0, scale: 0.94, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 24 }}
@@ -71,7 +90,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
             <div
               style={{
                 position: 'absolute',
-                top: -80,
+                top: 0,
                 left: '50%',
                 transform: 'translateX(-50%)',
                 width: 440,
@@ -370,6 +389,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
           onClose();
         }}
       />
-    </>
+    </>,
+    document.body
   );
 }

@@ -181,110 +181,119 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* ── Filters Bar ────────────────────────────────────────────── */}
-      <div className="filter-bar">
-        {/* Category Tabs */}
-        <div className="cat-pills">
-          {['All', ...categoryOptions.map(o => o.value)].map(cat => (
-            <button
-              key={cat}
-              className={`cat-pill ${category === cat ? 'active' : ''}`}
-              onClick={() => { setCategory(cat); setDisplayedLimit(25); }}
-            >
-              {cat}
-            </button>
-          ))}
+      {/* ── Filters & Search Controls ────────────────────────────────── */}
+      <div className="filter-bar" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+        {/* Top Control Row: Tabs & Date Filter Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          {/* Category Tabs */}
+          <div className="cat-pills" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {['All', ...categoryOptions.map(o => o.value)].map(cat => (
+              <button
+                key={cat}
+                className={`cat-pill ${category === cat ? 'active' : ''}`}
+                onClick={() => { setCategory(cat); setDisplayedLimit(25); }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Date Filter Toggle Button */}
+          <button
+            className={`btn btn-secondary btn-sm ${hasDateFilter ? 'active' : ''}`}
+            onClick={() => setShowDateFilter(!showDateFilter)}
+            style={{ position: 'relative', height: 36, padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Calendar size={14} />
+            {hasDateFilter ? 'Filtered' : 'Filter Date'}
+            {hasDateFilter && <span className="filter-dot" />}
+          </button>
         </div>
 
-        {/* Date Filter Toggle Button */}
-        <button
-          className={`btn btn-secondary btn-sm ${hasDateFilter ? 'active' : ''}`}
-          onClick={() => setShowDateFilter(!showDateFilter)}
-          style={{ position: 'relative' }}
-        >
-          <Calendar size={14} />
-          {hasDateFilter ? 'Filtered' : 'Filter Date'}
-          {hasDateFilter && <span className="filter-dot" />}
-        </button>
-
-        {/* Date Pickers Row */}
+        {/* Date Pickers Expansion Panel */}
         {showDateFilter && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', padding: '4px 8px', borderRadius: 8, border: isInvalidDateRange ? '1px solid var(--red)' : '1px solid var(--border)', flexWrap: 'wrap' }}>
-            <input
-              type="date"
-              className="form-input"
-              style={{
-                padding: '4px 8px', fontSize: '0.8rem', width: 'auto',
-                ...(isInvalidDateRange ? { border: '1.5px solid var(--red)' } : {})
-              }}
-              value={fromDate}
-              max={toDate || new Date().toISOString().split('T')[0]}
-              onChange={e => {
-                const val = e.target.value;
-                setFromDate(val);
-                if (toDate && val > toDate) {
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-2)', padding: '10px 14px', borderRadius: 12, border: isInvalidDateRange ? '1px solid var(--red)' : '1px solid var(--border)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>From:</span>
+              <input
+                type="date"
+                className="form-input"
+                style={{
+                  padding: '6px 10px', fontSize: '0.82rem', width: 'auto', borderRadius: 8,
+                  ...(isInvalidDateRange ? { border: '1.5px solid var(--red)' } : {})
+                }}
+                value={fromDate}
+                max={toDate || new Date().toISOString().split('T')[0]}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFromDate(val);
+                  if (toDate && val > toDate) {
+                    setToDate(val);
+                  }
+                  setDisplayedLimit(25);
+                }}
+                title="From Registration Date"
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>To:</span>
+              <input
+                type="date"
+                className="form-input"
+                style={{
+                  padding: '6px 10px', fontSize: '0.82rem', width: 'auto', borderRadius: 8,
+                  ...(isInvalidDateRange ? { border: '1.5px solid var(--red)' } : {})
+                }}
+                value={toDate}
+                min={fromDate}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (fromDate && val < fromDate) {
+                    toast('To Date cannot be older than From Date.', 'error');
+                    setToDate(fromDate);
+                    return;
+                  }
                   setToDate(val);
-                }
-                setDisplayedLimit(25);
-              }}
-              title="From Registration Date"
-            />
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>to</span>
-            <input
-              type="date"
-              className="form-input"
-              style={{
-                padding: '4px 8px', fontSize: '0.8rem', width: 'auto',
-                ...(isInvalidDateRange ? { border: '1.5px solid var(--red)' } : {})
-              }}
-              value={toDate}
-              min={fromDate}
-              onChange={e => {
-                const val = e.target.value;
-                if (fromDate && val < fromDate) {
-                  toast('To Date cannot be older than From Date.', 'error');
-                  setToDate(fromDate);
-                  return;
-                }
-                setToDate(val);
-                setDisplayedLimit(25);
-              }}
-              title="To Registration Date"
-            />
+                  setDisplayedLimit(25);
+                }}
+                title="To Registration Date"
+              />
+            </div>
             {isInvalidDateRange && (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={swapDates}
-                style={{ padding: '3px 8px', fontSize: '0.75rem', gap: 4 }}
+                style={{ padding: '6px 12px', fontSize: '0.78rem', gap: 4 }}
                 title="Swap From and To dates"
               >
                 <ArrowLeftRight size={12} /> Swap
               </button>
             )}
             {hasDateFilter && (
-              <button className="btn-icon" onClick={clearDateFilter} title="Clear Date Filter">
-                <X size={13} />
+              <button className="btn-icon" onClick={clearDateFilter} title="Clear Date Filter" style={{ marginLeft: 'auto' }}>
+                <X size={14} />
               </button>
             )}
           </div>
         )}
 
-        {/* Text Search */}
-        <div className="search-input-wrap" style={{ flex: 1, minWidth: 220, position: 'relative' }}>
-          <span className="s-icon"><Search size={15} /></span>
+        {/* Text Search Input Bar */}
+        <div className="search-input-wrap" style={{ width: '100%', position: 'relative' }}>
+          <span className="s-icon" style={{ left: 14 }}><Search size={16} /></span>
           <input
             className="search-input"
+            style={{ padding: '12px 14px 12px 42px', fontSize: '0.9rem', borderRadius: 12 }}
             placeholder="Search name, mobile, ABHA, or ID…"
             value={query}
             onChange={e => { setQuery(e.target.value); setDisplayedLimit(25); }}
           />
           {query && (
             <button
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+              style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
               onClick={() => setQuery('')}
             >
-              <X size={14} />
+              <X size={16} />
             </button>
           )}
         </div>

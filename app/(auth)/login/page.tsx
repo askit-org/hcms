@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Activity, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import { motion } from 'framer-motion';
@@ -17,7 +18,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const { authLogin } = useAuthMutations();
+
+  useEffect(() => {
+    if (useAuth.persist.hasHydrated()) {
+      if (isAuthenticated) {
+        router.replace('/dashboard');
+      }
+    } else {
+      const unsub = useAuth.persist.onFinishHydration((state) => {
+        if (state.isAuthenticated) {
+          router.replace('/dashboard');
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

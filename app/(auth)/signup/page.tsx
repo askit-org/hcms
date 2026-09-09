@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Activity, UserPlus, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,7 +16,23 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const { authSignup } = useAuthMutations();
+
+  useEffect(() => {
+    if (useAuth.persist.hasHydrated()) {
+      if (isAuthenticated) {
+        router.replace('/dashboard');
+      }
+    } else {
+      const unsub = useAuth.persist.onFinishHydration((state) => {
+        if (state.isAuthenticated) {
+          router.replace('/dashboard');
+        }
+      });
+      return () => unsub();
+    }
+  }, [isAuthenticated, router]);
 
   const [form, setForm] = useState({
     doctorName: '', email: '', password: '', 
