@@ -61,22 +61,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
     <AnimatePresence>
       <div className="modal-overlay" style={{ zIndex: 100000, background: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(8px)' }}>
         <motion.div
-          className="modal modal-lg"
+          className="modal payment-modal"
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          style={{
-            maxWidth: 580,
-            width: '90%',
-            background: 'var(--surface-solid)',
-            borderRadius: '20px',
-            border: '1px solid var(--border)',
-            padding: '28px',
-            boxShadow: 'var(--modal-shadow)',
-            position: 'relative',
-            overflow: 'hidden',
-            color: 'var(--text-primary)',
-          }}
         >
           {/* Top Decorative Glow */}
           <div
@@ -97,19 +85,20 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
             onClick={onClose}
             style={{
               position: 'absolute',
-              top: 18,
-              right: 18,
+              top: 14,
+              right: 14,
               background: 'var(--surface-3)',
               border: '1px solid var(--border)',
               borderRadius: '50%',
-              width: 32,
-              height: 32,
+              width: 36,
+              height: 36,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
+              zIndex: 20,
             }}
             title="Close"
           >
@@ -117,47 +106,40 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
           </button>
 
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ textAlign: 'center', marginBottom: 20, paddingRight: 24 }}>
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                padding: '6px 14px',
+                padding: '5px 12px',
                 borderRadius: 20,
                 background: 'var(--accent-glow)',
                 color: 'var(--accent)',
-                fontSize: '0.82rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
-                marginBottom: 12,
+                marginBottom: 10,
                 border: '1px solid rgba(13, 148, 136, 0.2)',
               }}
             >
               <Sparkles size={14} /> HCMS Premium Upgrade
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-primary)', lineHeight: 1.3 }}>
               Scan QR Code to Pay ₹{price}
             </h2>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', margin: 0 }}>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
               Scan using any UPI app (GPay, PhonePe, Paytm, BHIM) and enter UTR to activate instantly.
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: 24,
-              alignItems: 'center',
-              marginBottom: 24,
-            }}
-          >
+          <div className="payment-grid">
             {/* QR Box */}
             <div
+              className="payment-qr-box"
               style={{
                 background: '#ffffff',
                 borderRadius: '16px',
-                padding: '20px',
+                padding: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -167,7 +149,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
               }}
             >
               {/* Clean Vector SVG QR Code Mockup with HCMS Theme Colors */}
-              <svg width="170" height="170" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="150" height="150" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: '100%', height: 'auto' }}>
                 <rect width="200" height="200" fill="white" rx="12" />
                 
                 {/* Outer Markers */}
@@ -188,14 +170,16 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
                 <text x="100" y="104" fontSize="10" fontWeight="bold" fill="white" textAnchor="middle">₹299</text>
               </svg>
 
-              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: '#475569' }}>
-                <QrCode size={14} color="#0d9488" /> UPI ID: <strong style={{ color: '#0f172a' }}>{upiId}</strong>
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: '#475569', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <QrCode size={13} color="#0d9488" /> UPI ID: <strong style={{ color: '#0f172a' }}>{upiId}</strong>
+                </span>
                 <button
                   onClick={handleCopyUpi}
                   style={{
                     background: 'none',
                     border: 'none',
-                    padding: 2,
+                    padding: 4,
                     cursor: 'pointer',
                     color: copied ? '#10b981' : '#0d9488',
                     display: 'inline-flex',
@@ -203,19 +187,19 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
                   }}
                   title="Copy UPI ID"
                 >
-                  <Copy size={13} />
+                  <Copy size={14} />
                 </button>
               </div>
             </div>
 
             {/* Form Box */}
-            <form onSubmit={handleConfirmPayment} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ background: 'var(--surface-1)', padding: 14, borderRadius: 12, border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.85rem' }}>
+            <form onSubmit={handleConfirmPayment} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ background: 'var(--surface-1)', padding: 12, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.82rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Amount Due:</span>
                   <span style={{ fontWeight: 700, color: 'var(--green)' }}>₹{price}.00</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Validity:</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>1 Month / 30 Days</span>
                 </div>
@@ -237,12 +221,12 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
                     border: '1px solid var(--border)',
                     background: 'var(--surface-1)',
                     color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
+                    fontSize: '16px', // 16px prevents mobile auto-zoom
                     outline: 'none',
                   }}
                   required
                 />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
                   Found in your payment app under receipt details.
                 </span>
               </div>
@@ -256,7 +240,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
                   padding: '12px',
                   borderRadius: 10,
                   fontWeight: 600,
-                  fontSize: '0.92rem',
+                  fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -266,6 +250,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
                   color: '#ffffff',
                   cursor: isVerifying ? 'wait' : 'pointer',
                   boxShadow: '0 4px 14px var(--accent-glow)',
+                  minHeight: 44,
                 }}
               >
                 {isVerifying ? (
@@ -286,15 +271,16 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
           {/* Developer Notice Note / Future Integration Marker */}
           <div
             style={{
-              fontSize: '0.75rem',
+              fontSize: '0.74rem',
               color: 'var(--text-muted)',
               textAlign: 'center',
               borderTop: '1px solid var(--border)',
-              paddingTop: 12,
+              paddingTop: 10,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
+              flexWrap: 'wrap',
             }}
           >
             <CreditCard size={12} />

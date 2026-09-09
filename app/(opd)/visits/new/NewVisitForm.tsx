@@ -14,6 +14,7 @@ import VoiceInputButton from '@/components/VoiceInputButton';
 import { getVisitDraft, saveVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 import InstructionPicker from '@/components/InstructionPicker';
 import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
+import { visitSchema, validateForm } from '@/lib/validations/schemas';
 
 
 const QUICK_COMPLAINTS = [
@@ -232,55 +233,35 @@ export default function NewVisitForm() {
       }
     }, 50);
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: Record<string, string> = {};
+    
+    const visitPayload = {
+      patientId: selectedPatient?.patientId || '',
+      category: form.category,
+      chiefComplaints: form.chiefComplaints,
+      diagnosis: form.diagnosis,
+      bp: form.bp,
+      pulse: form.pulse,
+      temp: form.temp,
+      spo2: form.spo2,
+      weight: form.weight,
+    };
+
+    const { isValid, errors: validationErrors } = await validateForm(visitSchema, visitPayload);
+    const newErrors: Record<string, string> = { ...validationErrors as Record<string, string> };
 
     if (!selectedPatient) {
-      newErrors.patient = 'Please select a patient first.';
-    }
-    if (!form.category) {
-      newErrors.category = 'Please select a visit category.';
-    }
-    if (!form.chiefComplaints.trim()) {
-      newErrors.chiefComplaints = 'Chief complaints are required.';
-    }
-
-    // Validate Vitals if entered
-    if (form.bp.trim() && !/^\d{2,3}\/\d{2,3}$/.test(form.bp.trim())) {
-      newErrors.bp = 'BP must be in format Systolic/Diastolic (e.g. 120/80).';
-    }
-    if (form.pulse.trim()) {
-      const p = parseInt(form.pulse.trim(), 10);
-      if (isNaN(p) || p < 30 || p > 250) {
-        newErrors.pulse = 'Pulse must be between 30 and 250 bpm.';
-      }
-    }
-    if (form.temp.trim()) {
-      const t = parseFloat(form.temp.trim());
-      if (isNaN(t) || t < 90 || t > 110) {
-        newErrors.temp = 'Temp must be between 90°F and 110°F.';
-      }
-    }
-    if (form.spo2.trim()) {
-      const s = parseInt(form.spo2.trim(), 10);
-      if (isNaN(s) || s < 50 || s > 100) {
-        newErrors.spo2 = 'SpO2 must be between 50% and 100%.';
-      }
-    }
-    if (form.weight.trim()) {
-      const w = parseFloat(form.weight.trim());
-      if (isNaN(w) || w <= 0 || w > 300) {
-        newErrors.weight = 'Weight must be between 1kg and 300kg.';
-      }
+      newErrors.patient = 'Please search and select a patient first.';
     }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      const firstKey = Object.keys(newErrors)[0];
-      toast(newErrors[firstKey], 'error');
-      scrollToError(firstKey);
+      const firstErrorField = Object.keys(newErrors)[0];
+      if (firstErrorField && newErrors[firstErrorField]) {
+        toast(newErrors[firstErrorField], 'error');
+        scrollToError(firstErrorField);
+      }
       return;
     }
 
@@ -371,7 +352,7 @@ export default function NewVisitForm() {
           <div className="form-group" style={{ maxWidth: 300 }}>
             <label className="form-label">Visit Category <span className="required">*</span></label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)} required>
+              <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
                 <option value="" disabled>Select category...</option>
                 <option value="OPD">OPD</option>
                 <option value="IPD">IPD</option>

@@ -56,10 +56,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response Interceptor: Surface any backend/API error message automatically in toast notification
+// Response Interceptor: Surface backend error messages in toast, but suppress auth token errors on logout
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
+    const errorMsg = error.response?.data?.error || error.response?.data?.message || '';
+    const isAuthError =
+      status === 401 ||
+      (typeof errorMsg === 'string' && (errorMsg.toLowerCase().includes('token') || errorMsg.toLowerCase().includes('unauthorized')));
+
+    // If user is logged out or token error occurred, suppress toast popup & clean auth state
+    if (isAuthError || !useAuth.getState().isAuthenticated) {
+      if (useAuth.getState().isAuthenticated) {
+        useAuth.getState().logout();
+      }
+      return Promise.reject(error);
+    }
+
     let message = 'An unexpected error occurred';
     if (error.response?.data?.message) {
       message = Array.isArray(error.response.data.message)
@@ -71,7 +85,7 @@ api.interceptors.response.use(
       message = error.message;
     }
 
-    // Trigger global toast alert for any failed API call
+    // Trigger global toast alert for legitimate operational errors
     toast(message, 'error');
 
     return Promise.reject(error);

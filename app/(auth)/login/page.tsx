@@ -3,34 +3,38 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Activity, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Activity, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import { motion } from 'framer-motion';
+
+import { loginSchema, validateForm } from '@/lib/validations/schemas';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const { authLogin } = useAuthMutations();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast('Please fill all fields', 'error');
+
+    const { isValid, errors: validationErrors } = await validateForm(loginSchema, { email, password });
+    if (!isValid) {
+      setErrors(validationErrors as Record<string, string>);
       return;
     }
 
     setLoading(true);
-
     try {
       await authLogin.mutateAsync({ email, password });
-      toast('Welcome back!', 'success');
+      toast('Login successful! Welcome back.', 'success');
       router.push('/dashboard');
     } catch (err: any) {
-      toast(err.message || 'Network error occurred', 'error');
+      toast(err?.message || 'Login failed. Please check credentials.', 'error');
     } finally {
       setLoading(false);
     }
@@ -38,35 +42,42 @@ export default function LoginPage() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className="card"
-      style={{ padding: '32px 24px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(255,255,255,0.05)' }}
+      style={{ width: '100%', maxWidth: '440px', padding: '36px' }}
     >
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
         <div style={{
-          width: 56, height: 56, borderRadius: 16, background: 'var(--accent-glow)',
-          color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 16px'
+          width: 52, height: 52, borderRadius: 14,
+          background: 'rgba(59, 130, 246, 0.15)',
+          color: 'var(--accent)', display: 'inline-flex',
+          alignItems: 'center', justifyContent: 'center', marginBottom: 12
         }}>
-          <Activity size={32} />
+          <Activity size={28} />
         </div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Welcome to HCMS</h1>
+        <h2 style={{ margin: '0 0 6px 0', fontSize: '1.5rem', fontWeight: 700 }}>Welcome Back</h2>
         <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>Enter your credentials to access the clinic</p>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <form noValidate onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label">Email Address</label>
           <input
             type="email"
-            className="form-input"
+            className={`form-input ${errors.email ? 'has-error' : ''}`}
+            style={errors.email ? { border: '2px solid var(--red)' } : {}}
             placeholder="doctor@clinic.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors(prev => ({ ...prev, email: '' })); }}
             disabled={loading}
           />
+          {errors.email && (
+            <span style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <AlertCircle size={14} color="var(--red)" /> {errors.email}
+            </span>
+          )}
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
@@ -79,12 +90,12 @@ export default function LoginPage() {
           <div style={{ position: 'relative' }}>
             <input
               type={showPassword ? 'text' : 'password'}
-              className="form-input"
+              className={`form-input ${errors.password ? 'has-error' : ''}`}
+              style={{ paddingRight: '40px', ...(errors.password ? { border: '2px solid var(--red)' } : {}) }}
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors(prev => ({ ...prev, password: '' })); }}
               disabled={loading}
-              style={{ paddingRight: '40px' }}
             />
             <button
               type="button"
@@ -109,6 +120,11 @@ export default function LoginPage() {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {errors.password && (
+            <span style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <AlertCircle size={14} color="var(--red)" /> {errors.password}
+            </span>
+          )}
         </div>
 
         <button

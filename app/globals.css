@@ -612,6 +612,86 @@ body::before {
 .modal-xl {
   max-width: 1050px;
 }
+
+/* ─── Subscription & Payment Modals ────────────────────────────── */
+.subscription-modal, .payment-modal {
+  width: 94%;
+  max-height: 90vh;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface-solid);
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  box-shadow: var(--modal-shadow);
+  position: relative;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.subscription-modal {
+  max-width: 740px;
+  padding: 32px 28px;
+}
+
+.payment-modal {
+  max-width: 580px;
+  padding: 28px 24px;
+}
+
+.subscription-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 680px) {
+  .modal-overlay {
+    padding: 10px !important;
+  }
+  
+  .subscription-modal, .payment-modal {
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px !important;
+    padding: 20px 16px !important;
+    margin: 0 !important;
+  }
+
+  .subscription-grid, .payment-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .subscription-modal-header h1 {
+    font-size: 1.25rem !important;
+  }
+
+  .subscription-modal-header p {
+    font-size: 0.82rem !important;
+  }
+
+  .payment-qr-box {
+    padding: 16px !important;
+    margin: 0 auto;
+    width: 100% !important;
+    max-width: 280px !important;
+  }
+
+  .payment-modal input[type="text"] {
+    font-size: 16px !important;
+  }
+}
 .modal-header {
   display: flex;
   align-items: center;

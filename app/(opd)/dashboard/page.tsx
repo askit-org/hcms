@@ -14,10 +14,10 @@ import ErrorState from '@/components/ErrorState';
 export default function DashboardPage() {
   const { data: stats, isLoading: loading, error } = useDashboardStats();
 
-  if (loading) return <LoadingScreen message="Loading today's summary…" />;
+  if (loading || !stats) return <LoadingScreen message="Loading today's summary…" />;
   if (error) return <ErrorState message="Could not load your dashboard stats." />;
 
-  const s = stats!;
+  const s = stats;
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const container = {

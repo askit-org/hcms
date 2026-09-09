@@ -47,19 +47,21 @@ export const keys = {
 
 export function usePatients(params?: PatientListParams) {
   const provider = useProviderStore(s => s.provider);
-  // Important: we include params in the queryKey so it refetches on search
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: [...keys.patients(), params],
     queryFn: () => provider.listPatients(params),
+    enabled: isAuthenticated && !!token,
   });
 }
 
 export function usePatient(id: string) {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.patient(id),
     queryFn: () => provider.getPatient(id),
-    enabled: !!id,
+    enabled: isAuthenticated && !!token && !!id,
   });
 }
 
@@ -100,33 +102,38 @@ export function usePatientMutations() {
 
 export function usePatientVisits(patientId: string) {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.patientVisits(patientId),
     queryFn: () => provider.getPatientVisits(patientId),
-    enabled: !!patientId,
+    enabled: isAuthenticated && !!token && !!patientId,
   });
 }
 
 export function useVisit(id: number) {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.visit(id),
     queryFn: () => provider.getVisit(id),
-    enabled: !!id,
+    enabled: isAuthenticated && !!token && !!id,
   });
 }
 
 export function useFollowUps() {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   
   const today = useQuery({
     queryKey: [...keys.followups(), 'today'],
     queryFn: () => provider.getTodayFollowUps(),
+    enabled: isAuthenticated && !!token,
   });
 
   const upcoming = useQuery({
     queryKey: [...keys.followups(), 'upcoming'],
     queryFn: () => provider.getUpcomingFollowUps(30),
+    enabled: isAuthenticated && !!token,
   });
 
   return { today, upcoming };
@@ -150,7 +157,6 @@ export function useVisitMutations() {
       provider.updateVisit(id, input),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: keys.visit(id) });
-      // We invalidate all visits to be safe covering patient history
       qc.invalidateQueries({ queryKey: keys.visits() }); 
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
@@ -172,18 +178,22 @@ export function useVisitMutations() {
 
 export function useDashboardStats() {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.dashboard(),
     queryFn: () => provider.getDashboardStats(),
+    enabled: isAuthenticated && !!token,
   });
 }
 
 // ── Reports ────────────────────────────────────────────────────
 export function useReports(startDate: string, endDate: string) {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: [...keys.visits(), 'reports', { startDate, endDate }],
     queryFn: () => provider.listVisits({ startDate, endDate }),
+    enabled: isAuthenticated && !!token && !!startDate && !!endDate,
   });
 }
 
@@ -191,9 +201,11 @@ export function useReports(startDate: string, endDate: string) {
 
 export function useMedicines(params?: MedicineListParams) {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: [...keys.medicines(), params],
     queryFn: () => provider.listMedicines(params),
+    enabled: isAuthenticated && !!token,
   });
 }
 
@@ -227,9 +239,11 @@ export function useMedicineMutations() {
 
 export function useTemplates() {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.templates(),
     queryFn: () => provider.listTemplates(),
+    enabled: isAuthenticated && !!token,
   });
 }
 
@@ -254,9 +268,11 @@ export function useTemplateMutations() {
 
 export function useAppOptions(type?: string) {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: [...keys.options(), type],
     queryFn: () => provider.listOptions(type),
+    enabled: isAuthenticated && !!token,
   });
 }
 
@@ -281,9 +297,11 @@ export function useAppOptionMutations() {
 
 export function useSettings() {
   const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.settings(),
     queryFn: () => provider.getSettings(),
+    enabled: isAuthenticated && !!token,
   });
 }
 
@@ -350,7 +368,7 @@ export function useAuthMutations() {
 
 export function useSubscription() {
   const provider = useProviderStore(s => s.provider);
-  const { updateSubscription } = useAuth();
+  const { updateSubscription, isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.subscription(),
     queryFn: async () => {
@@ -360,6 +378,7 @@ export function useSubscription() {
       }
       return sub;
     },
+    enabled: isAuthenticated && !!token,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
     refetchOnWindowFocus: false,
   });
