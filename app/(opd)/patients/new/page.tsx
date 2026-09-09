@@ -8,6 +8,8 @@ import { usePatientMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import PageTransition from '@/components/PageTransition';
 
+import { patientSchema, validateForm } from '@/lib/validations/schemas';
+
 const COMMON_CONDITIONS = [
   'Hypertension (BP)',
   'Diabetes (Sugar)',
@@ -91,30 +93,18 @@ export default function NewPatientPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: Record<string, string> = {};
+    
+    // Run Yup Schema Validation
+    const { isValid, errors: validationErrors } = await validateForm(patientSchema, form);
 
-    if (!form.name.trim()) {
-      newErrors.name = 'Patient full name is required.';
-    }
-
-    const mobileDigits = form.mobile.replace(/\D/g, '');
-    if (mobileDigits.length < 10) {
-      newErrors.mobile = 'Please enter a valid 10-digit mobile number.';
-    }
-
-    if (form.age && (parseInt(form.age, 10) < 0 || parseInt(form.age, 10) > 150)) {
-      newErrors.age = 'Age must be between 0 and 150.';
-    }
-
-    if (form.abhaNumber.trim() && !/^\d{14}$/.test(form.abhaNumber.trim())) {
-      newErrors.abhaNumber = 'ABHA number must be exactly 14 numeric digits.';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      const firstErrorField = Object.keys(newErrors)[0];
-      toast(newErrors[firstErrorField], 'error');
-      scrollToError(firstErrorField);
+    if (!isValid) {
+      const typedErrors = validationErrors as Record<string, string>;
+      setErrors(typedErrors);
+      const firstErrorField = Object.keys(typedErrors)[0];
+      if (firstErrorField && typedErrors[firstErrorField]) {
+        toast(typedErrors[firstErrorField], 'error');
+        scrollToError(firstErrorField);
+      }
       return;
     }
 
@@ -153,7 +143,7 @@ export default function NewPatientPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form noValidate onSubmit={handleSubmit}>
         <div className="card">
           <div className="card-title" style={{ marginBottom: 16 }}>Personal Information</div>
           <div className="form-grid form-grid-2">
@@ -162,13 +152,16 @@ export default function NewPatientPage() {
               <input
                 data-field="name"
                 className={`form-input ${errors.name ? 'has-error' : ''}`}
-                style={errors.name ? { border: '2px solid var(--red)' } : {}}
+                style={errors.name ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
                 placeholder="Enter patient full name"
                 value={form.name}
                 onChange={e => set('name', e.target.value)}
-                required
               />
-              {errors.name && <span style={{ color: 'var(--red)', fontSize: '0.75rem', marginTop: 4 }}>{errors.name}</span>}
+              {errors.name && (
+                <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                  <AlertCircle size={14} color="var(--red)" /> {errors.name}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -176,12 +169,17 @@ export default function NewPatientPage() {
               <input 
                 data-field="dob"
                 className={`form-input ${errors.dob ? 'has-error' : ''}`}
-                style={errors.dob ? { border: '2px solid var(--red)' } : {}}
+                style={errors.dob ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
                 type="date" 
                 max={new Date().toISOString().split('T')[0]}
                 value={form.dob} 
                 onChange={e => handleDobChange(e.target.value)} 
               />
+              {errors.dob && (
+                <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                  <AlertCircle size={14} color="var(--red)" /> {errors.dob}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -189,7 +187,7 @@ export default function NewPatientPage() {
               <input
                 data-field="age"
                 className={`form-input ${errors.age ? 'has-error' : ''}`}
-                style={errors.age ? { border: '2px solid var(--red)' } : {}}
+                style={errors.age ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
                 type="number"
                 min="0"
                 max="150"
@@ -197,16 +195,31 @@ export default function NewPatientPage() {
                 value={form.age}
                 onChange={e => set('age', e.target.value.replace(/-/g, ''))}
               />
-              {errors.age && <span style={{ color: 'var(--red)', fontSize: '0.75rem', marginTop: 4 }}>{errors.age}</span>}
+              {errors.age && (
+                <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                  <AlertCircle size={14} color="var(--red)" /> {errors.age}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
               <label className="form-label">Gender <span className="required">*</span></label>
-              <select className="form-select" value={form.gender} onChange={e => set('gender', e.target.value)}>
+              <select
+                data-field="gender"
+                className={`form-select ${errors.gender ? 'has-error' : ''}`}
+                style={errors.gender ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
+                value={form.gender}
+                onChange={e => set('gender', e.target.value)}
+              >
                 <option>Male</option>
                 <option>Female</option>
                 <option>Other</option>
               </select>
+              {errors.gender && (
+                <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                  <AlertCircle size={14} color="var(--red)" /> {errors.gender}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -214,14 +227,17 @@ export default function NewPatientPage() {
               <input
                 data-field="mobile"
                 className={`form-input ${errors.mobile ? 'has-error' : ''}`}
-                style={errors.mobile ? { border: '2px solid var(--red)' } : {}}
+                style={errors.mobile ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
                 type="tel"
                 placeholder="10-digit mobile number"
                 value={form.mobile}
                 onChange={e => set('mobile', e.target.value.replace(/-/g, ''))}
-                required
               />
-              {errors.mobile && <span style={{ color: 'var(--red)', fontSize: '0.75rem', marginTop: 4 }}>{errors.mobile}</span>}
+              {errors.mobile && (
+                <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                  <AlertCircle size={14} color="var(--red)" /> {errors.mobile}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -229,13 +245,17 @@ export default function NewPatientPage() {
               <input
                 data-field="abhaNumber"
                 className={`form-input ${errors.abhaNumber ? 'has-error' : ''}`}
-                style={errors.abhaNumber ? { border: '2px solid var(--red)' } : {}}
+                style={errors.abhaNumber ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
                 placeholder="14-digit ABHA number"
                 maxLength={14}
                 value={form.abhaNumber}
                 onChange={e => set('abhaNumber', e.target.value.replace(/\D/g, ''))}
               />
-              {errors.abhaNumber && <span style={{ color: 'var(--red)', fontSize: '0.75rem', marginTop: 4 }}>{errors.abhaNumber}</span>}
+              {errors.abhaNumber && (
+                <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                  <AlertCircle size={14} color="var(--red)" /> {errors.abhaNumber}
+                </div>
+              )}
             </div>
 
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>

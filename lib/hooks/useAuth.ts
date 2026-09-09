@@ -29,6 +29,47 @@ interface AuthState {
   updateSubscription: (sub: UserSubscription) => void;
 }
 
+export interface SubscriptionLockStatus {
+  isLocked: boolean;
+  reason: 'no_plan' | 'trial_expired' | 'premium_expired' | null;
+  daysRemaining: number | null;
+}
+
+export function checkSubscriptionLock(subscription?: UserSubscription | null): SubscriptionLockStatus {
+  if (!subscription || subscription.hasSelectedPlan === false) {
+    return { isLocked: true, reason: 'no_plan', daysRemaining: 0 };
+  }
+
+  if (subscription.subscriptionStatus === 'expired') {
+    const reason = subscription.planType === 'trial' ? 'trial_expired' : 'premium_expired';
+    return { isLocked: true, reason, daysRemaining: 0 };
+  }
+
+  if (subscription.planType === 'trial' && subscription.trialEndDate) {
+    const end = new Date(subscription.trialEndDate).getTime();
+    const diffDays = Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      return { isLocked: true, reason: 'trial_expired', daysRemaining: 0 };
+    }
+    return { isLocked: false, reason: null, daysRemaining: diffDays };
+  }
+
+  if (subscription.planType === 'premium' && subscription.subscriptionEndDate) {
+    const end = new Date(subscription.subscriptionEndDate).getTime();
+    const diffDays = Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      return { isLocked: true, reason: 'premium_expired', daysRemaining: 0 };
+    }
+    return { isLocked: false, reason: null, daysRemaining: diffDays };
+  }
+
+  if (subscription.subscriptionStatus === 'active' || subscription.subscriptionStatus === 'trialing') {
+    return { isLocked: false, reason: null, daysRemaining: null };
+  }
+
+  return { isLocked: false, reason: null, daysRemaining: null };
+}
+
 export const useAuth = create<AuthState>()(
   persist(
     (set) => ({

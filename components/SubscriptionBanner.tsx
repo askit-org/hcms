@@ -25,7 +25,7 @@ export default function SubscriptionBanner() {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {sub.planType === 'premium' && sub.subscriptionStatus === 'active' ? (
           <div
             style={{

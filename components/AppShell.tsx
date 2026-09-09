@@ -10,7 +10,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
 import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth, checkSubscriptionLock } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Patient } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -106,7 +106,6 @@ function GlobalSearch() {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: settings } = useSettings();
@@ -116,6 +115,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [hasHydrated, setHasHydrated] = useState(false);
   const [navConfirmTarget, setNavConfirmTarget] = useState<string | null>(null);
   const [showOnboardingPlans, setShowOnboardingPlans] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const subLock = checkSubscriptionLock(user?.subscription);
 
   useEffect(() => {
     if (useAuth.persist.hasHydrated()) {
@@ -133,11 +135,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (hasHydrated) {
       if (!isAuthenticated) {
         router.push('/login');
-      } else if (user && user.subscription && user.subscription.hasSelectedPlan === false) {
+      } else if (subLock.isLocked) {
         setShowOnboardingPlans(true);
       }
     }
-  }, [hasHydrated, isAuthenticated, user, router]);
+  }, [hasHydrated, isAuthenticated, user, subLock.isLocked, router]);
 
   const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
@@ -226,6 +228,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             className="btn btn-ghost btn-sm" 
             style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--text-secondary)', marginTop: 8 }}
             onClick={() => {
+              queryClient.cancelQueries();
               queryClient.clear();
               logout();
               router.push('/login');
@@ -323,8 +326,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
       {/* Onboarding Welcome & Plan Selection Modal */}
       <OnboardingPlansModal 
-        isOpen={showOnboardingPlans} 
+        isOpen={showOnboardingPlans || subLock.isLocked} 
         onClose={() => setShowOnboardingPlans(false)} 
+        isLockout={subLock.isLocked}
+        lockReason={subLock.reason}
       />
     </div>
   );
