@@ -7,6 +7,10 @@ import type {
   AuthLoginInput,
   AuthSignupInput,
   UpdateUserInput,
+  ForgotPasswordInput,
+  ForgotPasswordResponse,
+  ResetPasswordInput,
+  ResetPasswordResponse,
   AuthResponse,
   ClinicSettings,
   CreateAppOptionInput,
@@ -87,6 +91,12 @@ export const ApiDataProvider: DataProvider = {
   },
   async updateUser(input: UpdateUserInput): Promise<AuthResponse> {
     return api.put<AuthResponse>('/auth/user', input).then(res);
+  },
+  async forgotPassword(input: ForgotPasswordInput): Promise<ForgotPasswordResponse> {
+    return api.post<ForgotPasswordResponse>('/auth/forgot-password', input).then(res);
+  },
+  async resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResponse> {
+    return api.post<ResetPasswordResponse>('/auth/reset-password', input).then(res);
   },
   async getSubscriptionStatus(): Promise<UserSubscription> {
     return api.get<{ subscription: UserSubscription }>('/subscription/status').then((r) => r.data.subscription);

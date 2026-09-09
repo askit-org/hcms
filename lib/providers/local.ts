@@ -22,6 +22,10 @@ import {
 import type {
   AuthLoginInput,
   AuthSignupInput,
+  ForgotPasswordInput,
+  ForgotPasswordResponse,
+  ResetPasswordInput,
+  ResetPasswordResponse,
   AuthResponse,
   ClinicSettings,
   AppOption,
@@ -109,6 +113,18 @@ export const LocalDataProvider: DataProvider = {
     const updatedUser = { ...current, ...input };
     useAuth.setState({ user: updatedUser });
     return { success: true, user: updatedUser };
+  },
+  async forgotPassword(input: ForgotPasswordInput): Promise<ForgotPasswordResponse> {
+    return {
+      success: true,
+      message: `Password reset instructions sent to ${input.email}`,
+    };
+  },
+  async resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResponse> {
+    return {
+      success: true,
+      message: 'Password reset successfully',
+    };
   },
 
   // ── Subscription ───────────────────────────────────────────────

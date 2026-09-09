@@ -47,6 +47,12 @@ export type AuthLoginInput = { email: string; password?: string };
 export type AuthSignupInput = ClinicSettings & { email: string; password?: string };
 export type UpdateUserInput = Partial<ClinicSettings> & { email?: string; password?: string };
 
+export type ForgotPasswordInput = { email: string };
+export type ForgotPasswordResponse = { success: boolean; message?: string; error?: string };
+
+export type ResetPasswordInput = { token: string; newPassword?: string; password?: string };
+export type ResetPasswordResponse = { success: boolean; message?: string; error?: string };
+
 export type AuthResponse = {
   success: boolean;
   token?: string;
@@ -145,6 +151,8 @@ export interface DataProvider {
   authLogin(input: AuthLoginInput): Promise<AuthResponse>;
   authSignup(input: AuthSignupInput): Promise<AuthResponse>;
   updateUser(input: UpdateUserInput): Promise<AuthResponse>;
+  forgotPassword(input: ForgotPasswordInput): Promise<ForgotPasswordResponse>;
+  resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResponse>;
   getSubscriptionStatus(): Promise<UserSubscription>;
   selectPlan(input: SelectPlanInput): Promise<SubscriptionResponse>;
   verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse>;
