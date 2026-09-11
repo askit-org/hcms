@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit2, Pill, Save, X, Search, Sunrise, Sun, Moon } from '
 import { useMedicines, useTemplates, useMedicineMutations, useTemplateMutations } from '@/lib/hooks/useQueries';
 import type { Medicine, PrescribedMedicine } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 import DoseSelector, { DoseDisplay, DurationSelect } from '@/components/DoseSelector';
 
@@ -53,7 +54,7 @@ export default function PrescriptionPage() {
       setEditMed(null);
       setMedForm({ name: '', category: 'Other', defaultDose: '1-0-1', defaultDuration: '5 days' });
     } catch (err: any) {
-      toast(err.message || 'Failed to save medicine', 'error');
+      toast(getErrorMessage(err, 'Failed to save medicine'), 'error');
     } finally {
       setSavingMed(false);
     }
@@ -76,7 +77,7 @@ export default function PrescriptionPage() {
       setShowTplForm(false);
       setTplForm({ name: '', diagnosis: '', notes: '', medicines: [] });
     } catch (err: any) {
-      toast(err.message || 'Failed to save template', 'error');
+      toast(getErrorMessage(err, 'Failed to save template'), 'error');
     } finally {
       setSavingTpl(false);
     }

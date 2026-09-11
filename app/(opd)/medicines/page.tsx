@@ -7,6 +7,7 @@ import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import type { Medicine } from '@/lib/db';
 import { motion, AnimatePresence } from 'framer-motion';
 import BulkImportModal from '@/components/BulkImportModal';
@@ -91,8 +92,8 @@ export default function MedicinesPage() {
         toast('Medicine added.', 'success');
       }
       closeModal();
-    } catch (err) {
-      toast('Failed to save medicine.', 'error');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to save medicine.'), 'error');
     }
   };
 
@@ -101,8 +102,8 @@ export default function MedicinesPage() {
       await remove.mutateAsync(id);
       toast('Medicine removed.', 'success');
       setDeleteConfirmId(null);
-    } catch (err) {
-      toast('Failed to remove medicine.', 'error');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to remove medicine.'), 'error');
     }
   };
 

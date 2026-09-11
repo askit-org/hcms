@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthMutations, useSubscription } from '@/lib/hooks/useQueries';
 import { FileText, Trash2, AlertTriangle, User, Edit2, Save, X, CreditCard, Sparkles, ShieldCheck, Clock, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 import SettingsTemplates from '@/components/SettingsTemplates';
 import SettingsOptions from '@/components/SettingsOptions';
@@ -47,7 +48,7 @@ export default function SettingsPage() {
       toast('User profile updated successfully!', 'success');
       setIsEditing(false);
     } catch (err: any) {
-      toast(err.message || 'Failed to update user profile', 'error');
+      toast(getErrorMessage(err, 'Failed to update user profile'), 'error');
     }
   };
 
@@ -88,7 +89,7 @@ export default function SettingsPage() {
         }
       }
     } catch (err: any) {
-      toast(err.message || 'Failed to fetch subscription status from API', 'error');
+      toast(getErrorMessage(err, 'Failed to fetch subscription status from API'), 'error');
     }
   };
 

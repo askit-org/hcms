@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Activity, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import { motion } from 'framer-motion';
 
 import { loginSchema, validateForm } from '@/lib/validations/schemas';
@@ -21,20 +23,27 @@ export default function LoginPage() {
   const { isAuthenticated } = useAuth();
   const { authLogin } = useAuthMutations();
 
+  const { getFirstAllowedRoute } = usePermissions();
+
   useEffect(() => {
+    const redirectAllowed = () => {
+      const allowedRoute = getFirstAllowedRoute();
+      router.replace(allowedRoute);
+    };
+
     if (useAuth.persist.hasHydrated()) {
       if (isAuthenticated) {
-        router.replace('/dashboard');
+        redirectAllowed();
       }
     } else {
       const unsub = useAuth.persist.onFinishHydration((state) => {
         if (state.isAuthenticated) {
-          router.replace('/dashboard');
+          redirectAllowed();
         }
       });
       return () => unsub();
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, getFirstAllowedRoute, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +58,10 @@ export default function LoginPage() {
     try {
       await authLogin.mutateAsync({ email, password });
       toast('Login successful! Welcome back.', 'success');
-      router.push('/dashboard');
+      const allowedRoute = getFirstAllowedRoute();
+      router.push(allowedRoute);
     } catch (err: any) {
-      toast(err?.message || 'Login failed. Please check credentials.', 'error');
+      toast(getErrorMessage(err, 'Login failed. Please check credentials.'), 'error');
     } finally {
       setLoading(false);
     }

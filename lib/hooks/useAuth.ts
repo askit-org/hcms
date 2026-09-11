@@ -17,6 +17,11 @@ export interface AuthUser {
   regNo: string;
   city: string;
   createdAt: string;
+  role?: string;
+  roleId?: string;
+  roleCode?: string;
+  roleName?: string;
+  permissions?: import('../providers/types').ModelPermission[];
   subscription?: UserSubscription;
 }
 

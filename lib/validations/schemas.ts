@@ -58,6 +58,37 @@ export const signupStep1Schema = yup.object({
   degree: yup.string().optional(),
 });
 
+// ── Staff Onboarding Schema (Receptionist / Assistant) ──────────────────
+export const onboardStaffSchema = yup.object({
+  name: yup
+    .string()
+    .trim()
+    .required('Staff full name is required')
+    .min(2, 'Name must be at least 2 characters'),
+  email: yup
+    .string()
+    .trim()
+    .required('Email address is required')
+    .email('Please enter a valid email address (e.g. receptionist@clinic.com)'),
+  phone: yup
+    .string()
+    .trim()
+    .required('10-digit phone number is required')
+    .test('is-valid-phone', 'Please enter a valid 10-digit phone number', (val) => {
+      if (!val) return false;
+      const digits = val.replace(/\D/g, '');
+      return digits.length === 10;
+    }),
+  role: yup.string().required('Role selection is required'),
+  password: yup
+    .string()
+    .optional()
+    .test('is-valid-pwd', 'Password must be at least 6 characters', (val) => {
+      if (!val || val.trim() === '') return true;
+      return val.length >= 6;
+    }),
+});
+
 // ── Doctor Signup Step 2 Schema ──────────────────────────────────────
 export const signupStep2Schema = yup.object({
   clinicName: yup

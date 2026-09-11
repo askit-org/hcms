@@ -47,6 +47,84 @@ export type AuthLoginInput = { email: string; password?: string };
 export type AuthSignupInput = ClinicSettings & { email: string; password?: string };
 export type UpdateUserInput = Partial<ClinicSettings> & { email?: string; password?: string };
 
+export type UserRole = 'SUPER_ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'ASSISTANT' | 'COMPOUNDER';
+
+export type AppModel =
+  | 'PATIENTS'
+  | 'VISITS'
+  | 'MEDICINES'
+  | 'TEMPLATES'
+  | 'FOLLOWUPS'
+  | 'REPORTS'
+  | 'SETTINGS'
+  | 'STAFF';
+
+export interface ModelPermission {
+  model: AppModel;
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
+export interface AppRole {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isSystemRole?: boolean;
+  permissions: ModelPermission[];
+}
+
+export interface CreateRoleInput {
+  name: string;
+  description?: string;
+  permissions: ModelPermission[];
+}
+
+export interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  roleId?: string;
+  roleName?: string;
+  roleCode?: string;
+  role: UserRole | string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface OnboardStaffInput {
+  name: string;
+  email: string;
+  phone: string;
+  roleId?: string;
+  role?: UserRole | string;
+  password?: string;
+}
+
+export interface OrganizationInfoResponse {
+  organization: {
+    id: string;
+    name: string;
+    city?: string;
+    subscriptionStatus?: string;
+    planType?: string;
+  };
+  rootAdmin: {
+    id: string;
+    name: string;
+    email: string;
+    degree?: string;
+    regNo?: string;
+    role: string;
+    createdAt?: string;
+  };
+  staff: StaffUser[];
+  roles?: AppRole[];
+}
+
 export type ForgotPasswordInput = { email: string };
 export type ForgotPasswordResponse = { success: boolean; message?: string; error?: string };
 
@@ -147,7 +225,7 @@ export interface DashboardStats {
 // Switching between them only requires changing the factory in index.ts.
 
 export interface DataProvider {
-  // ── Auth & Subscription ─────────────────────────────────────────
+  // ── Auth, Organization & Staff ─────────────────────────────────
   authLogin(input: AuthLoginInput): Promise<AuthResponse>;
   authSignup(input: AuthSignupInput): Promise<AuthResponse>;
   updateUser(input: UpdateUserInput): Promise<AuthResponse>;
@@ -156,6 +234,12 @@ export interface DataProvider {
   getSubscriptionStatus(): Promise<UserSubscription>;
   selectPlan(input: SelectPlanInput): Promise<SubscriptionResponse>;
   verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse>;
+  getOrganizationInfo(): Promise<OrganizationInfoResponse>;
+  onboardStaff(input: OnboardStaffInput): Promise<StaffUser>;
+  deleteStaff(staffId: string): Promise<void>;
+  listRoles(): Promise<AppRole[]>;
+  createRole(input: CreateRoleInput): Promise<AppRole>;
+  deleteRole(roleId: string): Promise<void>;
 
   // ── Patients ───────────────────────────────────────────────────
   listPatients(params?: PatientListParams): Promise<Patient[]>;

@@ -71,7 +71,7 @@ export interface Settings {
 }
 
 const DB_NAME = 'hcms_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -104,6 +104,12 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains('staff')) {
+        db.createObjectStore('staff', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('roles')) {
+        db.createObjectStore('roles', { keyPath: 'id' });
       }
     };
   });

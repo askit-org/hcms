@@ -6,6 +6,7 @@ import { UserPlus, ChevronLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { usePatientMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 
 import { patientSchema, validateForm } from '@/lib/validations/schemas';
@@ -126,7 +127,7 @@ export default function NewPatientPage() {
       toast('Patient registered successfully!', 'success');
       router.push('/patients');
     } catch (err: any) {
-      toast(err.message || 'Failed to register patient.', 'error');
+      toast(getErrorMessage(err, 'Failed to register patient.'), 'error');
       setSaving(false);
     }
   };

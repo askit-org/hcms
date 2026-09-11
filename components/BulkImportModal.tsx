@@ -21,6 +21,7 @@ import {
 } from '@/lib/excelParser';
 import { useMedicines, useMedicineMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export default function BulkImportModal({ isOpen, onClose }: BulkImportModalProp
         toast(`Successfully parsed ${parsedRows.length} rows.`, 'success');
       }
     } catch (err: any) {
-      toast(err.message || 'Failed to parse spreadsheet file.', 'error');
+      toast(getErrorMessage(err, 'Failed to parse spreadsheet file.'), 'error');
       handleReset();
     } finally {
       setParsing(false);
@@ -154,8 +155,8 @@ export default function BulkImportModal({ isOpen, onClose }: BulkImportModalProp
       await bulkCreate.mutateAsync(inputs);
       toast(`Successfully imported ${inputs.length} medicines!`, 'success');
       handleClose();
-    } catch (err) {
-      toast('Failed to import medicines into database.', 'error');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to import medicines into database.'), 'error');
     }
   };
 

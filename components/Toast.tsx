@@ -9,8 +9,15 @@ interface Toast {
 }
 
 let _addToast: ((t: Omit<Toast, 'id'>) => void) | null = null;
+let _lastToast = { message: '', timestamp: 0 };
 
 export function toast(message: string, type: 'success' | 'error' | 'info' = 'success') {
+  if (!message) return;
+  const now = Date.now();
+  if (_lastToast.message === message && now - _lastToast.timestamp < 500) {
+    return;
+  }
+  _lastToast = { message, timestamp: now };
   _addToast?.({ message, type });
 }
 

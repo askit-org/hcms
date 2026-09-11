@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProviderStore } from '../providers';
 import { useAuth } from './useAuth';
+import { usePermissions } from './usePermissions';
 import type { 
   PatientListParams, 
   VisitListParams, 
@@ -23,7 +24,9 @@ import type {
   ResetPasswordInput,
   CreateAppOptionInput,
   SelectPlanInput,
-  VerifyPaymentInput
+  VerifyPaymentInput,
+  OnboardStaffInput,
+  CreateRoleInput,
 } from '../providers/types';
 
 // Query Keys
@@ -41,6 +44,9 @@ export const keys = {
   followups: () => [...keys.all, 'followups'] as const,
   options: () => [...keys.all, 'options'] as const,
   subscription: () => [...keys.all, 'subscription'] as const,
+  organization: () => [...keys.all, 'organization'] as const,
+  roles: () => [...keys.all, 'roles'] as const,
+  queue: () => [...keys.all, 'queue'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
@@ -48,20 +54,22 @@ export const keys = {
 export function usePatients(params?: PatientListParams) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.patients(), params],
     queryFn: () => provider.listPatients(params),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && hasPermission('PATIENTS', 'canRead'),
   });
 }
 
 export function usePatient(id: string) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: keys.patient(id),
     queryFn: () => provider.getPatient(id),
-    enabled: isAuthenticated && !!token && !!id,
+    enabled: isAuthenticated && !!token && !!id && hasPermission('PATIENTS', 'canRead'),
   });
 }
 
@@ -103,37 +111,41 @@ export function usePatientMutations() {
 export function usePatientVisits(patientId: string) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: keys.patientVisits(patientId),
     queryFn: () => provider.getPatientVisits(patientId),
-    enabled: isAuthenticated && !!token && !!patientId,
+    enabled: isAuthenticated && !!token && !!patientId && hasPermission('VISITS', 'canRead'),
   });
 }
 
 export function useVisit(id: number) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: keys.visit(id),
     queryFn: () => provider.getVisit(id),
-    enabled: isAuthenticated && !!token && !!id,
+    enabled: isAuthenticated && !!token && !!id && hasPermission('VISITS', 'canRead'),
   });
 }
 
 export function useFollowUps() {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canReadFollowups = hasPermission('FOLLOWUPS', 'canRead');
   
   const today = useQuery({
     queryKey: [...keys.followups(), 'today'],
     queryFn: () => provider.getTodayFollowUps(),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && canReadFollowups,
   });
 
   const upcoming = useQuery({
     queryKey: [...keys.followups(), 'upcoming'],
     queryFn: () => provider.getUpcomingFollowUps(30),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && canReadFollowups,
   });
 
   return { today, upcoming };
@@ -149,6 +161,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.patientVisits(input.patientId) });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
       qc.invalidateQueries({ queryKey: keys.followups() });
+      qc.invalidateQueries({ queryKey: keys.queue() });
     },
   });
 
@@ -179,10 +192,11 @@ export function useVisitMutations() {
 export function useDashboardStats() {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin } = usePermissions();
   return useQuery({
     queryKey: keys.dashboard(),
     queryFn: () => provider.getDashboardStats(),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && isSuperAdmin,
   });
 }
 
@@ -190,10 +204,11 @@ export function useDashboardStats() {
 export function useReports(startDate: string, endDate: string) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin, hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.visits(), 'reports', { startDate, endDate }],
     queryFn: () => provider.listVisits({ startDate, endDate }),
-    enabled: isAuthenticated && !!token && !!startDate && !!endDate,
+    enabled: isAuthenticated && !!token && !!startDate && !!endDate && (isSuperAdmin || hasPermission('REPORTS', 'canRead')),
   });
 }
 
@@ -202,10 +217,11 @@ export function useReports(startDate: string, endDate: string) {
 export function useMedicines(params?: MedicineListParams) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin, hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.medicines(), params],
     queryFn: () => provider.listMedicines(params),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && (isSuperAdmin || hasPermission('MEDICINES', 'canRead')),
   });
 }
 
@@ -298,10 +314,11 @@ export function useAppOptionMutations() {
 export function useSettings() {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin } = usePermissions();
   return useQuery({
     queryKey: keys.settings(),
     queryFn: () => provider.getSettings(),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && isSuperAdmin,
   });
 }
 
@@ -369,6 +386,7 @@ export function useAuthMutations() {
 export function useSubscription() {
   const provider = useProviderStore(s => s.provider);
   const { updateSubscription, isAuthenticated, token } = useAuth();
+  const { isSuperAdmin } = usePermissions();
   return useQuery({
     queryKey: keys.subscription(),
     queryFn: async () => {
@@ -378,7 +396,7 @@ export function useSubscription() {
       }
       return sub;
     },
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && isSuperAdmin,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
     refetchOnWindowFocus: false,
   });
@@ -410,4 +428,153 @@ export function useSubscriptionMutations() {
   });
 
   return { selectPlan, verifyPayment };
+}
+
+export function useOrganizationInfo() {
+  const provider = useProviderStore((s) => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin } = usePermissions();
+
+  return useQuery({
+    queryKey: keys.organization(),
+    queryFn: () => provider.getOrganizationInfo(),
+    enabled: (isAuthenticated || !!token) && isSuperAdmin,
+    staleTime: 1000 * 60 * 2, // 2 mins cache
+  });
+}
+
+export function useStaffMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore((s) => s.provider);
+
+  const onboardStaff = useMutation({
+    mutationFn: (input: OnboardStaffInput) => provider.onboardStaff(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.organization() });
+    },
+  });
+
+  const deleteStaff = useMutation({
+    mutationFn: (staffId: string) => provider.deleteStaff(staffId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.organization() });
+    },
+  });
+
+  return { onboardStaff, deleteStaff };
+}
+
+export function useRoles() {
+  const provider = useProviderStore((s) => s.provider);
+  const { isAuthenticated, token } = useAuth();
+
+  return useQuery({
+    queryKey: keys.roles(),
+    queryFn: () => provider.listRoles(),
+    enabled: isAuthenticated || !!token,
+    staleTime: 1000 * 60 * 5, // 5 mins cache
+  });
+}
+
+export function useRoleMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore((s) => s.provider);
+
+  const createRole = useMutation({
+    mutationFn: (input: CreateRoleInput) => provider.createRole(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.roles() });
+      qc.invalidateQueries({ queryKey: keys.organization() });
+    },
+  });
+
+  const deleteRole = useMutation({
+    mutationFn: (roleId: string) => provider.deleteRole(roleId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.roles() });
+      qc.invalidateQueries({ queryKey: keys.organization() });
+    },
+  });
+
+  return { createRole, deleteRole };
+}
+
+// ── OPD Queue ───────────────────────────────────────────────────
+
+export function useQueue() {
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: keys.queue(),
+    queryFn: async () => {
+      const res = await fetch('/api/queue');
+      if (!res.ok) throw new Error('Failed to fetch queue');
+      return res.json();
+    },
+    enabled: isAuthenticated || !!token,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+export function useQueueMutations() {
+  const qc = useQueryClient();
+
+  const enqueue = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await fetch('/api/queue/enqueue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Failed to enqueue patient');
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.queue() });
+    },
+  });
+
+  const callNext = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/queue/call-next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error('Failed to call next patient');
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.queue() });
+    },
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status, inRoomSince }: { id: string; status: string; inRoomSince?: string }) => {
+      const res = await fetch(`/api/queue/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, inRoomSince }),
+      });
+      if (!res.ok) throw new Error('Failed to update queue status');
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.queue() });
+    },
+  });
+
+  const removeFromQueue = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/queue/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to remove from queue');
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.queue() });
+    },
+  });
+
+  return { enqueue, callNext, updateStatus, removeFromQueue };
 }
