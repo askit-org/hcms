@@ -7,6 +7,7 @@ import { Activity, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { signupStep1Schema, signupStep2Schema, validateForm } from '@/lib/validations/schemas';
@@ -90,7 +91,7 @@ export default function SignupPage() {
       toast('🎉 Account created successfully! Welcome to HCMS.', 'success');
       router.push('/dashboard');
     } catch (err: any) {
-      toast(err.message || 'Network error occurred during registration', 'error');
+      toast(getErrorMessage(err, 'Network error occurred during registration'), 'error');
     } finally {
       setLoading(false);
     }

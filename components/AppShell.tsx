@@ -5,28 +5,39 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Calendar,
-  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package
+  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
 import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
 import { useAuth, checkSubscriptionLock } from '@/lib/hooks/useAuth';
+import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Patient } from '@/lib/providers/types';
+import type { Patient, AppModel } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
 import SubscriptionBanner from '@/components/SubscriptionBanner';
 import OnboardingPlansModal from '@/components/OnboardingPlansModal';
 import { getVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'main' },
-  { href: '/patients', label: 'Patients', icon: Users, group: 'main' },
-  { href: '/visits/new', label: 'New OPD Visit', icon: Stethoscope, group: 'main' },
-  { href: '/prescription', label: 'Prescription', icon: Pill, group: 'clinical' },
-  { href: '/followup', label: 'Follow-Up', icon: Calendar, group: 'clinical' },
-  { href: '/reports', label: 'Reports', icon: BarChart3, group: 'records' },
-  { href: '/medicines', label: 'Medicines', icon: Package, group: 'records' },
-  { href: '/settings', label: 'Settings', icon: Settings, group: 'records' },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  group: 'main' | 'clinical' | 'records' | 'organization';
+  model: AppModel;
+}
+
+const navItems: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'main', model: 'PATIENTS' },
+  { href: '/appointments', label: 'Appointments & Queue', icon: Calendar, group: 'main', model: 'PATIENTS' },
+  { href: '/patients', label: 'Patients', icon: Users, group: 'main', model: 'PATIENTS' },
+  { href: '/visits/new', label: 'New OPD Visit', icon: Stethoscope, group: 'main', model: 'VISITS' },
+  { href: '/prescription', label: 'Prescription', icon: Pill, group: 'clinical', model: 'VISITS' },
+  { href: '/followup', label: 'Follow-Up', icon: Calendar, group: 'clinical', model: 'FOLLOWUPS' },
+  { href: '/staff', label: 'Manage Staff', icon: ShieldCheck, group: 'organization', model: 'STAFF' },
+  { href: '/reports', label: 'Reports', icon: BarChart3, group: 'records', model: 'REPORTS' },
+  { href: '/medicines', label: 'Medicines', icon: Package, group: 'records', model: 'MEDICINES' },
+  { href: '/settings', label: 'Settings', icon: Settings, group: 'records', model: 'SETTINGS' },
 ];
 
 import { memo } from 'react';
@@ -108,6 +119,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { isSuperAdmin, hasPermission, canAccessRoute, getFirstAllowedRoute } = usePermissions();
   const { data: settings } = useSettings();
   const { today } = useFollowUps();
   const { isAuthenticated, user, logout } = useAuth();
@@ -137,23 +149,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         router.push('/login');
       } else if (subLock.isLocked) {
         setShowOnboardingPlans(true);
+      } else if (!canAccessRoute(pathname)) {
+        const allowedRoute = getFirstAllowedRoute();
+        router.replace(allowedRoute);
       }
     }
-  }, [hasHydrated, isAuthenticated, user, subLock.isLocked, router]);
+  }, [hasHydrated, isAuthenticated, user, subLock.isLocked, pathname, canAccessRoute, getFirstAllowedRoute, router]);
 
   const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
 
-  useEffect(() => {
-    // Seed medicines on mount - only needed if offline but safe as API call too
-    useProviderStore.getState().provider.seedMedicines().catch(() => {});
-  }, []);
+
 
   const groups = [
     { label: 'Main', key: 'main' },
     { label: 'Clinical', key: 'clinical' },
+    { label: 'Organization', key: 'organization' },
     { label: 'Records', key: 'records' },
   ];
+
+  const defaultHome = getFirstAllowedRoute();
 
   return (
     <div className="app-shell" style={{ display: mounted && isAuthenticated ? 'flex' : 'none' }}>
@@ -173,7 +188,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <Link href="/dashboard" className="logo-wrap" style={{ textDecoration: 'none', display: 'block' }} onClick={() => setMobileMenuOpen(false)}>
+        <Link href={defaultHome} className="logo-wrap" style={{ textDecoration: 'none', display: 'block' }} onClick={() => setMobileMenuOpen(false)}>
           <div className="logo-row">
             <div className="logo-icon">
               <Activity />
@@ -187,11 +202,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <nav className="nav-scroll">
-          {groups.map(g => (
-            <div key={g.key}>
-              <div className="nav-group-label">{g.label}</div>
-              {navItems.filter(n => n.group === g.key).map(item => {
-                const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          {groups.map(g => {
+            const filteredItems = navItems.filter(n => {
+              if (n.group !== g.key) return false;
+              if (n.href === '/dashboard' || n.href === '/settings' || n.href === '/staff') {
+                return isSuperAdmin;
+              }
+              return hasPermission(n.model, 'canRead');
+            });
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={g.key}>
+                <div className="nav-group-label">{g.label}</div>
+                {filteredItems.map(item => {
+                  const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
                 return (
                   <a 
                     key={item.href} 
@@ -219,7 +244,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 );
               })}
             </div>
-          ))}
+          );
+        })}
         </nav>
 
         <div className="sidebar-footer">
@@ -253,13 +279,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
           
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {followUpCount > 0 && (
+            {hasPermission('FOLLOWUPS', 'canRead') && followUpCount > 0 && (
               <Link href="/followup" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--amber)' }}>
                 <Bell size={16} />
                 {followUpCount} follow-up{followUpCount > 1 ? 's' : ''} today
               </Link>
             )}
-            <SubscriptionBanner />
+            {isSuperAdmin && <SubscriptionBanner />}
             <ThemeToggle />
           </div>
         </header>

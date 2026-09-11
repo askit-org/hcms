@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     if (!email || !email.trim()) {
       return NextResponse.json(
-        { success: false, error: 'Email address is required' },
+        { success: false, message: 'Email address is required', error: 'Email address is required' },
         { status: 400 }
       );
     }
@@ -50,8 +50,9 @@ export async function POST(request: Request) {
       message: 'Account created successfully',
     });
   } catch (err: any) {
+    const errMsg = err.message || 'Signup failed';
     return NextResponse.json(
-      { success: false, error: err.message || 'Signup failed' },
+      { success: false, message: errMsg, error: errMsg },
       { status: 500 }
     );
   }

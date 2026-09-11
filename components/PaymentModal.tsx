@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, QrCode, CheckCircle2, ShieldCheck, Copy, Sparkles, CreditCard } from 'lucide-react';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import { useSubscriptionMutations } from '@/lib/hooks/useQueries';
 
 interface PaymentModalProps {
@@ -66,7 +67,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }: PaymentModa
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      toast(err.message || 'Payment verification failed. Please check your UTR number.', 'error');
+      toast(getErrorMessage(err, 'Payment verification failed. Please check your UTR number.'), 'error');
     } finally {
       setIsVerifying(false);
     }

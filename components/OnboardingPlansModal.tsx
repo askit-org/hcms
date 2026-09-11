@@ -1,13 +1,14 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X } from 'lucide-react';
+import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X, LogOut, AlertOctagon } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useSubscriptionMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import PaymentModal from '@/components/PaymentModal';
+import { useRouter } from 'next/navigation';
 
 interface OnboardingPlansModalProps {
   isOpen: boolean;
@@ -17,7 +18,9 @@ interface OnboardingPlansModalProps {
 }
 
 export default function OnboardingPlansModal({ isOpen, onClose, isLockout = false, lockReason = null }: OnboardingPlansModalProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { isSuperAdmin } = usePermissions();
+  const router = useRouter();
   const { selectPlan } = useSubscriptionMutations();
   const [loadingTrial, setLoadingTrial] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -47,7 +50,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
       toast('🎉 15-Day Free Trial activated! Welcome to HCMS.', 'success');
       onClose();
     } catch (err: any) {
-      toast(err.message || 'Failed to activate trial', 'error');
+      toast(getErrorMessage(err, 'Failed to activate trial'), 'error');
     } finally {
       setLoadingTrial(false);
     }
@@ -59,6 +62,11 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
       useAuth.getState().updateSubscription({ ...user.subscription, hasSelectedPlan: true });
     }
     onClose();
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   };
 
   if (!mounted || !isOpen) return null;
@@ -127,39 +135,86 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
               </button>
             )}
 
-            {/* Header Greeting */}
-            <div className="subscription-modal-header" style={{ textAlign: 'center', marginBottom: 20, position: 'relative', zIndex: 1, paddingRight: isLockout ? 0 : 24 }}>
-              <div
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 16,
-                  background: isLockout ? 'rgba(239, 68, 68, 0.15)' : 'var(--accent-glow)',
-                  color: isLockout ? 'var(--red)' : 'var(--accent)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 14px',
-                  border: isLockout ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(13, 148, 136, 0.25)',
-                  boxShadow: isLockout ? '0 8px 20px rgba(239, 68, 68, 0.2)' : '0 8px 20px var(--accent-glow)',
-                }}
-              >
-                <Stethoscope size={26} />
+            {/* Non-Super-Admin Lockout View */}
+            {isLockout && !isSuperAdmin ? (
+              <div style={{ textAlign: 'center', padding: '16px 12px' }}>
+                <div
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: 'var(--red)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    boxShadow: '0 8px 20px rgba(239, 68, 68, 0.2)',
+                  }}
+                >
+                  <AlertOctagon size={30} />
+                </div>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>
+                  Subscription Expired
+                </h2>
+                <div
+                  style={{
+                    fontSize: '0.92rem',
+                    color: 'var(--text-primary)',
+                    background: 'var(--surface-1)',
+                    padding: '16px 20px',
+                    borderRadius: 14,
+                    border: '1px solid var(--border)',
+                    marginBottom: 24,
+                    lineHeight: 1.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  Your subscription or your organization subscription is expired. Please contact your admin.
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleLogout}
+                  style={{ width: '100%', padding: '12px', justifyContent: 'center', fontWeight: 700, color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                >
+                  <LogOut size={18} style={{ marginRight: 8 }} /> Log Out
+                </button>
               </div>
+            ) : (
+              <>
+                {/* Header Greeting */}
+                <div className="subscription-modal-header" style={{ textAlign: 'center', marginBottom: 20, position: 'relative', zIndex: 1, paddingRight: isLockout ? 0 : 24 }}>
+                  <div
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 16,
+                      background: isLockout ? 'rgba(239, 68, 68, 0.15)' : 'var(--accent-glow)',
+                      color: isLockout ? 'var(--red)' : 'var(--accent)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 14px',
+                      border: isLockout ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(13, 148, 136, 0.25)',
+                      boxShadow: isLockout ? '0 8px 20px rgba(239, 68, 68, 0.2)' : '0 8px 20px var(--accent-glow)',
+                    }}
+                  >
+                    <Stethoscope size={26} />
+                  </div>
 
-              <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1.25 }}>
-                {lockReason === 'trial_expired'
-                  ? `Free Trial Period Expired, ${doctorName}`
-                  : lockReason === 'premium_expired'
-                  ? `Subscription Expired, ${doctorName}`
-                  : `Welcome to HCMS, ${doctorName}! 👋`}
-              </h1>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, maxWidth: 540, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
-                {isLockout
-                  ? 'Your subscription status is inactive. Please select a plan to unlock your clinic management dashboard and resume OPD operations.'
-                  : 'To start managing your clinic, prescriptions, and OPD visits, please choose a plan below. You can start with our 15-day free trial or activate Premium.'}
-              </p>
-            </div>
+                  <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1.25 }}>
+                    {isLockout
+                      ? 'Subscription Expired'
+                      : `Welcome to HCMS, ${doctorName}! 👋`}
+                  </h1>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, maxWidth: 540, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+                    {isLockout
+                      ? 'Your subscription or your organization subscription is expired. Please contact your admin.'
+                      : 'To start managing your clinic, prescriptions, and OPD visits, please choose a plan below. You can start with our 15-day free trial or activate Premium.'}
+                  </p>
+                </div>
 
             {/* 30-Day Data Safety Notice */}
             <div
@@ -375,6 +430,8 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
             <div style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
               <ShieldCheck size={14} color="var(--green)" /> You can upgrade or change plans anytime from Settings
             </div>
+          </>
+        )}
           </motion.div>
 
         </div>

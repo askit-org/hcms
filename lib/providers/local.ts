@@ -48,6 +48,11 @@ import type {
   Visit,
   VisitListParams,
   UserSubscription,
+  OrganizationInfoResponse,
+  OnboardStaffInput,
+  StaffUser,
+  AppRole,
+  CreateRoleInput,
   SelectPlanInput,
   VerifyPaymentInput,
   SubscriptionResponse,
@@ -212,6 +217,162 @@ export const LocalDataProvider: DataProvider = {
       return { success: true, subscription, user: updatedUser };
     }
     return { success: true, subscription };
+  },
+
+  async getOrganizationInfo(): Promise<OrganizationInfoResponse> {
+    const user = useAuth.getState().user;
+    const settings = await this.getSettings();
+    const staff = (await dbGetAll<StaffUser>('staff')) || [];
+
+    return {
+      organization: {
+        id: 'org_local_default',
+        name: settings?.clinicName || user?.clinicName || 'My Clinic & Hospital',
+        city: settings?.city || user?.city || '',
+        subscriptionStatus: user?.subscription?.subscriptionStatus || 'active',
+        planType: user?.subscription?.planType || 'trial',
+      },
+      rootAdmin: {
+        id: user?.id || 'usr_root_doc',
+        name: user?.doctorName || 'Dr. Admin',
+        email: user?.email || 'doctor@clinic.com',
+        degree: user?.degree || settings?.degree || 'MBBS',
+        regNo: user?.regNo || settings?.regNo || 'REG-101',
+        role: 'SUPER_ADMIN',
+        createdAt: user?.createdAt || new Date().toISOString(),
+      },
+      staff,
+      roles: await this.listRoles(),
+    };
+  },
+
+  async onboardStaff(input: OnboardStaffInput): Promise<StaffUser> {
+    const staff = (await dbGetAll<StaffUser>('staff')) || [];
+    if (staff.some((s) => s.email.toLowerCase() === input.email.toLowerCase())) {
+      throw new Error(`Staff member with email "${input.email}" is already onboarded.`);
+    }
+
+    const newStaff: StaffUser = {
+      id: `usr_staff_${Date.now()}`,
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      roleId: input.roleId,
+      role: input.role || 'RECEPTIONIST',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    await dbPut('staff', newStaff);
+    return newStaff;
+  },
+
+  async deleteStaff(staffId: string): Promise<void> {
+    await dbDelete('staff', staffId);
+  },
+
+  async listRoles(): Promise<AppRole[]> {
+    const customRoles = (await dbGetAll<AppRole>('roles')) || [];
+    const systemRoles: AppRole[] = [
+      {
+        id: 'role_super_admin',
+        name: 'Super Admin / Doctor',
+        code: 'SUPER_ADMIN',
+        description: 'Full uninhibited access to all clinical, financial, and organizational modules.',
+        isSystemRole: true,
+        permissions: [
+          { model: 'PATIENTS', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'VISITS', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'MEDICINES', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'TEMPLATES', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'FOLLOWUPS', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'REPORTS', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'SETTINGS', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'STAFF', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+        ],
+      },
+      {
+        id: 'role_receptionist',
+        name: 'Receptionist',
+        code: 'RECEPTIONIST',
+        description: 'Handles front-desk patient registration, OPD check-ins, and follow-up tracking.',
+        isSystemRole: true,
+        permissions: [
+          { model: 'PATIENTS', canRead: true, canCreate: true, canUpdate: true, canDelete: false },
+          { model: 'VISITS', canRead: true, canCreate: true, canUpdate: false, canDelete: false },
+          { model: 'FOLLOWUPS', canRead: true, canCreate: true, canUpdate: true, canDelete: false },
+          { model: 'MEDICINES', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'TEMPLATES', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'REPORTS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'SETTINGS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'STAFF', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+        ],
+      },
+      {
+        id: 'role_assistant',
+        name: 'Clinical Assistant',
+        code: 'ASSISTANT',
+        description: 'Assists doctor with Vitals, Complaints, and initial patient history.',
+        isSystemRole: true,
+        permissions: [
+          { model: 'PATIENTS', canRead: true, canCreate: true, canUpdate: true, canDelete: false },
+          { model: 'VISITS', canRead: true, canCreate: true, canUpdate: true, canDelete: false },
+          { model: 'FOLLOWUPS', canRead: true, canCreate: true, canUpdate: true, canDelete: false },
+          { model: 'MEDICINES', canRead: true, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'TEMPLATES', canRead: true, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'REPORTS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'SETTINGS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'STAFF', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+        ],
+      },
+      {
+        id: 'role_compounder',
+        name: 'Compounder / Pharmacist',
+        code: 'COMPOUNDER',
+        description: 'Manages drug inventory and dispenses prescriptions.',
+        isSystemRole: true,
+        permissions: [
+          { model: 'PATIENTS', canRead: true, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'VISITS', canRead: true, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'FOLLOWUPS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'MEDICINES', canRead: true, canCreate: true, canUpdate: true, canDelete: true },
+          { model: 'TEMPLATES', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'REPORTS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'SETTINGS', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+          { model: 'STAFF', canRead: false, canCreate: false, canUpdate: false, canDelete: false },
+        ],
+      },
+    ];
+
+    return [...systemRoles, ...customRoles];
+  },
+
+  async createRole(input: CreateRoleInput): Promise<AppRole> {
+    const roles = await this.listRoles();
+    if (roles.some((r) => r.name.toLowerCase() === input.name.toLowerCase())) {
+      throw new Error(`A role named "${input.name}" already exists.`);
+    }
+
+    const newRole: AppRole = {
+      id: `role_${Date.now()}`,
+      name: input.name.trim(),
+      code: input.name.trim().toUpperCase().replace(/\s+/g, '_'),
+      description: input.description,
+      isSystemRole: false,
+      permissions: input.permissions,
+    };
+
+    await dbPut('roles', newRole);
+    return newRole;
+  },
+
+  async deleteRole(roleId: string): Promise<void> {
+    const roles = await this.listRoles();
+    const target = roles.find((r) => r.id === roleId);
+    if (target?.isSystemRole) {
+      throw new Error('System default roles cannot be deleted.');
+    }
+    await dbDelete('roles', roleId);
   },
 
   // ── Patients ───────────────────────────────────────────────────

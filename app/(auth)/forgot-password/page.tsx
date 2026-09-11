@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { KeyRound, ArrowLeft, Mail, CheckCircle2 } from 'lucide-react';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import { motion } from 'framer-motion';
 
 export default function ForgotPasswordPage() {
@@ -31,7 +32,7 @@ export default function ForgotPasswordPage() {
         toast(res.error || 'Failed to send reset link', 'error');
       }
     } catch (err: any) {
-      toast(err.message || 'Network error occurred', 'error');
+      toast(getErrorMessage(err, 'Network error occurred'), 'error');
     } finally {
       setLoading(false);
     }

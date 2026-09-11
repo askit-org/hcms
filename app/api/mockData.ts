@@ -86,6 +86,31 @@ export let mockSettings: ClinicSettings = {
   city: 'Pune',
 };
 
+export interface QueueItemData {
+  id: string;
+  tokenNo: number;
+  patientId: string;
+  patientName: string;
+  age?: number;
+  gender?: string;
+  mobile?: string;
+  reason?: string;
+  category?: string;
+  status: 'NOW_SERVING' | 'NEXT_IN_LINE' | 'WAITING' | 'COMPLETED' | 'SKIPPED';
+  priority?: string;
+  vitals?: {
+    bp?: string;
+    pulse?: string;
+    temp?: string;
+    spo2?: string;
+  };
+  queuedAt: string;
+  inRoomSince?: string;
+  estimatedTurn?: string;
+}
+
+export let mockQueue: QueueItemData[] = [];
+
 export let mockAppOptions: AppOption[] = [
   { id: 1, optionType: 'chiefComplaint', value: 'Fever', createdAt: new Date().toISOString() },
   { id: 2, optionType: 'chiefComplaint', value: 'Cough & Cold', createdAt: new Date().toISOString() },

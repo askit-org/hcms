@@ -8,6 +8,7 @@ import { useProviderStore } from '@/lib/providers';
 import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 import { motion, AnimatePresence } from 'framer-motion';
 import VoiceInputButton from '@/components/VoiceInputButton';
@@ -290,8 +291,8 @@ export default function NewVisitForm() {
       isFormDirty.current = false;
       toast('OPD Visit saved successfully!', 'success');
       router.push(`/patients/${selectedPatient!.patientId}`);
-    } catch (err) {
-      toast('Failed to save visit.', 'error');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to save visit.'), 'error');
       setSaving(false);
     }
   };

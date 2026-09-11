@@ -11,6 +11,7 @@ import {
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
 import type { Visit, Patient } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import { jsPDF } from 'jspdf';
 import { motion } from 'framer-motion';
 import PageTransition from '@/components/PageTransition';
@@ -89,7 +90,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
       toast('Patient details updated successfully!', 'success');
       setIsEditing(false);
     } catch (err: any) {
-      toast(err.message || 'Failed to update patient.', 'error');
+      toast(getErrorMessage(err, 'Failed to update patient.'), 'error');
     }
   };
 

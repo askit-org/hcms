@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { usePatients, useAppOptions, usePatientMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import type { Patient } from '@/lib/providers/types';
 import { motion } from 'framer-motion';
 import PageTransition from '@/components/PageTransition';
@@ -95,7 +96,7 @@ export default function PatientsPage() {
       toast('Patient details updated successfully!', 'success');
       setEditingPatient(null);
     } catch (err: any) {
-      toast(err.message || 'Failed to update patient.', 'error');
+      toast(getErrorMessage(err, 'Failed to update patient.'), 'error');
     }
   };
 

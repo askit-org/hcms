@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Lock, ArrowLeft, Eye, EyeOff, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
 import { motion } from 'framer-motion';
 
 function ResetPasswordForm() {
@@ -53,7 +54,7 @@ function ResetPasswordForm() {
         toast(res.error || 'Failed to reset password', 'error');
       }
     } catch (err: any) {
-      toast(err.message || 'Network error occurred', 'error');
+      toast(getErrorMessage(err, 'Network error occurred'), 'error');
     } finally {
       setLoading(false);
     }
