@@ -1010,56 +1010,259 @@ body::before {
   .tabs { width: 100%; overflow-x: auto; }
 }
 
-/* ─── Dose Selector ────────────────────────────────────────────── */
-.dose-popover {
+/* ─── Modern Dose Selector Card ───────────────────────────────────── */
+.dose-popover-card {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 0;
   z-index: 9999;
   background: var(--surface-solid);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px;
+  border-radius: 14px;
+  padding: 12px;
   display: flex;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
-  margin-top: 4px;
-  width: max-content;
+  flex-direction: column;
+  box-shadow: var(--modal-shadow), 0 20px 50px rgba(0,0,0,0.45);
+  width: 330px;
+  animation: dosePopFade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
-.dose-toggle {
+
+@keyframes dosePopFade {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dose-popover-tabs {
+  display: flex;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  gap: 4px;
+}
+
+.dose-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.dose-tab-btn.active {
+  background: var(--surface-solid);
+  color: var(--accent-light);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.dose-slot-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 3px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border);
-  cursor: pointer;
-  min-width: 76px;
-  height: 60px;
-  transition: all 0.15s ease;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
   user-select: none;
 }
-.dose-toggle:hover {
+
+.dose-slot-card:hover {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  transform: translateY(-1px);
+}
+
+.dose-slot-card.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent-light);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.dose-slot-icon {
+  color: var(--accent);
+}
+
+.dose-slot-title {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.dose-slot-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.dose-slot-card.active .dose-slot-badge {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.dose-preset-switch-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.dose-preset-switch-banner:hover {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.dose-link-text {
+  color: var(--accent-light);
+  font-weight: 600;
+}
+
+.dose-presets-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.dose-section-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.dose-preset-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dose-preset-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.dose-preset-pill:hover {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  transform: translateX(2px);
+}
+
+.dose-preset-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.dose-pill-icon {
+  color: var(--accent);
+  display: inline-flex;
+}
+
+.dose-preset-pill.active .dose-pill-icon {
+  color: #ffffff;
+}
+
+.dose-pill-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.dose-preset-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.dose-preset-card-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.dose-preset-card-item:hover {
   border-color: var(--accent);
   background: var(--surface-3);
 }
-.dose-toggle.active {
-  background: rgba(13, 148, 136, 0.12);
+
+.dose-preset-card-item.active {
+  background: var(--accent-glow);
   border-color: var(--accent);
   color: var(--accent-light);
-  box-shadow: 0 0 0 1.5px var(--accent) inset;
+  font-weight: 600;
 }
-.dose-toggle span { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
-.dose-toggle-val {
-  font-size: 0.78rem;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 4px;
-  min-width: 22px;
-  text-align: center;
+
+.dose-item-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.dose-item-desc {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
 
 @media (max-width: 600px) {
@@ -1069,10 +1272,11 @@ body::before {
     bottom: 0;
     left: 0;
     right: 0;
-    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
     padding: 20px 16px;
-    justify-content: space-around;
-    background: var(--background);
+    background: var(--surface-solid);
     box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
     margin-top: 0;
     z-index: 100000;
@@ -1081,6 +1285,13 @@ body::before {
     flex: 1;
     padding: 14px 8px;
     min-width: 0;
+  }
+  .dose-sub-popover {
+    position: static;
+    margin-top: 10px;
+    width: 100%;
+    box-shadow: none;
+    border: 1px solid var(--border);
   }
 }
 
@@ -1703,6 +1914,15 @@ body::before {
 
 @media (max-width: 768px) {
   .appointments-layout-grid {
-    gap: 10px;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    gap: 14px;
+  }
+
+  .appointments-box {
+    flex: none !important;
+    min-height: 380px;
+    height: auto;
   }
 }
+

@@ -4,9 +4,10 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Clock, Users, UserPlus, Stethoscope, Search,
-  X, Volume2, Trash2, GripVertical, Plus, AlertCircle
+  X, Volume2, Trash2, GripVertical, Plus, AlertCircle,
+  ChevronUp, ChevronDown, History
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { usePatients, usePatientMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -53,6 +54,310 @@ const COMMON_CONDITIONS = [
 
 import { useEffect } from 'react';
 
+interface QueueReorderItemCardProps {
+  item: QueueItem;
+  index: number;
+  totalCount: number;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onStartVisit: (item: QueueItem) => void;
+  onComplete: (id: string, name: string) => void;
+  onRemove: (id: string, name: string) => void;
+  onMoveItem: (index: number, dir: 'UP' | 'DOWN') => void;
+  isDoctorOrSuperAdmin: boolean;
+}
+
+function QueueReorderItemCard({
+  item,
+  index,
+  totalCount,
+  isExpanded,
+  onToggleExpand,
+  onStartVisit,
+  onComplete,
+  onRemove,
+  onMoveItem,
+  isDoctorOrSuperAdmin,
+}: QueueReorderItemCardProps) {
+  const router = useRouter();
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={item}
+      id={item.id}
+      dragListener={false}
+      dragControls={dragControls}
+      style={{ position: 'relative', listStyle: 'none', marginBottom: 10, width: '100%' }}
+      whileDrag={{
+        scale: 1.02,
+        boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+        zIndex: 999,
+      }}
+    >
+      <div
+        onClick={onToggleExpand}
+        style={{
+          background: 'var(--surface-2)',
+          borderLeft:
+            item.status === 'NEXT_IN_LINE'
+              ? '4px solid var(--accent)'
+              : item.priority === 'EMERGENCY'
+              ? '4px solid var(--red)'
+              : '4px solid var(--border)',
+          borderTop: '1px solid var(--border)',
+          borderRight: '1px solid var(--border)',
+          borderBottom: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: '12px 16px',
+          minHeight: 74,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+          boxSizing: 'border-box',
+        }}
+      >
+        {/* MINIMIZED STATE */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            {/* Drag Handle & Up/Down Move Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              <span
+                onPointerDown={(e) => dragControls.start(e)}
+                style={{
+                  color: 'var(--text-muted)',
+                  cursor: 'grab',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '6px 2px',
+                  touchAction: 'none',
+                  userSelect: 'none',
+                }}
+                title="Hold & drag card up or down to reorder queue"
+              >
+                <GripVertical size={18} />
+              </span>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }} onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  onClick={() => onMoveItem(index, 'UP')}
+                  title="Move Up in Queue"
+                  style={{
+                    background: 'var(--surface-3)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 4,
+                    width: 20,
+                    height: 20,
+                    cursor: index === 0 ? 'not-allowed' : 'pointer',
+                    opacity: index === 0 ? 0.3 : 1,
+                    color: 'var(--text-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >
+                  <ChevronUp size={12} />
+                </button>
+                <button
+                  type="button"
+                  disabled={index === totalCount - 1}
+                  onClick={() => onMoveItem(index, 'DOWN')}
+                  title="Move Down in Queue"
+                  style={{
+                    background: 'var(--surface-3)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 4,
+                    width: 20,
+                    height: 20,
+                    cursor: index === totalCount - 1 ? 'not-allowed' : 'pointer',
+                    opacity: index === totalCount - 1 ? 0.3 : 1,
+                    color: 'var(--text-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+            </div>
+
+            {/* Token Badge */}
+            <div
+              style={{
+                background: item.status === 'NEXT_IN_LINE' ? 'var(--accent-glow)' : 'var(--surface-3)',
+                color: item.status === 'NEXT_IN_LINE' ? 'var(--accent)' : 'var(--text-primary)',
+                border: item.status === 'NEXT_IN_LINE' ? '1px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: 10,
+                width: 62,
+                height: 48,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                lineHeight: 1.1,
+              }}
+            >
+              <span style={{ fontSize: '0.62rem', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>
+                Token
+              </span>
+              <span style={{ fontSize: '1.05rem', fontWeight: 900, marginTop: 1 }}>
+                #{item.tokenNo < 10 ? `0${item.tokenNo}` : item.tokenNo}
+              </span>
+            </div>
+
+            {/* Patient Info */}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {item.patientName}
+                </h4>
+                {item.age ? (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    ({item.age}{item.gender ? item.gender.charAt(0) : ''})
+                  </span>
+                ) : null}
+                {item.status === 'NEXT_IN_LINE' && (
+                  <span className="badge badge-teal" style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px' }}>
+                    Next In Line
+                  </span>
+                )}
+                {item.priority === 'EMERGENCY' && (
+                  <span className="badge badge-red" style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px' }}>
+                    Priority Emergency
+                  </span>
+                )}
+              </div>
+              {!isExpanded && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span>UHID: {item.patientId}</span>
+                  <span>•</span>
+                  <span>Queued: {item.queuedAt}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Action: Start Visit, See Visit History & Mark Completed */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {isDoctorOrSuperAdmin && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/patients/${item.patientId}`);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    fontSize: '0.76rem',
+                    padding: '6px 12px',
+                    background: 'var(--surface-3)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                  title="View patient's past visit history"
+                >
+                  <History size={13} /> Visit History
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartVisit(item);
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontSize: '0.76rem', padding: '6px 12px', background: 'var(--accent)', color: '#ffffff', fontWeight: 800, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <Stethoscope size={13} /> Start Visit
+                </button>
+              </>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onComplete(item.id, item.patientName);
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.74rem', padding: '6px 12px', background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 8, fontWeight: 600 }}
+            >
+              ✓ Complete
+            </button>
+          </div>
+        </div>
+
+        {/* EXPANDED DETAILS PANEL */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)', overflow: 'hidden' }}
+            >
+              {item.reason && (
+                <div style={{ background: 'var(--surface-3)', padding: '8px 12px', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 10 }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Chief Complaints:</strong> {item.reason}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.74rem', color: 'var(--red)', borderRadius: 8 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(item.id, item.patientName);
+                  }}
+                >
+                  <Trash2 size={12} /> Remove
+                </button>
+
+                {isDoctorOrSuperAdmin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/patients/${item.patientId}`);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.78rem', fontWeight: 700, background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <History size={14} /> Visit History
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStartVisit(item);
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.78rem', fontWeight: 800, background: 'linear-gradient(135deg, var(--accent), #10b981)', borderRadius: 8 }}
+                    >
+                      <Stethoscope size={14} /> Start Visit & Write Rx →
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </Reorder.Item>
+  );
+}
+
 export default function AppointmentsPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -74,7 +379,7 @@ export default function AppointmentsPage() {
 
   // Real API hooks for Live OPD Queue persistence
   const { data: dbQueue, refetch: refetchQueue } = useQueue();
-  const { enqueue: enqueueMut, callNext: callNextMut, updateStatus: updateStatusMut, removeFromQueue: removeMut } = useQueueMutations();
+  const { enqueue: enqueueMut, callNext: callNextMut, updateStatus: updateStatusMut, removeFromQueue: removeMut, reorderQueue: reorderMut } = useQueueMutations();
 
   // Local fallback queue state merged with live API queue
   const [localQueue, setLocalQueue] = useState<QueueItem[]>([]);
@@ -99,6 +404,14 @@ export default function AppointmentsPage() {
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [isDraggingOverQueue, setIsDraggingOverQueue] = useState(false);
+
+  // Queue card drag-and-drop reorder state
+  const [draggedQueueId, setDraggedQueueId] = useState<string | null>(null);
+  const [dragOverQueueId, setDragOverQueueId] = useState<string | null>(null);
+
+  // Touch drag states for mobile screens
+  const [touchCanvasPatient, setTouchCanvasPatient] = useState<CanvasPatient | null>(null);
+  const [touchQueueItemId, setTouchQueueItemId] = useState<string | null>(null);
 
   // Registration Modal state (matching /patients/new)
   const [showAddPatientModal, setShowAddPatientModal] = useState(false);
@@ -402,6 +715,138 @@ export default function AppointmentsPage() {
     } catch (_) {}
   };
 
+  // Handle Reordering Queue Sequence (Persisted via API)
+  const handleReorderQueue = async (reorderedWaiting: QueueItem[]) => {
+    const activeNowServing = queue.filter((q) => q.status === 'NOW_SERVING');
+    const completedItems = queue.filter((q) => q.status === 'COMPLETED');
+
+    const updatedWaiting = reorderedWaiting.map((item, idx) => ({
+      ...item,
+      status: (idx === 0 ? 'NEXT_IN_LINE' : 'WAITING') as 'NEXT_IN_LINE' | 'WAITING',
+    }));
+
+    const newFullQueue = [...activeNowServing, ...updatedWaiting, ...completedItems];
+    setLocalQueue(newFullQueue);
+
+    const orderedIds = updatedWaiting.map((w) => w.id);
+    try {
+      await reorderMut.mutateAsync(orderedIds);
+      toast('Queue sequence reordered!', 'success');
+    } catch (err) {
+      toast(getErrorMessage(err, 'Failed to reorder queue.'), 'error');
+      refetchQueue();
+    }
+  };
+
+  const handleMoveQueueItem = (index: number, direction: 'UP' | 'DOWN') => {
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= waitingList.length) return;
+
+    const currentWaiting = [...waitingList];
+    const [moved] = currentWaiting.splice(index, 1);
+    currentWaiting.splice(targetIndex, 0, moved);
+
+    handleReorderQueue(currentWaiting);
+  };
+
+  // Canvas Mobile Touch Drag
+  const handleCanvasTouchStart = (patient: CanvasPatient) => {
+    setTouchCanvasPatient(patient);
+    setIsDraggingOverQueue(true);
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent) => {
+    if (!touchCanvasPatient) return;
+    const touch = e.touches[0];
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    const dropZone = document.getElementById('queue-dropzone-container');
+    if (dropZone && targetEl && dropZone.contains(targetEl)) {
+      setIsDraggingOverQueue(true);
+    }
+  };
+
+  const handleCanvasTouchEnd = (e: React.TouchEvent) => {
+    setIsDraggingOverQueue(false);
+    if (!touchCanvasPatient) return;
+    const touch = e.changedTouches[0];
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    const dropZone = document.getElementById('queue-dropzone-container');
+
+    if (dropZone && targetEl && dropZone.contains(targetEl)) {
+      handleEnqueuePatient(touchCanvasPatient);
+    }
+    setTouchCanvasPatient(null);
+  };
+
+  // Queue Card Desktop & Touch Drag Handlers
+  const handleQueueDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/queue-id', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedQueueId(id);
+  };
+
+  const handleQueueDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverQueueId !== targetId) {
+      setDragOverQueueId(targetId);
+    }
+  };
+
+  const handleQueueDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverQueueId(null);
+    const sourceId = e.dataTransfer.getData('text/queue-id') || draggedQueueId;
+    setDraggedQueueId(null);
+    if (!sourceId || sourceId === targetId) return;
+
+    const currentWaiting = [...waitingList];
+    const fromIdx = currentWaiting.findIndex((item) => item.id === sourceId);
+    const toIdx = currentWaiting.findIndex((item) => item.id === targetId);
+
+    if (fromIdx !== -1 && toIdx !== -1) {
+      const [moved] = currentWaiting.splice(fromIdx, 1);
+      currentWaiting.splice(toIdx, 0, moved);
+      handleReorderQueue(currentWaiting);
+    }
+  };
+
+  const handleQueueTouchStart = (id: string) => {
+    setTouchQueueItemId(id);
+    setDraggedQueueId(id);
+  };
+
+  const handleQueueTouchMove = (e: React.TouchEvent) => {
+    if (!touchQueueItemId) return;
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (el) {
+      const itemEl = el.closest('[data-queue-id]');
+      if (itemEl) {
+        const targetId = itemEl.getAttribute('data-queue-id');
+        if (targetId && targetId !== dragOverQueueId) {
+          setDragOverQueueId(targetId);
+        }
+      }
+    }
+  };
+
+  const handleQueueTouchEnd = () => {
+    if (touchQueueItemId && dragOverQueueId && touchQueueItemId !== dragOverQueueId) {
+      const currentWaiting = [...waitingList];
+      const fromIdx = currentWaiting.findIndex((x) => x.id === touchQueueItemId);
+      const toIdx = currentWaiting.findIndex((x) => x.id === dragOverQueueId);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = currentWaiting.splice(fromIdx, 1);
+        currentWaiting.splice(toIdx, 0, moved);
+        handleReorderQueue(currentWaiting);
+      }
+    }
+    setTouchQueueItemId(null);
+    setDraggedQueueId(null);
+    setDragOverQueueId(null);
+  };
+
   return (
     <PageTransition className="appointments-page-container">
       {/* Clean Page Title */}
@@ -555,73 +1000,100 @@ export default function AppointmentsPage() {
               </div>
             </div>
 
-            {/* Draggable Cards List Container (Scrollable) */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
-              <AnimatePresence>
-                {canvasPatients.map((patient) => (
-                  <motion.div
-                    key={patient.patientId}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e as any, patient)}
-                    style={{
-                      flexShrink: 0,
-                      background: 'var(--surface-2)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 10,
-                      padding: 14,
-                      cursor: 'grab',
-                      transition: 'all 0.2s ease',
-                      position: 'relative',
-                    }}
-                    whileHover={{ borderColor: 'var(--accent)', translateY: -2, boxShadow: '0 8px 20px rgba(13,148,136,0.15)' }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ color: 'var(--text-muted)', cursor: 'grab' }} title="Drag card into queue">
-                          <GripVertical size={16} />
-                        </span>
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '50%',
-                            background: 'var(--accent-glow)',
-                            color: 'var(--accent)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: '0.88rem',
-                            border: '1px solid var(--accent)',
-                          }}
-                        >
-                          {patient.name.charAt(0)}
-                        </div>
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {patient.name} {patient.age ? <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>({patient.age}{patient.gender ? patient.gender.charAt(0) : ''})</span> : null}
-                          </h3>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                            UHID: {patient.patientId} • {patient.mobile}
+              {/* Draggable Cards List Container (Scrollable) */}
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
+                <AnimatePresence>
+                  {canvasPatients.map((patient) => (
+                    <motion.div
+                      key={patient.patientId}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e as any, patient)}
+                      onTouchStart={() => handleCanvasTouchStart(patient)}
+                      onTouchMove={handleCanvasTouchMove}
+                      onTouchEnd={handleCanvasTouchEnd}
+                      style={{
+                        flexShrink: 0,
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 10,
+                        padding: 14,
+                        cursor: 'grab',
+                        transition: 'all 0.2s ease',
+                        position: 'relative',
+                        touchAction: 'none',
+                      }}
+                      whileHover={{ borderColor: 'var(--accent)', translateY: -2, boxShadow: '0 8px 20px rgba(13,148,136,0.15)' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ color: 'var(--text-muted)', cursor: 'grab' }} title="Drag card into queue">
+                            <GripVertical size={16} />
+                          </span>
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: '50%',
+                              background: 'var(--accent-glow)',
+                              color: 'var(--accent)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '0.88rem',
+                              border: '1px solid var(--accent)',
+                            }}
+                          >
+                            {patient.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {patient.name} {patient.age ? <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>({patient.age}{patient.gender ? patient.gender.charAt(0) : ''})</span> : null}
+                            </h3>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                              UHID: {patient.patientId} • {patient.mobile}
+                            </div>
                           </div>
                         </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {patient.category && <span className="badge badge-teal" style={{ fontSize: '0.7rem' }}>{patient.category}</span>}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEnqueuePatient(patient);
+                            }}
+                            className="btn btn-primary btn-sm"
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              padding: '4px 10px',
+                              background: 'linear-gradient(135deg, var(--accent), #10b981)',
+                              border: 'none',
+                              borderRadius: 8,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Plus size={13} /> Enqueue
+                          </button>
+                        </div>
                       </div>
 
-                      {patient.category && <span className="badge badge-teal" style={{ fontSize: '0.7rem' }}>{patient.category}</span>}
-                    </div>
-
-                    {patient.reason && (
-                      <div style={{ marginTop: 10, background: 'var(--surface-3)', padding: '8px 10px', borderRadius: 6, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                        <strong>Complaint:</strong> {patient.reason}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                      {patient.reason && (
+                        <div style={{ marginTop: 10, background: 'var(--surface-3)', padding: '8px 10px', borderRadius: 6, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          <strong>Complaint:</strong> {patient.reason}
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
               {canvasPatients.length === 0 && (
                 <div style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -641,6 +1113,7 @@ export default function AppointmentsPage() {
         {/* BOX 2 (RIGHT 50% ON DESKTOP, STACKED ON MOBILE)           */}
         {/* ======================================================== */}
         <div
+          id="queue-dropzone-container"
           className="card appointments-box"
           style={{
             background: 'var(--surface-solid)',
@@ -723,13 +1196,44 @@ export default function AppointmentsPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {isDoctorOrSuperAdmin && (
-                      <button
-                        onClick={() => handleStartVisitAndNavigate(nowServing)}
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: '0.8rem', fontWeight: 800, padding: '6px 14px', background: 'linear-gradient(135deg, var(--accent), #10b981)' }}
-                      >
-                        <Stethoscope size={14} /> Start Visit & Write Rx →
-                      </button>
+                      <>
+                        <button
+                          onClick={() => router.push(`/patients/${nowServing.patientId}`)}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            padding: '6px 12px',
+                            background: 'var(--surface-3)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--text-primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            borderRadius: 8,
+                          }}
+                          title="View patient's past visit history"
+                        >
+                          <History size={14} /> Visit History
+                        </button>
+
+                        <button
+                          onClick={() => handleStartVisitAndNavigate(nowServing)}
+                          className="btn btn-primary btn-sm"
+                          style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 800,
+                            padding: '6px 14px',
+                            background: 'linear-gradient(135deg, var(--accent), #10b981)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            borderRadius: 8,
+                          }}
+                        >
+                          <Stethoscope size={14} /> Start Visit & Write Rx →
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => handleCompleteAppointment(nowServing.id, nowServing.patientName)}
@@ -749,166 +1253,30 @@ export default function AppointmentsPage() {
             )}
 
             {/* 2. FIFO QUEUE CARDS STACK */}
-            <AnimatePresence>
-              {waitingList.map((item) => {
-                const isHovered = hoveredCardId === item.id;
-                const isExpanded = expandedCardId === item.id || isHovered;
-
-                return (
-                  <motion.div
-                    key={item.id}
-                    layout
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    onMouseEnter={() => setHoveredCardId(item.id)}
-                    onMouseLeave={() => setHoveredCardId(null)}
-                    onClick={() => setExpandedCardId(expandedCardId === item.id ? null : item.id)}
-                    style={{
-                      flexShrink: 0,
-                      background: 'var(--surface-2)',
-                      borderLeft: item.status === 'NEXT_IN_LINE' ? '4px solid var(--accent)' : item.priority === 'EMERGENCY' ? '4px solid var(--red)' : '4px solid var(--border)',
-                      borderTop: '1px solid var(--border)',
-                      borderRight: '1px solid var(--border)',
-                      borderBottom: '1px solid var(--border)',
-                      borderRadius: 10,
-                      padding: isExpanded ? '14px' : '10px 14px',
-                      cursor: 'pointer',
-                      transition: 'all 0.22s ease',
-                      boxShadow: isExpanded ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 6px rgba(0,0,0,0.05)',
-                    }}
-                  >
-                    {/* MINIMIZED STATE */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {/* Token Badge */}
-                        <div
-                          style={{
-                            background: item.status === 'NEXT_IN_LINE' ? 'var(--accent-glow)' : 'var(--surface-3)',
-                            color: item.status === 'NEXT_IN_LINE' ? 'var(--accent)' : 'var(--text-primary)',
-                            border: item.status === 'NEXT_IN_LINE' ? '1px solid var(--accent)' : '1px solid var(--border)',
-                            borderRadius: 8,
-                            padding: '3px 10px',
-                            textAlign: 'center',
-                            minWidth: 48,
-                          }}
-                        >
-                          <span style={{ fontSize: '0.65rem', display: 'block', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)' }}>
-                            Token
-                          </span>
-                          <span style={{ fontSize: '1rem', fontWeight: 900 }}>
-                            #{item.tokenNo < 10 ? `0${item.tokenNo}` : item.tokenNo}
-                          </span>
-                        </div>
-
-                        {/* Patient Info */}
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              {item.patientName}
-                            </h4>
-                            {item.age ? (
-                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                                ({item.age}{item.gender ? item.gender.charAt(0) : ''})
-                              </span>
-                            ) : null}
-                            {item.status === 'NEXT_IN_LINE' && (
-                              <span className="badge badge-teal" style={{ fontSize: '0.68rem', fontWeight: 700 }}>
-                                Next In Line
-                              </span>
-                            )}
-                            {item.priority === 'EMERGENCY' && (
-                              <span className="badge badge-red" style={{ fontSize: '0.68rem', fontWeight: 700 }}>
-                                Priority Emergency
-                              </span>
-                            )}
-                          </div>
-                          {!isExpanded && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 10 }}>
-                              <span>UHID: {item.patientId}</span>
-                              <span>•</span>
-                              <span>Queued: {item.queuedAt}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Right Action: Start Visit & Mark Completed */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {isDoctorOrSuperAdmin && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartVisitAndNavigate(item);
-                            }}
-                            className="btn btn-primary btn-sm"
-                            style={{ fontSize: '0.76rem', padding: '5px 12px', background: 'var(--accent)', color: '#ffffff', fontWeight: 800 }}
-                          >
-                            <Stethoscope size={13} /> Start Visit
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCompleteAppointment(item.id, item.patientName);
-                          }}
-                          className="btn btn-secondary btn-sm"
-                          style={{ fontSize: '0.74rem', padding: '4px 10px', background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
-                        >
-                          ✓ Complete
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* EXPANDED DETAILS PANEL */}
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                          style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)', overflow: 'hidden' }}
-                        >
-                          {item.reason && (
-                            <div style={{ background: 'var(--surface-3)', padding: '8px 12px', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 10 }}>
-                              <strong style={{ color: 'var(--text-primary)' }}>Chief Complaints:</strong> {item.reason}
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              style={{ fontSize: '0.74rem', color: 'var(--red)' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveFromQueue(item.id, item.patientName);
-                              }}
-                            >
-                              <Trash2 size={12} /> Remove
-                            </button>
-
-                            {isDoctorOrSuperAdmin && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartVisitAndNavigate(item);
-                                }}
-                                className="btn btn-primary btn-sm"
-                                style={{ fontSize: '0.78rem', fontWeight: 800, background: 'linear-gradient(135deg, var(--accent), #10b981)' }}
-                              >
-                                <Stethoscope size={14} /> Start Visit & Write Rx →
-                              </button>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+            <Reorder.Group
+              axis="y"
+              values={waitingList}
+              onReorder={(newOrderedList) => {
+                handleReorderQueue(newOrderedList);
+              }}
+              style={{ padding: 0, margin: 0, listStyle: 'none' }}
+            >
+              {waitingList.map((item, index) => (
+                <QueueReorderItemCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  totalCount={waitingList.length}
+                  isExpanded={expandedCardId === item.id || hoveredCardId === item.id}
+                  onToggleExpand={() => setExpandedCardId(expandedCardId === item.id ? null : item.id)}
+                  onStartVisit={handleStartVisitAndNavigate}
+                  onComplete={handleCompleteAppointment}
+                  onRemove={handleRemoveFromQueue}
+                  onMoveItem={handleMoveQueueItem}
+                  isDoctorOrSuperAdmin={isDoctorOrSuperAdmin}
+                />
+              ))}
+            </Reorder.Group>
 
             {waitingList.length === 0 && !nowServing && (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
