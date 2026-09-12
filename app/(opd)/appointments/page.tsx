@@ -109,7 +109,7 @@ function QueueReorderItemCard({
           borderRight: '1px solid var(--border)',
           borderBottom: '1px solid var(--border)',
           borderRadius: 12,
-          padding: '12px 16px',
+          padding: '12px 14px',
           minHeight: 74,
           display: 'flex',
           flexDirection: 'column',
@@ -119,13 +119,15 @@ function QueueReorderItemCard({
           boxSizing: 'border-box',
         }}
       >
-        {/* MINIMIZED STATE */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        {/* MINIMIZED STATE — RESPONSIVE FLEX LAYOUT */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          {/* Left: Drag Handle, Token Badge & Patient Info */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 200px', minWidth: 0 }}>
             {/* Drag Handle & Up/Down Move Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               <span
                 onPointerDown={(e) => dragControls.start(e)}
+                onTouchStart={(e) => dragControls.start(e as any)}
                 style={{
                   color: 'var(--text-muted)',
                   cursor: 'grab',
@@ -150,8 +152,8 @@ function QueueReorderItemCard({
                     background: 'var(--surface-3)',
                     border: '1px solid var(--border)',
                     borderRadius: 4,
-                    width: 20,
-                    height: 20,
+                    width: 22,
+                    height: 22,
                     cursor: index === 0 ? 'not-allowed' : 'pointer',
                     opacity: index === 0 ? 0.3 : 1,
                     color: 'var(--text-primary)',
@@ -161,7 +163,7 @@ function QueueReorderItemCard({
                     padding: 0,
                   }}
                 >
-                  <ChevronUp size={12} />
+                  <ChevronUp size={13} />
                 </button>
                 <button
                   type="button"
@@ -172,8 +174,8 @@ function QueueReorderItemCard({
                     background: 'var(--surface-3)',
                     border: '1px solid var(--border)',
                     borderRadius: 4,
-                    width: 20,
-                    height: 20,
+                    width: 22,
+                    height: 22,
                     cursor: index === totalCount - 1 ? 'not-allowed' : 'pointer',
                     opacity: index === totalCount - 1 ? 0.3 : 1,
                     color: 'var(--text-primary)',
@@ -183,7 +185,7 @@ function QueueReorderItemCard({
                     padding: 0,
                   }}
                 >
-                  <ChevronDown size={12} />
+                  <ChevronDown size={13} />
                 </button>
               </div>
             </div>
@@ -195,8 +197,8 @@ function QueueReorderItemCard({
                 color: item.status === 'NEXT_IN_LINE' ? 'var(--accent)' : 'var(--text-primary)',
                 border: item.status === 'NEXT_IN_LINE' ? '1px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: 10,
-                width: 62,
-                height: 48,
+                width: 58,
+                height: 46,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -205,48 +207,47 @@ function QueueReorderItemCard({
                 lineHeight: 1.1,
               }}
             >
-              <span style={{ fontSize: '0.62rem', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '0.6rem', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-muted)' }}>
                 Token
               </span>
-              <span style={{ fontSize: '1.05rem', fontWeight: 900, marginTop: 1 }}>
+              <span style={{ fontSize: '1rem', fontWeight: 900, marginTop: 1 }}>
                 #{item.tokenNo < 10 ? `0${item.tokenNo}` : item.tokenNo}
               </span>
             </div>
 
             {/* Patient Info */}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.patientName}
                 </h4>
                 {item.age ? (
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', flexShrink: 0 }}>
                     ({item.age}{item.gender ? item.gender.charAt(0) : ''})
                   </span>
                 ) : null}
                 {item.status === 'NEXT_IN_LINE' && (
-                  <span className="badge badge-teal" style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px' }}>
+                  <span className="badge badge-teal" style={{ fontSize: '0.66rem', fontWeight: 700, padding: '2px 6px', flexShrink: 0 }}>
                     Next In Line
                   </span>
                 )}
                 {item.priority === 'EMERGENCY' && (
-                  <span className="badge badge-red" style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px' }}>
+                  <span className="badge badge-red" style={{ fontSize: '0.66rem', fontWeight: 700, padding: '2px 6px', flexShrink: 0 }}>
                     Priority Emergency
                   </span>
                 )}
               </div>
               {!isExpanded && (
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span>UHID: {item.patientId}</span>
-                  <span>•</span>
-                  <span>Queued: {item.queuedAt}</span>
+                  {item.mobile && <span>• {item.mobile}</span>}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right Action: Start Visit, See Visit History & Mark Completed */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {/* Right Action Buttons (Wraps cleanly on mobile) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
             {isDoctorOrSuperAdmin && (
               <>
                 <button
@@ -256,8 +257,8 @@ function QueueReorderItemCard({
                   }}
                   className="btn btn-secondary btn-sm"
                   style={{
-                    fontSize: '0.76rem',
-                    padding: '6px 12px',
+                    fontSize: '0.74rem',
+                    padding: '5px 10px',
                     background: 'var(--surface-3)',
                     border: '1px solid var(--border)',
                     color: 'var(--text-primary)',
@@ -266,6 +267,7 @@ function QueueReorderItemCard({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 4,
+                    whiteSpace: 'nowrap',
                   }}
                   title="View patient's past visit history"
                 >
@@ -278,7 +280,7 @@ function QueueReorderItemCard({
                     onStartVisit(item);
                   }}
                   className="btn btn-primary btn-sm"
-                  style={{ fontSize: '0.76rem', padding: '6px 12px', background: 'var(--accent)', color: '#ffffff', fontWeight: 800, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{ fontSize: '0.74rem', padding: '5px 10px', background: 'var(--accent)', color: '#ffffff', fontWeight: 800, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
                 >
                   <Stethoscope size={13} /> Start Visit
                 </button>
@@ -290,7 +292,7 @@ function QueueReorderItemCard({
                 onComplete(item.id, item.patientName);
               }}
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.74rem', padding: '6px 12px', background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 8, fontWeight: 600 }}
+              style={{ fontSize: '0.74rem', padding: '5px 10px', background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 8, fontWeight: 600, whiteSpace: 'nowrap' }}
             >
               ✓ Complete
             </button>
@@ -381,9 +383,18 @@ export default function AppointmentsPage() {
   const { data: dbQueue, refetch: refetchQueue } = useQueue();
   const { enqueue: enqueueMut, callNext: callNextMut, updateStatus: updateStatusMut, removeFromQueue: removeMut, reorderQueue: reorderMut } = useQueueMutations();
 
-  // Local fallback queue state merged with live API queue
+  // Local queue state for instant optimistic updates during drag and drop
   const [localQueue, setLocalQueue] = useState<QueueItem[]>([]);
+
+  // Sync live dbQueue into localQueue whenever API queue data updates
+  useEffect(() => {
+    if (Array.isArray(dbQueue)) {
+      setLocalQueue(dbQueue as QueueItem[]);
+    }
+  }, [dbQueue]);
+
   const queue: QueueItem[] = useMemo(() => {
+    if (localQueue.length > 0) return localQueue;
     if (Array.isArray(dbQueue)) return dbQueue as QueueItem[];
     return localQueue;
   }, [dbQueue, localQueue]);
@@ -1180,30 +1191,33 @@ export default function AppointmentsPage() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ background: 'var(--accent)', color: '#ffffff', fontWeight: 900, borderRadius: 8, padding: '4px 12px', fontSize: '0.95rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 200px', minWidth: 0 }}>
+                    <div style={{ background: 'var(--accent)', color: '#ffffff', fontWeight: 900, borderRadius: 8, padding: '4px 10px', fontSize: '0.88rem', flexShrink: 0 }}>
                       Token #{nowServing.tokenNo < 10 ? `0${nowServing.tokenNo}` : nowServing.tokenNo}
                     </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {nowServing.patientName} {nowServing.age ? <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>({nowServing.age}{nowServing.gender ? nowServing.gender.charAt(0) : ''})</span> : null}
-                        <span className="badge badge-teal" style={{ fontSize: '0.72rem' }}>Currently In Consultation</span>
+                    <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                      <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nowServing.patientName}</span>
+                        {nowServing.age ? <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)', flexShrink: 0 }}>({nowServing.age}{nowServing.gender ? nowServing.gender.charAt(0) : ''})</span> : null}
+                        <span className="badge badge-teal" style={{ fontSize: '0.68rem', flexShrink: 0 }}>Currently In Consultation</span>
                       </h3>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                        UHID: {nowServing.patientId} • Mobile: {nowServing.mobile} • In Session {nowServing.inRoomSince || 'Just Started'}
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span>UHID: {nowServing.patientId}</span>
+                        {nowServing.mobile && <span>• {nowServing.mobile}</span>}
+                        <span>• In Session {nowServing.inRoomSince || 'Just Started'}</span>
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
                     {isDoctorOrSuperAdmin && (
                       <>
                         <button
                           onClick={() => router.push(`/patients/${nowServing.patientId}`)}
                           className="btn btn-secondary btn-sm"
                           style={{
-                            fontSize: '0.78rem',
+                            fontSize: '0.74rem',
                             fontWeight: 700,
-                            padding: '6px 12px',
+                            padding: '5px 10px',
                             background: 'var(--surface-3)',
                             border: '1px solid var(--border)',
                             color: 'var(--text-primary)',
@@ -1211,34 +1225,36 @@ export default function AppointmentsPage() {
                             alignItems: 'center',
                             gap: 4,
                             borderRadius: 8,
+                            whiteSpace: 'nowrap',
                           }}
                           title="View patient's past visit history"
                         >
-                          <History size={14} /> Visit History
+                          <History size={13} /> Visit History
                         </button>
 
                         <button
                           onClick={() => handleStartVisitAndNavigate(nowServing)}
                           className="btn btn-primary btn-sm"
                           style={{
-                            fontSize: '0.8rem',
+                            fontSize: '0.76rem',
                             fontWeight: 800,
-                            padding: '6px 14px',
+                            padding: '5px 12px',
                             background: 'linear-gradient(135deg, var(--accent), #10b981)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: 4,
                             borderRadius: 8,
+                            whiteSpace: 'nowrap',
                           }}
                         >
-                          <Stethoscope size={14} /> Start Visit & Write Rx →
+                          <Stethoscope size={13} /> Start Visit & Write Rx →
                         </button>
                       </>
                     )}
                     <button
                       onClick={() => handleCompleteAppointment(nowServing.id, nowServing.patientName)}
                       className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.78rem', fontWeight: 800, padding: '6px 12px', background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      style={{ fontSize: '0.74rem', fontWeight: 800, padding: '5px 10px', background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}
                     >
                       ✓ Mark Completed
                     </button>
