@@ -323,9 +323,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Configurable Options */}
-      <SettingsOptions />
-
       {/* Prescription Templates */}
       <SettingsTemplates />
 
@@ -345,20 +342,6 @@ export default function SettingsPage() {
           }}
         >
           <Trash2 size={14} /> Clear Incomplete Visit Drafts
-        </button>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="card" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.04)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--red)', fontWeight: 700 }}>
-          <AlertTriangle size={18} /> Danger Zone
-        </div>
-        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
-          Permanently delete all local patient and visit data from this device. This action cannot be undone.
-          Make sure you have exported your data first.
-        </p>
-        <button className="btn btn-danger btn-sm" onClick={clearAllData}>
-          <Trash2 size={14} /> Clear Local Database
         </button>
       </div>
 

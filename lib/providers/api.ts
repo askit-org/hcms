@@ -18,6 +18,7 @@ import type {
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
+  UpdateTemplateInput,
   CreateVisitInput,
   DashboardStats,
   DataProvider,
@@ -232,6 +233,9 @@ export const ApiDataProvider: DataProvider = {
   },
   async createTemplate(input: CreateTemplateInput): Promise<Template> {
     return api.post<Template>('/templates', input).then((r) => extract<Template>(r));
+  },
+  async updateTemplate(id: number, input: UpdateTemplateInput): Promise<Template> {
+    return api.put<Template>(`/templates/${id}`, input).then((r) => extract<Template>(r));
   },
   async deleteTemplate(id: number): Promise<void> {
     return api.delete(`/templates/${id}`).then(() => undefined);

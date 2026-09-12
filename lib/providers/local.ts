@@ -33,6 +33,7 @@ import type {
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
+  UpdateTemplateInput,
   CreateVisitInput,
   DashboardStats,
   DataProvider,
@@ -565,6 +566,13 @@ export const LocalDataProvider: DataProvider = {
     };
     const id = await dbAdd('templates', newTpl);
     return { ...newTpl, id };
+  },
+  async updateTemplate(id: number, input: UpdateTemplateInput): Promise<Template> {
+    const existing = await dbGet<Template>('templates', id);
+    if (!existing) throw new Error(`Template ${id} not found`);
+    const updated = { ...existing, ...input };
+    await dbPut('templates', updated);
+    return updated;
   },
   async deleteTemplate(id: number): Promise<void> {
     await dbDelete('templates', id);

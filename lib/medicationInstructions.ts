@@ -167,6 +167,15 @@ export function parseDoseToWords(doseStr: string): DoseWords {
   if (lower === 'stat' || lower.includes('immediately')) {
     return { en: 'Immediately (STAT)', hi: 'तुरंत', mr: 'त्वरित' };
   }
+  if (lower.includes('1 per week') || lower.includes('1/week') || lower.includes('once a week')) {
+    return { en: '1 per week', hi: 'हफ़्ते में 1 बार', mr: 'आवड्यातून 1 वेळ' };
+  }
+  if (lower.includes('2 per week') || lower.includes('2/week')) {
+    return { en: '2 per week', hi: 'हफ़्ते में 2 बार', mr: 'आवड्यातून 2 वेळा' };
+  }
+  if (lower.includes('1 per month') || lower.includes('1/month') || lower.includes('once a month')) {
+    return { en: '1 per month', hi: 'महीने में 1 बार', mr: 'महिनातून 1 वेळ' };
+  }
 
   const parts = s.split('-').map(p => p.trim());
   if (parts.length === 3) {

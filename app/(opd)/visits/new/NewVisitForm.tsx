@@ -15,6 +15,7 @@ import VoiceInputButton from '@/components/VoiceInputButton';
 import { getVisitDraft, saveVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 import InstructionPicker from '@/components/InstructionPicker';
 import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
+import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
 
 
@@ -528,7 +529,7 @@ export default function NewVisitForm() {
                 {filteredMeds.map(m => (
                   <div key={m.id} className="search-result" onClick={() => addMedicine(m)}>
                     <div className="sr-name">{m.name}</div>
-                    <div className="sr-meta">{m.category} · {m.defaultDose} · {m.defaultDuration}</div>
+                    <div className="sr-meta">{m.category} · {parseDoseToWords(m.defaultDose).en || m.defaultDose} · {m.defaultDuration}</div>
                   </div>
                 ))}
                 <div

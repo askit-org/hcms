@@ -30,6 +30,7 @@ export type CreateMedicineInput = Omit<Medicine, 'id'>;
 export type UpdateMedicineInput = Partial<CreateMedicineInput>;
 
 export type CreateTemplateInput = Omit<Template, 'id' | 'createdAt'>;
+export type UpdateTemplateInput = Partial<CreateTemplateInput>;
 
 export type CreateAppOptionInput = Omit<AppOption, 'id' | 'createdAt'>;
 
@@ -272,6 +273,7 @@ export interface DataProvider {
   // ── Templates ──────────────────────────────────────────────────
   listTemplates(): Promise<Template[]>;
   createTemplate(input: CreateTemplateInput): Promise<Template>;
+  updateTemplate(id: number, input: UpdateTemplateInput): Promise<Template>;
   deleteTemplate(id: number): Promise<void>;
 
   // ── Settings ───────────────────────────────────────────────────

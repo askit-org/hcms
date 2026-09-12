@@ -16,6 +16,7 @@ import type {
   CreateMedicineInput,
   UpdateMedicineInput,
   CreateTemplateInput,
+  UpdateTemplateInput,
   ClinicSettings,
   AuthLoginInput,
   AuthSignupInput,
@@ -272,12 +273,18 @@ export function useTemplateMutations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.templates() }),
   });
 
+  const update = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: UpdateTemplateInput }) =>
+      provider.updateTemplate(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.templates() }),
+  });
+
   const remove = useMutation({
     mutationFn: (id: number) => provider.deleteTemplate(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.templates() }),
   });
 
-  return { create, remove };
+  return { create, update, remove };
 }
 
 // ── App Options ────────────────────────────────────────────────
@@ -576,5 +583,21 @@ export function useQueueMutations() {
     },
   });
 
-  return { enqueue, callNext, updateStatus, removeFromQueue };
+  const reorderQueue = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      const res = await fetch('/api/queue/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds }),
+      });
+      if (!res.ok) throw new Error('Failed to reorder queue');
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.queue() });
+    },
+  });
+
+  return { enqueue, callNext, updateStatus, removeFromQueue, reorderQueue };
 }
+

@@ -18,6 +18,9 @@ export interface Patient {
 export interface PrescribedMedicine {
   medicineId?: number;
   name: string;
+  category?: string;
+  strength?: string;
+  unit?: string;
   dose: string;
   duration: string;
   instructions?: string;
@@ -54,6 +57,7 @@ export interface Medicine {
   defaultDuration: string;
   unit?: string;
   strength?: string;
+  instructions?: string;
 }
 
 export interface Template {
