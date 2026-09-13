@@ -23,6 +23,7 @@ export interface AuthUser {
   roleName?: string;
   permissions?: import('../providers/types').ModelPermission[];
   subscription?: UserSubscription;
+  tokenVersion?: number;
 }
 
 interface AuthState {

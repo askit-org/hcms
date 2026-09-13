@@ -71,13 +71,23 @@ api.interceptors.response.use(
     const errorMsg = getErrorMessage(error, '');
     const isAuthError =
       status === 401 ||
-      (typeof errorMsg === 'string' && (errorMsg.toLowerCase().includes('token') || errorMsg.toLowerCase().includes('unauthorized')));
+      (typeof errorMsg === 'string' &&
+        (errorMsg.toLowerCase().includes('token') ||
+          errorMsg.toLowerCase().includes('unauthorized') ||
+          errorMsg.toLowerCase().includes('revoked') ||
+          errorMsg.toLowerCase().includes('session has expired')));
 
     // If user is logged out or token error occurred, suppress toast popup & clean auth state
     if (isAuthError || !useAuth.getState().isAuthenticated) {
       if (useAuth.getState().isAuthenticated) {
         useAuth.getState().logout();
       }
+      return Promise.reject(error);
+    }
+
+    // Handle NestJS Throttler Rate Limiting (429 Too Many Requests)
+    if (status === 429) {
+      toast('Too many requests. Please slow down and try again in a minute.', 'error');
       return Promise.reject(error);
     }
 

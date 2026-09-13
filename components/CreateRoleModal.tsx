@@ -20,6 +20,7 @@ const ALL_MODELS: { key: AppModel; label: string; description: string }[] = [
   { key: 'FOLLOWUPS', label: 'Follow-Up Tracker', description: 'Today and upcoming patient follow-up appointments' },
   { key: 'MEDICINES', label: 'Medicine Inventory', description: 'Drug list, dosing defaults & inventory management' },
   { key: 'TEMPLATES', label: 'Prescription Templates', description: 'Quick diagnosis & drug template presets' },
+  { key: 'OPTIONS', label: 'App Options & Dropdowns', description: 'Custom drop-down lists and app configuration options' },
   { key: 'REPORTS', label: 'Analytics & Financials', description: 'Revenue statistics, OPD patient volume & reports' },
   { key: 'SETTINGS', label: 'Clinic Configuration', description: 'Doctor degrees, reg numbers & letterhead settings' },
   { key: 'STAFF', label: 'Staff & Role Management', description: 'Onboarding users, dynamic roles & permission matrix' },
