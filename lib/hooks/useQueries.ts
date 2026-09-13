@@ -257,10 +257,11 @@ export function useMedicineMutations() {
 export function useTemplates() {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: keys.templates(),
     queryFn: () => provider.listTemplates(),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && hasPermission('TEMPLATES', 'canRead'),
   });
 }
 
@@ -292,10 +293,11 @@ export function useTemplateMutations() {
 export function useAppOptions(type?: string) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
+  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.options(), type],
     queryFn: () => provider.listOptions(type),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && hasPermission('OPTIONS', 'canRead'),
   });
 }
 
@@ -321,11 +323,11 @@ export function useAppOptionMutations() {
 export function useSettings() {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
-  const { isSuperAdmin } = usePermissions();
+  const { hasPermission, isSuperAdmin } = usePermissions();
   return useQuery({
     queryKey: keys.settings(),
     queryFn: () => provider.getSettings(),
-    enabled: isAuthenticated && !!token && isSuperAdmin,
+    enabled: isAuthenticated && !!token && (isSuperAdmin || hasPermission('SETTINGS', 'canRead')),
   });
 }
 

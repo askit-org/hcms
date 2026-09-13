@@ -23,6 +23,7 @@ const MODEL_NAMES: Record<AppModel, string> = {
   FOLLOWUPS: 'Follow-ups',
   MEDICINES: 'Medicines',
   TEMPLATES: 'Templates',
+  OPTIONS: 'App Options',
   REPORTS: 'Reports',
   SETTINGS: 'Settings',
   STAFF: 'Staff & Roles',

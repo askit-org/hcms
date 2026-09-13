@@ -55,6 +55,7 @@ export type AppModel =
   | 'VISITS'
   | 'MEDICINES'
   | 'TEMPLATES'
+  | 'OPTIONS'
   | 'FOLLOWUPS'
   | 'REPORTS'
   | 'SETTINGS'
