@@ -14,13 +14,14 @@ export default function SubscriptionBanner() {
   const sub = user?.subscription;
   if (!sub || !sub.hasSelectedPlan) return null;
 
-  // Calculate trial days remaining
-  let trialDaysLeft: number | null = null;
-  if (sub.planType === 'trial' && sub.trialEndDate) {
-    const end = new Date(sub.trialEndDate).getTime();
+  // Calculate days remaining
+  let daysLeft: number | null = null;
+  const endDateStr = sub.subscriptionEndDate || sub.trialEndDate;
+  if (endDateStr) {
+    const end = new Date(endDateStr).getTime();
     const now = new Date().getTime();
     const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-    trialDaysLeft = Math.max(0, diff);
+    daysLeft = Math.max(0, diff);
   }
 
   return (
@@ -43,7 +44,7 @@ export default function SubscriptionBanner() {
           >
             <ShieldCheck size={14} /> Premium Active
           </div>
-        ) : sub.subscriptionStatus === 'expired' || (trialDaysLeft !== null && trialDaysLeft <= 0) ? (
+        ) : sub.subscriptionStatus === 'expired' || (daysLeft !== null && daysLeft <= 0) ? (
           <div
             style={{
               display: 'inline-flex',
@@ -91,16 +92,16 @@ export default function SubscriptionBanner() {
               gap: 8,
               padding: '4px 6px 4px 12px',
               borderRadius: 20,
-              background: trialDaysLeft !== null && trialDaysLeft <= 3 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-              border: `1px solid ${trialDaysLeft !== null && trialDaysLeft <= 3 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-              color: trialDaysLeft !== null && trialDaysLeft <= 3 ? '#f87171' : '#fbbf24',
+              background: daysLeft !== null && daysLeft <= 3 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+              border: `1px solid ${daysLeft !== null && daysLeft <= 3 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+              color: daysLeft !== null && daysLeft <= 3 ? '#f87171' : '#fbbf24',
               fontSize: '0.78rem',
               fontWeight: 600,
             }}
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Clock size={13} />
-              {trialDaysLeft !== null ? `${trialDaysLeft} Days Trial Left` : '15-Day Free Trial'}
+              {daysLeft !== null ? `${daysLeft} Days ${sub.planType === 'trial' ? 'Trial' : 'Plan'} Left` : 'Active Plan'}
             </span>
 
             <button

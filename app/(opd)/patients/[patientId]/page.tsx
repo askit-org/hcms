@@ -156,7 +156,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {patient.permanentConditions.map(cond => (
                   <span key={cond} className="badge badge-amber" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                    🩺 {cond}
+                    {cond}
                   </span>
                 ))}
               </div>

@@ -152,7 +152,7 @@ export default function CreateRoleModal({ isOpen, onClose }: CreateRoleModalProp
         permissions: Object.values(permissions),
       });
 
-      toast(`🎉 Role "${roleName.trim()}" created successfully!`, 'success');
+      toast(`Role "${roleName.trim()}" created successfully!`, 'success');
       handleClose();
     } catch (err: any) {
       setError(getErrorMessage(err, 'Failed to create role.'));
@@ -267,7 +267,7 @@ export default function CreateRoleModal({ isOpen, onClose }: CreateRoleModalProp
                   onClick={() => applyPreset('FULL')}
                   style={{ fontSize: '0.76rem' }}
                 >
-                  ⚡ Select Full Access
+                  Select Full Access
                 </button>
                 <button
                   type="button"
@@ -275,7 +275,7 @@ export default function CreateRoleModal({ isOpen, onClose }: CreateRoleModalProp
                   onClick={() => applyPreset('READ_ONLY')}
                   style={{ fontSize: '0.76rem' }}
                 >
-                  👁️ Read-Only
+                  Read-Only
                 </button>
                 <button
                   type="button"

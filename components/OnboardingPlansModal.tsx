@@ -47,7 +47,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
     setLoadingTrial(true);
     try {
       await selectPlan.mutateAsync({ planType: 'trial' });
-      toast('🎉 15-Day Free Trial activated! Welcome to HCMS.', 'success');
+      toast('15-Day Free Trial activated! Welcome to HCMS.', 'success');
       onClose();
     } catch (err: any) {
       toast(getErrorMessage(err, 'Failed to activate trial'), 'error');
@@ -207,7 +207,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                   <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1.25 }}>
                     {isLockout
                       ? 'Subscription Expired'
-                      : `Welcome to HCMS, ${doctorName}! 👋`}
+                      : `Welcome to HCMS, ${doctorName}!`}
                   </h1>
                   <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, maxWidth: 540, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
                     {isLockout
@@ -235,7 +235,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
               <ShieldCheck size={24} color="var(--accent)" style={{ flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-                  🔒 Your Clinic & Patient Data is Safe and Encrypted
+                  Your Clinic & Patient Data is Safe and Encrypted
                 </div>
                 <div style={{ fontSize: '0.81rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
                   All your patient records, OPD visits, medicine inventory, and prescription templates remain <strong>100% secure and encrypted</strong>. To continue managing your clinic, please subscribe to a plan below. Your account data will be preserved safely for <strong>30 days</strong>, after which inactive account records are scheduled for permanent deletion.

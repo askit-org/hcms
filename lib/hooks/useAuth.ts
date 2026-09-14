@@ -51,20 +51,13 @@ export function checkSubscriptionLock(subscription?: UserSubscription | null): S
     return { isLocked: true, reason, daysRemaining: 0 };
   }
 
-  if (subscription.planType === 'trial' && subscription.trialEndDate) {
-    const end = new Date(subscription.trialEndDate).getTime();
+  const endDateStr = subscription.subscriptionEndDate || subscription.trialEndDate;
+  if (endDateStr) {
+    const end = new Date(endDateStr).getTime();
     const diffDays = Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
     if (diffDays <= 0) {
-      return { isLocked: true, reason: 'trial_expired', daysRemaining: 0 };
-    }
-    return { isLocked: false, reason: null, daysRemaining: diffDays };
-  }
-
-  if (subscription.planType === 'premium' && subscription.subscriptionEndDate) {
-    const end = new Date(subscription.subscriptionEndDate).getTime();
-    const diffDays = Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
-    if (diffDays <= 0) {
-      return { isLocked: true, reason: 'premium_expired', daysRemaining: 0 };
+      const reason = subscription.planType === 'trial' ? 'trial_expired' : 'premium_expired';
+      return { isLocked: true, reason, daysRemaining: 0 };
     }
     return { isLocked: false, reason: null, daysRemaining: diffDays };
   }

@@ -35,13 +35,11 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
           className="btn" 
           style={{ background: '#25D366', color: '#fff', border: 'none' }}
           onClick={() => {
-            const numberEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
             const medsText = visit.medicines?.map((m, i) => {
-              const emoji = numberEmoji[i] || '💊';
-              return `${emoji} *${m.name}*\n   ↳ 🕒 ${m.dose} for ${m.duration}${m.instructions ? `\n   ↳ ℹ️ ${m.instructions}` : ''}`;
+              return `${i + 1}. *${m.name}*\n   - ${m.dose} for ${m.duration}${m.instructions ? `\n   - ${m.instructions}` : ''}`;
             }).join('\n\n') || 'No medicines prescribed.';
 
-            const text = `🏥 *${clinic.clinicName}*\n👨‍⚕️ *${clinic.doctorName}*\n\nHello *${patient.name}*, 👋\nHere is the summary of your prescription visit on *${new Date(visit.date).toLocaleDateString('en-IN')}*.\n\n🩺 *Diagnosis:* \n${visit.diagnosis || 'N/A'}\n\n💊 *Prescribed Medicines:*\n${medsText}\n\n${visit.prescriptionNotes ? `📝 *Doctor's Advice:* \n${visit.prescriptionNotes}\n\n` : ''}${visit.followUpDate ? `📅 *Next Follow-up:* \n${new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` : ''}_Get well soon!_ 💙`;
+            const text = `*${clinic.clinicName}*\nDr. *${clinic.doctorName}*\n\nHello *${patient.name}*,\nHere is the summary of your prescription visit on *${new Date(visit.date).toLocaleDateString('en-IN')}*.\n\n*Diagnosis:* \n${visit.diagnosis || 'N/A'}\n\n*Prescribed Medicines:*\n${medsText}\n\n${visit.prescriptionNotes ? `*Doctor's Advice:* \n${visit.prescriptionNotes}\n\n` : ''}${visit.followUpDate ? `*Next Follow-up:* \n${new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` : ''}_Get well soon!_`;
 
             const phone = patient.mobile.replace(/\D/g, '');
             const targetPhone = phone.length === 10 ? `91${phone}` : phone;

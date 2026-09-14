@@ -95,7 +95,7 @@ export default function OnboardStaffModal({ isOpen, onClose }: OnboardStaffModal
         password: password.trim() || undefined,
       });
 
-      toast(`🎉 Staff member ${name.trim()} onboarded as ${selectedRole?.name || 'Staff'}!`, 'success');
+      toast(`Staff member ${name.trim()} onboarded as ${selectedRole?.name || 'Staff'}!`, 'success');
       handleClose();
     } catch (err: any) {
       toast(getErrorMessage(err, 'Failed to onboard staff.'), 'error');

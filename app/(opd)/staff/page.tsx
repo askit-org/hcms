@@ -138,15 +138,15 @@ export default function StaffPage() {
                 </span>
               </div>
               <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: 4, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <span>🏥 <strong>Clinic:</strong> {clinicName}</span>
-                <span>🎓 <strong>Degree:</strong> {rootAdmin.degree || 'MBBS'}</span>
-                <span>📜 <strong>Reg No:</strong> {rootAdmin.regNo || 'N/A'}</span>
-                <span>✉️ {rootAdmin.email}</span>
+                <span><strong>Clinic:</strong> {clinicName}</span>
+                <span><strong>Degree:</strong> {rootAdmin.degree || 'MBBS'}</span>
+                <span><strong>Reg No:</strong> {rootAdmin.regNo || 'N/A'}</span>
+                <span>{rootAdmin.email}</span>
               </div>
             </div>
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '6px 14px', borderRadius: 20, border: '1px solid var(--border)' }}>
-            👑 Organization Creator
+            Organization Creator
           </div>
         </div>
       </div>
@@ -320,11 +320,11 @@ export default function StaffPage() {
                       </h4>
                       {r.isSystemRole ? (
                         <span className="badge badge-teal" style={{ fontSize: '0.74rem' }}>
-                          🔒 System Default Role
+                          System Default Role
                         </span>
                       ) : (
                         <span className="badge badge-amber" style={{ fontSize: '0.74rem' }}>
-                          ✨ Custom Hospital Role
+                          Custom Hospital Role
                         </span>
                       )}
                     </div>

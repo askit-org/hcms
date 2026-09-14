@@ -98,15 +98,13 @@ export default function SettingsPage() {
   const sub = user.subscription;
   let trialDaysLeft: number | null = null;
   let premiumDaysLeft: number | null = null;
-  if (sub?.planType === 'trial' && sub.trialEndDate) {
-    const end = new Date(sub.trialEndDate).getTime();
+  const endDateStr = sub?.subscriptionEndDate || sub?.trialEndDate;
+  if (endDateStr) {
+    const end = new Date(endDateStr).getTime();
     const now = new Date().getTime();
-    trialDaysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
-  }
-  if (sub?.planType === 'premium' && sub.subscriptionEndDate) {
-    const end = new Date(sub.subscriptionEndDate).getTime();
-    const now = new Date().getTime();
-    premiumDaysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+    const diff = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+    if (sub?.planType === 'trial') trialDaysLeft = diff;
+    if (sub?.planType === 'premium') premiumDaysLeft = diff;
   }
 
   return (
@@ -136,13 +134,15 @@ export default function SettingsPage() {
               {isCheckingStatus ? 'Checking API…' : 'Check Status (API)'}
             </button>
 
-            <button 
-              className="btn btn-primary btn-sm" 
-              onClick={() => setShowPaymentModal(true)}
-              style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-light))', border: 'none', boxShadow: '0 4px 12px var(--accent-glow)' }}
-            >
-              <Sparkles size={14} /> {sub?.planType === 'premium' ? 'Manage Plan' : 'Upgrade to Premium'}
-            </button>
+            {sub?.planType !== 'premium' || sub?.subscriptionStatus !== 'active' ? (
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={() => setShowPaymentModal(true)}
+                style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-light))', border: 'none', boxShadow: '0 4px 12px var(--accent-glow)' }}
+              >
+                <Sparkles size={14} /> Upgrade to Premium
+              </button>
+            ) : null}
           </div>
         </div>
 
