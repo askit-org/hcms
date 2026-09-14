@@ -26,6 +26,7 @@ import type {
   CreateAppOptionInput,
   SelectPlanInput,
   VerifyPaymentInput,
+  RazorpayOrderRequest,
   OnboardStaffInput,
   CreateRoleInput,
 } from '../providers/types';
@@ -426,6 +427,10 @@ export function useSubscriptionMutations() {
     },
   });
 
+  const createRazorpayOrder = useMutation({
+    mutationFn: (input: RazorpayOrderRequest) => provider.createRazorpayOrder(input),
+  });
+
   const verifyPayment = useMutation({
     mutationFn: (input: VerifyPaymentInput) => provider.verifyPayment(input),
     onSuccess: (data) => {
@@ -436,7 +441,7 @@ export function useSubscriptionMutations() {
     },
   });
 
-  return { selectPlan, verifyPayment };
+  return { selectPlan, createRazorpayOrder, verifyPayment };
 }
 
 export function useOrganizationInfo() {

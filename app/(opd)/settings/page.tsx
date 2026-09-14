@@ -141,7 +141,7 @@ export default function SettingsPage() {
               onClick={() => setShowPaymentModal(true)}
               style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-light))', border: 'none', boxShadow: '0 4px 12px var(--accent-glow)' }}
             >
-              <Sparkles size={14} /> {sub?.planType === 'premium' ? 'Manage Plan' : 'Upgrade to Premium (₹299)'}
+              <Sparkles size={14} /> {sub?.planType === 'premium' ? 'Manage Plan' : 'Upgrade to Premium'}
             </button>
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function SettingsPage() {
             <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
               {sub?.planType === 'premium' ? (
                 <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <ShieldCheck size={16} /> Premium Monthly (₹299/mo)
+                  <ShieldCheck size={16} /> Premium Plan
                 </span>
               ) : sub?.planType === 'trial' ? (
                 <span style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -182,12 +182,12 @@ export default function SettingsPage() {
           </div>
 
           <div style={{ background: 'var(--surface-1)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Payment Ref / Price</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Payment Ref</div>
             <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginTop: 2 }}>
               {sub?.planType === 'premium' ? (
-                <span>₹{sub.paidAmount || 299}/mo • {sub.paymentRef || 'Paid'}</span>
+                <span>{sub.paidAmount ? `₹${sub.paidAmount}` : 'Paid'} • {sub.paymentRef || 'Ref Verified'}</span>
               ) : (
-                <span>₹0 (Free Trial)</span>
+                <span>Free Trial</span>
               )}
             </div>
           </div>

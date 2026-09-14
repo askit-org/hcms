@@ -41,6 +41,8 @@ import type {
   CreateRoleInput,
   SelectPlanInput,
   VerifyPaymentInput,
+  RazorpayOrderRequest,
+  RazorpayOrderResponse,
   SubscriptionResponse,
 } from './types';
 
@@ -142,6 +144,9 @@ export const ApiDataProvider: DataProvider = {
   },
   async selectPlan(input: SelectPlanInput): Promise<SubscriptionResponse> {
     return api.post<SubscriptionResponse>('/subscription/select-plan', input).then((r) => extract<SubscriptionResponse>(r));
+  },
+  async createRazorpayOrder(input: RazorpayOrderRequest): Promise<RazorpayOrderResponse> {
+    return api.post<RazorpayOrderResponse>('/subscription/razorpay-order', input).then((r) => extract<RazorpayOrderResponse>(r));
   },
   async verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse> {
     return api.post<SubscriptionResponse>('/subscription/verify-payment', input).then((r) => extract<SubscriptionResponse>(r));

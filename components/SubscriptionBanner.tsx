@@ -80,7 +80,7 @@ export default function SubscriptionBanner() {
                 boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
               }}
             >
-              <Sparkles size={12} /> Renew ₹299 <ArrowUpRight size={12} />
+              <Sparkles size={12} /> Renew Plan <ArrowUpRight size={12} />
             </button>
           </div>
         ) : (
@@ -120,7 +120,7 @@ export default function SubscriptionBanner() {
                 boxShadow: '0 2px 10px var(--accent-glow)',
               }}
             >
-              <Sparkles size={12} /> Upgrade ₹299 <ArrowUpRight size={12} />
+              <Sparkles size={12} /> Upgrade Plan <ArrowUpRight size={12} />
             </button>
           </div>
         )}

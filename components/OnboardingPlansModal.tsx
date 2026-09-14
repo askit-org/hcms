@@ -421,7 +421,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                     minHeight: 44,
                   }}
                 >
-                  Get Premium Plan (₹299/mo) <ArrowRight size={16} />
+                  Get Premium Plan <ArrowRight size={16} />
                 </button>
               </div>
             </div>
