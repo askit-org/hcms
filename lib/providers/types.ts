@@ -160,9 +160,25 @@ export type SelectPlanInput = {
 };
 
 export type VerifyPaymentInput = {
-  paymentRef: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
+  paymentRef?: string; // Fallback for manual
   amount?: number;
-  planType?: 'premium';
+  planType?: string;
+};
+
+export type RazorpayOrderRequest = {
+  planType?: string;
+  amount?: number;
+};
+
+export type RazorpayOrderResponse = {
+  success: boolean;
+  orderId: string;
+  amount: number;
+  currency: string;
+  key: string;
 };
 
 export interface SubscriptionResponse {
@@ -235,6 +251,7 @@ export interface DataProvider {
   resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResponse>;
   getSubscriptionStatus(): Promise<UserSubscription>;
   selectPlan(input: SelectPlanInput): Promise<SubscriptionResponse>;
+  createRazorpayOrder(input: RazorpayOrderRequest): Promise<RazorpayOrderResponse>;
   verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse>;
   getOrganizationInfo(): Promise<OrganizationInfoResponse>;
   onboardStaff(input: OnboardStaffInput): Promise<StaffUser>;
