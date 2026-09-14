@@ -157,6 +157,9 @@ export const ApiDataProvider: DataProvider = {
   async onboardStaff(input: OnboardStaffInput): Promise<StaffUser> {
     return api.post<StaffUser>('/organization/staff', input).then((r) => extract<StaffUser>(r));
   },
+  async toggleStaffStatus(staffId: string, isActive: boolean): Promise<StaffUser> {
+    return api.patch<StaffUser>(`/organization/staff/${staffId}/status`, { isActive }).then((r) => extract<StaffUser>(r));
+  },
   async deleteStaff(staffId: string): Promise<void> {
     return api.delete(`/organization/staff/${staffId}`).then(() => undefined);
   },

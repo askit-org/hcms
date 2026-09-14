@@ -8,6 +8,7 @@ import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 import DoseSelector, { DoseDisplay, DurationSelect } from '@/components/DoseSelector';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const CATEGORIES = [
   'All', 'Antipyretic', 'NSAID', 'Antibiotic', 'Antacid', 'Antiemetic', 'Antidiabetic',
@@ -36,6 +37,22 @@ export default function PrescriptionPage() {
   const [editTpl, setEditTpl] = useState<Template | null>(null);
   const [savingMed, setSavingMed] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
+
+  const [confirmModalState, setConfirmModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    variant: "danger",
+    onConfirm: async () => {},
+  });
 
   const [medForm, setMedForm] = useState({
     name: '',
@@ -184,10 +201,19 @@ export default function PrescriptionPage() {
     }
   };
 
-  const attemptDeleteMed = async (m: Medicine) => {
-    if (!confirm(`Delete "${m.name}"?`)) return;
-    if (m.id) await deleteMed.mutateAsync(m.id);
-    toast('Medicine deleted.', 'info');
+  const attemptDeleteMed = (m: Medicine) => {
+    setConfirmModalState({
+      isOpen: true,
+      title: "Delete Medicine",
+      description: `Are you sure you want to delete "${m.name}"? This medicine will be removed from your master library.`,
+      confirmText: "Delete Medicine",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        if (m.id) await deleteMed.mutateAsync(m.id);
+        toast('Medicine deleted.', 'info');
+      },
+    });
   };
 
   const saveTpl = async () => {
@@ -362,10 +388,19 @@ export default function PrescriptionPage() {
                       <button className="btn btn-ghost btn-sm" onClick={() => handleOpenEditTpl(t)}>
                         <Edit2 size={14} /> Edit
                       </button>
-                      <button className="btn btn-danger btn-sm" onClick={async () => {
-                        if (!confirm(`Delete template "${t.name}"?`)) return;
-                        if (t.id) await deleteTpl.mutateAsync(t.id);
-                        toast('Template deleted.', 'info');
+                      <button className="btn btn-danger btn-sm" onClick={() => {
+                        setConfirmModalState({
+                          isOpen: true,
+                          title: "Delete Prescription Template",
+                          description: `Are you sure you want to delete template "${t.name}"?`,
+                          confirmText: "Delete Template",
+                          variant: "danger",
+                          onConfirm: async () => {
+                            setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+                            if (t.id) await deleteTpl.mutateAsync(t.id);
+                            toast('Template deleted.', 'info');
+                          },
+                        });
                       }}>
                         <Trash2 size={14} />
                       </button>
@@ -655,6 +690,10 @@ export default function PrescriptionPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        {...confirmModalState}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </PageTransition>
   );
 }

@@ -2,12 +2,29 @@ import { useState } from 'react';
 import { useAppOptions, useAppOptionMutations } from '@/lib/hooks/useQueries';
 import { Tag, Trash2, Plus } from 'lucide-react';
 import { toast } from './Toast';
+import ConfirmModal from './ConfirmModal';
 
 export default function SettingsOptions() {
   const [selectedType, setSelectedType] = useState('DISEASE');
   const { data: options = [], isLoading } = useAppOptions(selectedType);
   const { create, remove } = useAppOptionMutations();
   const [newValue, setNewValue] = useState('');
+
+  const [confirmModalState, setConfirmModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    variant: "danger",
+    onConfirm: async () => {},
+  });
 
   const types = [
     { id: 'DISEASE', label: 'Diseases' },
@@ -61,7 +78,19 @@ export default function SettingsOptions() {
             <div key={o.id} className="badge" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
               {o.value}
               <button 
-                onClick={() => { if(confirm(`Delete ${o.value}?`)) remove.mutate(o.id); }}
+                onClick={() => {
+                  setConfirmModalState({
+                    isOpen: true,
+                    title: "Delete Option",
+                    description: `Are you sure you want to delete option "${o.value}"?`,
+                    confirmText: "Delete Option",
+                    variant: "danger",
+                    onConfirm: async () => {
+                      setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+                      await remove.mutateAsync(o.id);
+                    },
+                  });
+                }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--red)' }}
               >
                 <Trash2 size={12} />
@@ -70,6 +99,10 @@ export default function SettingsOptions() {
           ))}
         </div>
       )}
+      <ConfirmModal
+        {...confirmModalState}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

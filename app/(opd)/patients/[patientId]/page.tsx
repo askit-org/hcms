@@ -18,6 +18,7 @@ import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
 import { DoseDisplay } from '@/components/DoseSelector';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function PatientDetailPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = use(params);
@@ -41,6 +42,22 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     address: '',
     occupation: '',
     abhaNumber: ''
+  });
+
+  const [confirmModalState, setConfirmModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    variant: "danger",
+    onConfirm: async () => {},
   });
 
   useEffect(() => {
@@ -94,12 +111,21 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     }
   };
 
-  const deletePatient = async () => {
+  const deletePatient = () => {
     if (!patient) return;
-    if (!confirm(`Delete patient ${patient.name}? This will also delete all their visits permanently.`)) return;
-    await removePatient.mutateAsync(patient.patientId);
-    toast('Patient deleted.', 'info');
-    router.push('/patients');
+    setConfirmModalState({
+      isOpen: true,
+      title: "Delete Patient",
+      description: `Are you sure you want to delete patient ${patient.name}? This will permanently remove all their visits, prescriptions, and medical records.`,
+      confirmText: "Delete Patient",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        await removePatient.mutateAsync(patient.patientId);
+        toast('Patient deleted.', 'info');
+        router.push('/patients');
+      },
+    });
   };
 
   const loading = patientLoading || visitsLoading;
@@ -367,6 +393,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           ))}
         </motion.div>
       )}
+      <ConfirmModal
+        {...confirmModalState}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </PageTransition>
   );
 }

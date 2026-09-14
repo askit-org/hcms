@@ -27,9 +27,16 @@ export default function OnboardStaffModal({ isOpen, onClose }: OnboardStaffModal
   const { onboardStaff } = useStaffMutations();
   const { data: roles = [] } = useRoles();
 
+  const assignableRoles = roles.filter(
+    (r) =>
+      r.code !== 'SUPER_ADMIN' &&
+      r.code !== 'ADMIN' &&
+      !r.name.toLowerCase().includes('admin'),
+  );
+
   useEffect(() => {
-    if (roles.length > 0 && !roleId) {
-      const recRole = roles.find((r) => r.code === 'RECEPTIONIST') || roles[0];
+    if (assignableRoles.length > 0 && !roleId) {
+      const recRole = assignableRoles.find((r) => r.code === 'RECEPTIONIST') || assignableRoles[0];
       if (recRole) setRoleId(recRole.id);
     }
   }, [roles, roleId]);
@@ -53,7 +60,7 @@ export default function OnboardStaffModal({ isOpen, onClose }: OnboardStaffModal
     setName('');
     setEmail('');
     setPhone('');
-    if (roles.length > 0) setRoleId(roles[0].id);
+    if (assignableRoles.length > 0) setRoleId(assignableRoles[0].id);
     setPassword('');
     setErrors({});
   };
@@ -63,7 +70,7 @@ export default function OnboardStaffModal({ isOpen, onClose }: OnboardStaffModal
     onClose();
   };
 
-  const selectedRole = roles.find((r) => r.id === roleId) || roles[0];
+  const selectedRole = assignableRoles.find((r) => r.id === roleId) || assignableRoles[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,7 +254,7 @@ export default function OnboardStaffModal({ isOpen, onClose }: OnboardStaffModal
                 onChange={(e) => setRoleId(e.target.value)}
                 disabled={loading}
               >
-                {roles.map((r) => (
+                {assignableRoles.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name} {r.isSystemRole ? '(Default System Role)' : '(Custom Role)'}
                   </option>
