@@ -88,7 +88,7 @@ export default function SignupPage() {
 
     try {
       await authSignup.mutateAsync(form);
-      toast('🎉 Account created successfully! Welcome to HCMS.', 'success');
+      toast('Account created successfully! Welcome to HCMS.', 'success');
       router.push('/dashboard');
     } catch (err: any) {
       toast(getErrorMessage(err, 'Network error occurred during registration'), 'error');

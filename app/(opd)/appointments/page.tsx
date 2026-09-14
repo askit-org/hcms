@@ -573,7 +573,7 @@ export default function AppointmentsPage() {
       });
       setSelectedConditions([]);
       setFormErrors({});
-      toast(`🎉 Registered ${newCanvasItem.name}! Card added to Canvas Board.`, 'success');
+      toast(`Registered ${newCanvasItem.name}! Card added to Canvas Board.`, 'success');
     } catch (err: any) {
       toast(getErrorMessage(err, 'Failed to register patient.'), 'error');
     } finally {
@@ -617,7 +617,7 @@ export default function AppointmentsPage() {
     }
 
     setCanvasPatients((prev) => prev.filter((c) => c.patientId !== patient.patientId));
-    toast(`🎉 ${patient.name} enqueued into Queue as Token #${newTokenNo}!`, 'success');
+    toast(`${patient.name} enqueued into Queue as Token #${newTokenNo}!`, 'success');
   };
 
   // Call Next FIFO Patient
@@ -657,7 +657,7 @@ export default function AppointmentsPage() {
       });
     }
 
-    toast(`🔔 Called Token #${nextPatient.tokenNo} (${nextPatient.patientName}) for Consultation`, 'success');
+    toast(`Called Token #${nextPatient.tokenNo} (${nextPatient.patientName}) for Consultation`, 'success');
   };
 
   // Doctor Action: Start Visit & Navigate to /visits/new?patientId=...
@@ -673,7 +673,7 @@ export default function AppointmentsPage() {
         })
       );
     }
-    toast(`🚀 Starting visit for Token #${item.tokenNo} (${item.patientName})...`, 'success');
+    toast(`Starting visit for Token #${item.tokenNo} (${item.patientName})...`, 'success');
     router.push(`/visits/new?patientId=${item.patientId}`);
   };
 
@@ -1317,7 +1317,7 @@ export default function AppointmentsPage() {
               }}
             >
               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isDraggingOverQueue ? 'var(--accent)' : 'var(--text-secondary)' }}>
-                {isDraggingOverQueue ? '✨ Drop patient card here to enqueue!' : 'Drag patient cards here to insert into Queue'}
+                {isDraggingOverQueue ? 'Drop patient card here to enqueue!' : 'Drag patient cards here to insert into Queue'}
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
                 Automatically assigns next sequential Token Number (#{(maxTokenNo + 1) < 10 ? `0${maxTokenNo + 1}` : maxTokenNo + 1})

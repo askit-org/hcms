@@ -100,7 +100,7 @@ export default function DashboardPage() {
     <PageTransition>
       <div className="page-header">
         <div>
-          <div className="page-title">Good Morning 👋</div>
+          <div className="page-title">Good Morning</div>
           <div className="page-subtitle">{today}</div>
         </div>
         <div className="flex-wrap-header-actions">
@@ -108,7 +108,7 @@ export default function DashboardPage() {
             <UserPlus size={15} /> Register Patient
           </Link>
           <Link href="/visits/new" className="btn btn-primary btn-sm">
-            <Stethoscope size={15} /> New Visit
+            <Plus size={15} /> New OPD Visit
           </Link>
         </div>
       </div>
@@ -370,15 +370,15 @@ export default function DashboardPage() {
                   }}
                 >
                   <span>
-                    🏥 <strong>Clinic:</strong> {organizationName}
+                    <strong>Clinic:</strong> {organizationName}
                   </span>
                   <span>
-                    🎓 <strong>Degree:</strong> {rootAdmin.degree || "MBBS"}
+                    <strong>Degree:</strong> {rootAdmin.degree || "MBBS"}
                   </span>
                   <span>
-                    📜 <strong>Reg No:</strong> {rootAdmin.regNo || "N/A"}
+                    <strong>Reg No:</strong> {rootAdmin.regNo || "N/A"}
                   </span>
-                  <span>✉️ {rootAdmin.email}</span>
+                  <span>{rootAdmin.email}</span>
                 </div>
               </div>
             </div>
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                 border: "1px solid var(--border)",
               }}
             >
-              👑 Organization Creator
+              Organization Creator
             </div>
           </div>
         </div>
