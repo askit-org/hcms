@@ -25,7 +25,7 @@ export function usePermissions() {
   const isReceptionist = roleCode === 'RECEPTIONIST' || roleName.includes('receptionist');
 
   // Super Admin / Root Account Owner has full uninhibited access
-  const isSuperAdmin = !isReceptionist && (user?.role === 'SUPER_ADMIN' || user?.roleCode === 'SUPER_ADMIN' || (!user?.role && !user?.roleCode));
+  const isSuperAdmin = !isReceptionist && (user?.role === 'SUPER_ADMIN' || user?.roleCode === 'SUPER_ADMIN');
 
   const userPermissions: ModelPermission[] = user?.permissions || [];
 
