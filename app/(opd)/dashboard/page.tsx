@@ -496,7 +496,7 @@ export default function DashboardPage() {
                             fontWeight: 600,
                           }}
                         >
-                          📋{" "}
+                          {" "}
                           {(s?.roleName || s?.roleCode || s?.role || "Staff")
                             .toString()
                             .toLowerCase()}
