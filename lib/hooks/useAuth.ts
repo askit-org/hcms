@@ -6,6 +6,8 @@ import { persist } from 'zustand/middleware';
 
 import { UserSubscription } from '../providers/types';
 
+import { clearVisitDraft } from '../visitDraft';
+
 export interface AuthUser {
   id: string;
   doctorName: string;
@@ -91,7 +93,10 @@ export const useAuth = create<AuthState>()(
         }
         set({ user, token: data.token, isAuthenticated: true });
       },
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      logout: () => {
+        clearVisitDraft();
+        set({ user: null, token: null, isAuthenticated: false });
+      },
       updateSubscription: (subscription) =>
         set((state) => {
           if (!state.user) return state;

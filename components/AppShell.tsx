@@ -65,13 +65,14 @@ function GlobalSearch() {
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const provider = useProviderStore((s) => s.provider);
+  const { hasPermission } = usePermissions();
 
   const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) { setResults([]); setOpen(false); return; }
+    if (!hasPermission('PATIENTS', 'canRead') || !q.trim()) { setResults([]); setOpen(false); return; }
     const r = await provider.listPatients({ search: q });
     setResults(r.slice(0, 8));
     setOpen(r.length > 0);
-  }, [provider]);
+  }, [provider, hasPermission]);
 
   useEffect(() => {
     const t = setTimeout(() => doSearch(query), 200);
