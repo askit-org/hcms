@@ -255,6 +255,7 @@ export interface DataProvider {
   verifyPayment(input: VerifyPaymentInput): Promise<SubscriptionResponse>;
   getOrganizationInfo(): Promise<OrganizationInfoResponse>;
   onboardStaff(input: OnboardStaffInput): Promise<StaffUser>;
+  toggleStaffStatus(staffId: string, isActive: boolean): Promise<StaffUser>;
   deleteStaff(staffId: string): Promise<void>;
   listRoles(): Promise<AppRole[]>;
   createRole(input: CreateRoleInput): Promise<AppRole>;

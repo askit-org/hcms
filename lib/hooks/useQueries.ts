@@ -468,6 +468,14 @@ export function useStaffMutations() {
     },
   });
 
+  const toggleStaffStatus = useMutation({
+    mutationFn: ({ staffId, isActive }: { staffId: string; isActive: boolean }) =>
+      provider.toggleStaffStatus(staffId, isActive),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.organization() });
+    },
+  });
+
   const deleteStaff = useMutation({
     mutationFn: (staffId: string) => provider.deleteStaff(staffId),
     onSuccess: () => {
@@ -475,7 +483,7 @@ export function useStaffMutations() {
     },
   });
 
-  return { onboardStaff, deleteStaff };
+  return { onboardStaff, toggleStaffStatus, deleteStaff };
 }
 
 export function useRoles() {

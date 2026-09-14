@@ -2,12 +2,29 @@ import { useState } from 'react';
 import { useTemplates, useTemplateMutations } from '@/lib/hooks/useQueries';
 import { FileText, Trash2, Plus, X } from 'lucide-react';
 import { toast } from './Toast';
+import ConfirmModal from './ConfirmModal';
 
 export default function SettingsTemplates() {
   const { data: templates = [], isLoading } = useTemplates();
   const { create, remove } = useTemplateMutations();
   const [showAdd, setShowAdd] = useState(false);
   const [newTemplate, setNewTemplate] = useState({ name: '', diagnosis: '', notes: '' });
+
+  const [confirmModalState, setConfirmModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    variant: "danger",
+    onConfirm: async () => {},
+  });
 
   const handleCreate = async () => {
     if (!newTemplate.name || !newTemplate.diagnosis) {
@@ -60,13 +77,29 @@ export default function SettingsTemplates() {
                 <div style={{ fontWeight: 500, fontSize: '0.9rem' }}>{t.name}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Diagnosis: {t.diagnosis}</div>
               </div>
-              <button className="btn-icon" onClick={() => { if(confirm('Delete this template?')) remove.mutate(t.id!); }}>
+              <button className="btn-icon" onClick={() => {
+                setConfirmModalState({
+                  isOpen: true,
+                  title: "Delete Template",
+                  description: `Are you sure you want to delete template "${t.name}"?`,
+                  confirmText: "Delete Template",
+                  variant: "danger",
+                  onConfirm: async () => {
+                    setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+                    if (t.id) await remove.mutateAsync(t.id);
+                  },
+                });
+              }}>
                 <Trash2 size={16} style={{ color: 'var(--red)' }} />
               </button>
             </div>
           ))}
         </div>
       )}
+      <ConfirmModal
+        {...confirmModalState}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

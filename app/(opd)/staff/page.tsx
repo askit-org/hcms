@@ -16,6 +16,9 @@ import {
   X,
   Shield,
   RefreshCw,
+  UserX,
+  UserCheck,
+  XCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -30,6 +33,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 import ErrorState from "@/components/ErrorState";
 import OnboardStaffModal from "@/components/OnboardStaffModal";
 import CreateRoleModal from "@/components/CreateRoleModal";
+import ConfirmModal from "@/components/ConfirmModal";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 import type { AppRole, AppModel } from "@/lib/providers/types";
@@ -53,7 +57,7 @@ export default function StaffPage() {
     error: orgError,
   } = useOrganizationInfo();
   const { data: roles = [], isLoading: rolesLoading } = useRoles();
-  const { deleteStaff } = useStaffMutations();
+  const { deleteStaff, toggleStaffStatus } = useStaffMutations();
   const { deleteRole } = useRoleMutations();
   const { user } = useAuth();
 
@@ -61,8 +65,25 @@ export default function StaffPage() {
   const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [revokingStaffId, setRevokingStaffId] = useState<string | null>(null);
+  const [togglingStaffId, setTogglingStaffId] = useState<string | null>(null);
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [confirmModalState, setConfirmModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    variant: "danger",
+    onConfirm: async () => {},
+  });
 
   if (orgLoading || rolesLoading)
     return <LoadingScreen message="Loading staff and roles details..." />;
@@ -88,32 +109,92 @@ export default function StaffPage() {
       s.phone.includes(searchQuery),
   );
 
-  const handleRevokeStaff = async (staffId: string, staffName: string) => {
-    if (!confirm(`Are you sure you want to revoke access for ${staffName}?`))
-      return;
-    setRevokingStaffId(staffId);
-    try {
-      await deleteStaff.mutateAsync(staffId);
-      toast(`Access for ${staffName} has been revoked.`, "success");
-    } catch (err: any) {
-      toast(getErrorMessage(err, "Failed to revoke staff access."), "error");
-    } finally {
-      setRevokingStaffId(null);
-    }
+  const handleToggleStaffStatus = (
+    staffId: string,
+    staffName: string,
+    currentActive: boolean,
+  ) => {
+    const actionWord = currentActive ? "disable" : "enable";
+    setConfirmModalState({
+      isOpen: true,
+      title: currentActive ? "Disable Staff Access" : "Enable Staff Access",
+      description: currentActive
+        ? `Are you sure you want to disable access for ${staffName}? They will be blocked from logging in or making API requests.`
+        : `Are you sure you want to restore access for ${staffName}? They will be able to log in and manage clinic records.`,
+      confirmText: currentActive ? "Disable Access" : "Enable Access",
+      variant: currentActive ? "warning" : "info",
+      onConfirm: async () => {
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        setTogglingStaffId(staffId);
+        try {
+          await toggleStaffStatus.mutateAsync({
+            staffId,
+            isActive: !currentActive,
+          });
+          toast(
+            `Access for ${staffName} has been ${currentActive ? "disabled" : "enabled"}.`,
+            "success",
+          );
+        } catch (err: any) {
+          toast(
+            getErrorMessage(err, `Failed to ${actionWord} staff access.`),
+            "error",
+          );
+        } finally {
+          setTogglingStaffId(null);
+        }
+      },
+    });
   };
 
-  const handleDeleteRole = async (roleId: string, roleName: string) => {
-    if (!confirm(`Are you sure you want to delete the role "${roleName}"?`))
-      return;
-    setDeletingRoleId(roleId);
-    try {
-      await deleteRole.mutateAsync(roleId);
-      toast(`Role "${roleName}" deleted successfully.`, "success");
-    } catch (err: any) {
-      toast(getErrorMessage(err, "Failed to delete role."), "error");
-    } finally {
-      setDeletingRoleId(null);
-    }
+  const handlePermanentDeleteStaff = (
+    staffId: string,
+    staffName: string,
+  ) => {
+    setConfirmModalState({
+      isOpen: true,
+      title: "Permanently Delete Staff Member",
+      description: `Are you sure you want to permanently delete ${staffName} from your organization? This action cannot be undone.`,
+      confirmText: "Delete Staff Member",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        setRevokingStaffId(staffId);
+        try {
+          await deleteStaff.mutateAsync(staffId);
+          toast(
+            `${staffName} has been permanently deleted from organization.`,
+            "success",
+          );
+        } catch (err: any) {
+          toast(getErrorMessage(err, "Failed to delete staff member."), "error");
+        } finally {
+          setRevokingStaffId(null);
+        }
+      },
+    });
+  };
+
+  const handleDeleteRole = (roleId: string, roleName: string) => {
+    setConfirmModalState({
+      isOpen: true,
+      title: "Delete Custom Role",
+      description: `Are you sure you want to delete the role "${roleName}"? Any staff assigned to this role will need an updated role.`,
+      confirmText: "Delete Role",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        setDeletingRoleId(roleId);
+        try {
+          await deleteRole.mutateAsync(roleId);
+          toast(`Role "${roleName}" deleted successfully.`, "success");
+        } catch (err: any) {
+          toast(getErrorMessage(err, "Failed to delete role."), "error");
+        } finally {
+          setDeletingRoleId(null);
+        }
+      },
+    });
   };
 
   return (
@@ -413,30 +494,81 @@ export default function StaffPage() {
                           {s.phone}
                         </td>
                         <td>
-                          <span
-                            className="badge badge-green"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                            }}
-                          >
-                            <CheckCircle2 size={12} /> Active
-                          </span>
+                          {s.isActive !== false ? (
+                            <span
+                              className="badge badge-green"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <CheckCircle2 size={12} /> Active
+                            </span>
+                          ) : (
+                            <span
+                              className="badge badge-red"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                background: "rgba(239, 68, 68, 0.15)",
+                                color: "#f87171",
+                                borderColor: "rgba(239, 68, 68, 0.3)",
+                              }}
+                            >
+                              <XCircle size={12} /> Disabled
+                            </span>
+                          )}
                         </td>
                         <td>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => handleRevokeStaff(s.id, s.name)}
-                            disabled={revokingStaffId === s.id}
-                            style={{
-                              color: "var(--red)",
-                              borderColor: "rgba(239, 68, 68, 0.3)",
-                            }}
-                          >
-                            <Trash2 size={13} />{" "}
-                            {revokingStaffId === s.id ? "Revoking…" : "Revoke"}
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {s.isActive !== false ? (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleToggleStaffStatus(s.id, s.name, true)}
+                                disabled={togglingStaffId === s.id}
+                                title="Disable Access"
+                                style={{
+                                  color: "var(--amber)",
+                                  borderColor: "rgba(245, 158, 11, 0.3)",
+                                  fontSize: "0.78rem",
+                                }}
+                              >
+                                <UserX size={13} />{" "}
+                                {togglingStaffId === s.id ? "Disabling…" : "Disable"}
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleToggleStaffStatus(s.id, s.name, false)}
+                                disabled={togglingStaffId === s.id}
+                                title="Enable Access"
+                                style={{
+                                  color: "var(--accent)",
+                                  borderColor: "rgba(13, 148, 136, 0.3)",
+                                  fontSize: "0.78rem",
+                                }}
+                              >
+                                <UserCheck size={13} />{" "}
+                                {togglingStaffId === s.id ? "Enabling…" : "Enable"}
+                              </button>
+                            )}
+
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handlePermanentDeleteStaff(s.id, s.name)}
+                              disabled={revokingStaffId === s.id}
+                              title="Delete Permanently"
+                              style={{
+                                color: "var(--red)",
+                                borderColor: "rgba(239, 68, 68, 0.3)",
+                              }}
+                            >
+                              <Trash2 size={13} />{" "}
+                              {revokingStaffId === s.id ? "Deleting…" : "Delete"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -629,6 +761,11 @@ export default function StaffPage() {
         isOpen={showRoleModal}
         onClose={() => setShowRoleModal(false)}
       />
+      <ConfirmModal
+        {...confirmModalState}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
+      />
     </PageTransition>
   );
 }
+
