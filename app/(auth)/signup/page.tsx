@@ -115,7 +115,7 @@ export default function SignupPage() {
             width: 52,
             height: 52,
             borderRadius: 14,
-            objectFit: 'cover',
+            objectFit: 'contain',
             margin: '0 auto 12px',
             display: 'block',
             boxShadow: '0 4px 16px var(--accent-glow)',

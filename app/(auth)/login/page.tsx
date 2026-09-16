@@ -85,7 +85,7 @@ export default function LoginPage() {
             width: 56,
             height: 56,
             borderRadius: 14,
-            objectFit: 'cover',
+            objectFit: 'contain',
             marginBottom: 12,
             boxShadow: '0 4px 16px var(--accent-glow)',
           }}
