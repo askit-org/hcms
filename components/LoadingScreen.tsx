@@ -34,7 +34,7 @@ export default function LoadingScreen({ message = 'Loading data...' }: { message
           marginBottom: 24
         }}
       >
-        <img src="/icons/logo.png" alt="HCMS Logo" width={60} height={60} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src="/icons/logo.png" alt="HCMS Logo" width={60} height={60} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       </motion.div>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
