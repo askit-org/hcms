@@ -106,13 +106,21 @@ export default function SignupPage() {
       style={{ padding: '32px 24px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid rgba(255,255,255,0.05)' }}
     >
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ 
-          width: 48, height: 48, borderRadius: 12, background: 'var(--accent-glow)', 
-          color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 12px'
-        }}>
-          <UserPlus size={24} />
-        </div>
+        <img
+          src="/icons/logo.png"
+          alt="HCMS Logo"
+          width={52}
+          height={52}
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 14,
+            objectFit: 'cover',
+            margin: '0 auto 12px',
+            display: 'block',
+            boxShadow: '0 4px 16px var(--accent-glow)',
+          }}
+        />
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>Create Account</h1>
         <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.85rem' }}>
           {step === 1 ? 'Step 1: Doctor Credentials' : 'Step 2: Clinic Details'}

@@ -192,7 +192,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Link href={defaultHome} className="logo-wrap" style={{ textDecoration: 'none', display: 'block' }} onClick={() => setMobileMenuOpen(false)}>
           <div className="logo-row">
             <div className="logo-icon">
-              <Activity />
+              <img src="/icons/logo.png" alt="HCMS Logo" width={36} height={36} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
             </div>
             <div className="logo-text">
               <h2>HCMS</h2>

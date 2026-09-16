@@ -76,14 +76,20 @@ export default function LoginPage() {
       style={{ width: '100%', maxWidth: '440px', padding: '36px' }}
     >
       <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: 14,
-          background: 'rgba(59, 130, 246, 0.15)',
-          color: 'var(--accent)', display: 'inline-flex',
-          alignItems: 'center', justifyContent: 'center', marginBottom: 12
-        }}>
-          <Activity size={28} />
-        </div>
+        <img
+          src="/icons/logo.png"
+          alt="HCMS Logo"
+          width={56}
+          height={56}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 14,
+            objectFit: 'cover',
+            marginBottom: 12,
+            boxShadow: '0 4px 16px var(--accent-glow)',
+          }}
+        />
         <h2 style={{ margin: '0 0 6px 0', fontSize: '1.5rem', fontWeight: 700 }}>Welcome Back</h2>
         <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>Enter your credentials to access the clinic</p>
       </div>

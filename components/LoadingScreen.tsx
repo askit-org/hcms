@@ -14,8 +14,8 @@ export default function LoadingScreen({ message = 'Loading data...' }: { message
     }}>
       <motion.div
         animate={{ 
-          scale: [1, 1.2, 1],
-          opacity: [0.5, 1, 0.5] 
+          scale: [1, 1.1, 1],
+          opacity: [0.7, 1, 0.7] 
         }}
         transition={{ 
           duration: 2, 
@@ -25,8 +25,8 @@ export default function LoadingScreen({ message = 'Loading data...' }: { message
         style={{
           width: 60,
           height: 60,
-          borderRadius: '20px',
-          background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+          borderRadius: '18px',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -34,7 +34,7 @@ export default function LoadingScreen({ message = 'Loading data...' }: { message
           marginBottom: 24
         }}
       >
-        <Activity size={32} color="white" />
+        <img src="/icons/logo.png" alt="HCMS Logo" width={60} height={60} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </motion.div>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
