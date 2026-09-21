@@ -30,7 +30,7 @@ export interface PrescribedMedicine {
 }
 
 export interface Visit {
-  id?: number;
+  id?: string | number;
   patientId: string;
   category: string;
   date: string;
