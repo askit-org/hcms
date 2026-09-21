@@ -29,6 +29,9 @@ import type {
   RazorpayOrderRequest,
   OnboardStaffInput,
   CreateRoleInput,
+  AbhaRequestOtpInput,
+  AbhaVerifyOtpInput,
+  AbhaConfirmAddressInput,
 } from '../providers/types';
 
 // Query Keys
@@ -106,6 +109,28 @@ export function usePatientMutations() {
   });
 
   return { create, update, remove };
+}
+
+export function useAbhaMutations() {
+  const provider = useProviderStore(s => s.provider);
+
+  const requestOtp = useMutation({
+    mutationFn: (input: AbhaRequestOtpInput) => provider.abhaRequestOtp(input),
+  });
+
+  const verifyOtp = useMutation({
+    mutationFn: (input: AbhaVerifyOtpInput) => provider.abhaVerifyOtp(input),
+  });
+
+  const getSuggestions = async (txnId: string) => {
+    return provider.abhaGetSuggestions(txnId);
+  };
+
+  const confirmAddress = useMutation({
+    mutationFn: (input: AbhaConfirmAddressInput) => provider.abhaConfirmAddress(input),
+  });
+
+  return { requestOtp, verifyOtp, getSuggestions, confirmAddress };
 }
 
 // ── Visits ─────────────────────────────────────────────────────

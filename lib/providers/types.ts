@@ -238,6 +238,51 @@ export interface DashboardStats {
   todayFollowUpList: FollowUpItem[];
 }
 
+// ─── ABHA Integration Types ──────────────────────────────────────
+
+export interface AbhaRequestOtpInput {
+  aadhaarNumber: string;
+}
+
+export interface AbhaRequestOtpResponse {
+  txnId: string;
+  message?: string;
+}
+
+export interface AbhaVerifyOtpInput {
+  txnId: string;
+  otp: string;
+  mobile?: string;
+}
+
+export interface AbhaVerifyOtpResponse {
+  txnId: string;
+  ABHANumber?: string;
+  abhaNumber?: string;
+  name: string;
+  gender: string;
+  dayOfBirth?: string;
+  monthOfBirth?: string;
+  yearOfBirth?: string;
+  mobile?: string | null;
+}
+
+export interface AbhaSuggestionsResponse {
+  txnId: string;
+  abhaAddressList: string[];
+}
+
+export interface AbhaConfirmAddressInput {
+  txnId: string;
+  abhaAddress: string;
+}
+
+export interface AbhaConfirmAddressResponse {
+  txnId: string;
+  abhaAddress: string;
+  abhaNumber: string;
+}
+
 // ─── THE DATA PROVIDER INTERFACE ─────────────────────────────────
 // Both local.ts and api.ts implement this contract.
 // Switching between them only requires changing the factory in index.ts.
@@ -261,13 +306,17 @@ export interface DataProvider {
   createRole(input: CreateRoleInput): Promise<AppRole>;
   deleteRole(roleId: string): Promise<void>;
 
-  // ── Patients ───────────────────────────────────────────────────
+  // ── Patients & ABHA Onboarding ─────────────────────────────────
   listPatients(params?: PatientListParams): Promise<Patient[]>;
   getPatient(patientId: string): Promise<Patient | undefined>;
   createPatient(input: CreatePatientInput): Promise<Patient>;
   updatePatient(patientId: string, input: UpdatePatientInput): Promise<Patient>;
   deletePatient(patientId: string): Promise<void>;
   generatePatientId(): Promise<string>;
+  abhaRequestOtp(input: AbhaRequestOtpInput): Promise<AbhaRequestOtpResponse>;
+  abhaVerifyOtp(input: AbhaVerifyOtpInput): Promise<AbhaVerifyOtpResponse>;
+  abhaGetSuggestions(txnId: string): Promise<AbhaSuggestionsResponse>;
+  abhaConfirmAddress(input: AbhaConfirmAddressInput): Promise<AbhaConfirmAddressResponse>;
 
   // ── Visits ─────────────────────────────────────────────────────
   listVisits(params?: VisitListParams): Promise<Visit[]>;

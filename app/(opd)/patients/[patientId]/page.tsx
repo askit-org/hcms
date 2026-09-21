@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, ShieldCheck
 } from 'lucide-react';
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
 import type { Visit, Patient } from '@/lib/providers/types';
@@ -41,7 +41,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     mobile: '',
     address: '',
     occupation: '',
-    abhaNumber: ''
+    abhaNumber: '',
+    abhaAddress: '',
   });
 
   const [confirmModalState, setConfirmModalState] = useState<{
@@ -70,7 +71,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
         mobile: patient.mobile || '',
         address: patient.address || '',
         occupation: patient.occupation || '',
-        abhaNumber: patient.abhaNumber || ''
+        abhaNumber: patient.abhaNumber || '',
+        abhaAddress: patient.abhaAddress || '',
       });
     }
   }, [patient]);
@@ -102,6 +104,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           address: editForm.address.trim() || undefined,
           occupation: editForm.occupation.trim() || undefined,
           abhaNumber: editForm.abhaNumber.trim() || undefined,
+          abhaAddress: editForm.abhaAddress.trim() || undefined,
         }
       });
       toast('Patient details updated successfully!', 'success');
@@ -247,6 +250,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   <input className="form-input" placeholder="14-digit ABHA number" maxLength={14} value={editForm.abhaNumber} onChange={e => setEditForm(f => ({ ...f, abhaNumber: e.target.value.replace(/\D/g, '') }))} />
                 </div>
                 <div>
+                  <label className="form-label">ABHA Address / Handle</label>
+                  <input className="form-input" placeholder="e.g. johndoe123@abdm" value={editForm.abhaAddress} onChange={e => setEditForm(f => ({ ...f, abhaAddress: e.target.value }))} />
+                </div>
+                <div>
                   <label className="form-label">Address</label>
                   <input className="form-input" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
                 </div>
@@ -260,6 +267,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                 {[
                   { icon: <Phone size={15} />, label: 'Mobile', value: patient.mobile },
                   { icon: <ClipboardList size={15} />, label: 'ABHA No.', value: patient.abhaNumber || '—' },
+                  { icon: <ShieldCheck size={15} />, label: 'ABHA Handle', value: patient.abhaAddress || '—' },
                   { icon: <MapPin size={15} />, label: 'Address', value: patient.address || '—' },
                   { icon: <Briefcase size={15} />, label: 'Occupation', value: patient.occupation || '—' },
                   { icon: <Calendar size={15} />, label: 'DOB', value: patient.dob ? new Date(patient.dob).toLocaleDateString('en-IN') : '—' },

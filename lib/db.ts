@@ -11,6 +11,7 @@ export interface Patient {
   address?: string;
   occupation?: string;
   abhaNumber?: string;
+  abhaAddress?: string;
   permanentConditions?: string[];
   createdAt: string;
 }

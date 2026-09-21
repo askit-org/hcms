@@ -299,6 +299,29 @@ interface AppOption {
 - **Endpoint**: `/api/patients/:patientId/visits`
 - **Response (200 OK)**: Array of `Visit` objects for the patient
 
+### 5.8 Request ABHA Aadhaar OTP
+- **Method**: `POST`
+- **Endpoint**: `/api/patients/abha/request-otp`
+- **Request Body**: `{ "aadhaarNumber": "123456789012" }`
+- **Response (200 OK)**: `{ "txnId": "uuid-txn-id", "message": "OTP sent to Aadhaar registered mobile..." }`
+
+### 5.9 Verify ABHA Aadhaar OTP
+- **Method**: `POST`
+- **Endpoint**: `/api/patients/abha/verify-otp`
+- **Request Body**: `{ "txnId": "uuid-txn-id", "otp": "123456", "mobile": "9876543210" }`
+- **Response (200 OK)**: `{ "txnId": "uuid-txn-id", "ABHANumber": "12-3456-7890-1234", "name": "John Doe", "gender": "M", "dayOfBirth": "12", "monthOfBirth": "05", "yearOfBirth": "1991", "mobile": "9876543210" }`
+
+### 5.10 Fetch ABHA Address Suggestions
+- **Method**: `GET`
+- **Endpoint**: `/api/patients/abha/suggestions/:txnId`
+- **Response (200 OK)**: `{ "txnId": "uuid-txn-id", "abhaAddressList": ["johndoe123", "johndoe.91", "john_doe"] }`
+
+### 5.11 Confirm ABHA Address
+- **Method**: `POST`
+- **Endpoint**: `/api/patients/abha/confirm-address`
+- **Request Body**: `{ "txnId": "uuid-txn-id", "abhaAddress": "johndoe123" }`
+- **Response (200 OK)**: `{ "txnId": "uuid-txn-id", "abhaAddress": "johndoe123@abdm", "abhaNumber": "12-3456-7890-1234" }`
+
 ---
 
 ## 6. Visits & Prescriptions Module

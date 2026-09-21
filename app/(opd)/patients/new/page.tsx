@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, ChevronLeft, AlertCircle } from 'lucide-react';
+import { UserPlus, ChevronLeft, AlertCircle, ShieldCheck, Sparkles, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { usePatientMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
+import AbhaOnboardingModal from '@/components/AbhaOnboardingModal';
 
 import { patientSchema, validateForm } from '@/lib/validations/schemas';
 
@@ -26,6 +27,8 @@ export default function NewPatientPage() {
   
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isAbhaModalOpen, setIsAbhaModalOpen] = useState(false);
+  const [unverifiedMobileWarning, setUnverifiedMobileWarning] = useState(false);
   
   const [form, setForm] = useState({
     name: '',
@@ -36,6 +39,7 @@ export default function NewPatientPage() {
     address: '',
     occupation: '',
     abhaNumber: '',
+    abhaAddress: '',
   });
 
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
@@ -49,6 +53,36 @@ export default function NewPatientPage() {
         return copy;
       });
     }
+  };
+
+  const handleAbhaComplete = (data: {
+    name: string;
+    gender: string;
+    dob?: string;
+    age?: string;
+    mobile: string;
+    abhaNumber: string;
+    abhaAddress: string;
+    unverifiedMobileWarning?: boolean;
+  }) => {
+    setForm((f) => ({
+      ...f,
+      name: data.name || f.name,
+      gender: data.gender || f.gender,
+      dob: data.dob || f.dob,
+      age: data.age || f.age,
+      mobile: data.mobile || f.mobile,
+      abhaNumber: data.abhaNumber || f.abhaNumber,
+      abhaAddress: data.abhaAddress || f.abhaAddress,
+    }));
+
+    if (data.unverifiedMobileWarning) {
+      setUnverifiedMobileWarning(true);
+    } else {
+      setUnverifiedMobileWarning(false);
+    }
+
+    setErrors({});
   };
 
   const handleDobChange = (dobValue: string) => {
@@ -120,6 +154,7 @@ export default function NewPatientPage() {
         address: form.address.trim() || undefined,
         occupation: form.occupation.trim() || undefined,
         abhaNumber: form.abhaNumber.trim() || undefined,
+        abhaAddress: form.abhaAddress.trim() || undefined,
         permanentConditions: selectedConditions,
         createdAt: new Date().toISOString(),
       } as any);
@@ -134,7 +169,7 @@ export default function NewPatientPage() {
 
   return (
     <PageTransition className="page-transition" style={{ maxWidth: 780, margin: '0 auto' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <Link href="/patients" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
             <ChevronLeft size={15} /> Back to Patients
@@ -142,11 +177,71 @@ export default function NewPatientPage() {
           <div className="page-title">Register New Patient</div>
           <div className="page-subtitle">Patient ID will be auto-generated</div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsAbhaModalOpen(true)}
+          className="btn btn-primary"
+          style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(6, 182, 212, 0.9))',
+            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)',
+            gap: 8,
+            fontWeight: 600,
+          }}
+        >
+          <ShieldCheck size={18} /> Create / Link ABHA
+        </button>
       </div>
 
       <form noValidate onSubmit={handleSubmit}>
         <div className="card">
-          <div className="card-title" style={{ marginBottom: 16 }}>Personal Information</div>
+          <div className="card-title" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Personal Information</span>
+            <button
+              type="button"
+              onClick={() => setIsAbhaModalOpen(true)}
+              style={{
+                background: 'var(--accent-glow)',
+                border: '1px solid var(--border)',
+                color: 'var(--accent)',
+                padding: '4px 10px',
+                borderRadius: 20,
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+              }}
+            >
+              <Sparkles size={14} /> Auto-fill via ABHA / Aadhaar
+            </button>
+          </div>
+
+          {/* Unverified Mobile Warning Banner */}
+          {unverifiedMobileWarning && (
+            <div
+              style={{
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                marginBottom: 16,
+                fontSize: '0.82rem',
+                color: 'var(--amber, #f59e0b)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontWeight: 500,
+              }}
+            >
+              <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+              <div>
+                ⚠️ <strong>Unverified Mobile Warning:</strong> The Aadhaar-registered mobile number differs from the provided mobile number.
+              </div>
+            </div>
+          )}
+
           <div className="form-grid form-grid-2">
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Full Name <span className="required">*</span></label>
@@ -259,6 +354,17 @@ export default function NewPatientPage() {
               )}
             </div>
 
+            <div className="form-group">
+              <label className="form-label">ABHA Address / Handle <span style={{ color: 'var(--text-muted)' }}>(e.g. name@abdm)</span></label>
+              <input
+                data-field="abhaAddress"
+                className="form-input"
+                placeholder="e.g. johndoe123@abdm"
+                value={form.abhaAddress}
+                onChange={e => set('abhaAddress', e.target.value)}
+              />
+            </div>
+
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Address <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>
               <input className="form-input" placeholder="Street, City, Area" value={form.address} onChange={e => set('address', e.target.value)} />
@@ -307,6 +413,13 @@ export default function NewPatientPage() {
           </div>
         </div>
       </form>
+
+      <AbhaOnboardingModal
+        isOpen={isAbhaModalOpen}
+        onClose={() => setIsAbhaModalOpen(false)}
+        onComplete={handleAbhaComplete}
+        initialMobile={form.mobile}
+      />
     </PageTransition>
   );
 }

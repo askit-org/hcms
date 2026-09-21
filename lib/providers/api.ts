@@ -44,6 +44,13 @@ import type {
   RazorpayOrderRequest,
   RazorpayOrderResponse,
   SubscriptionResponse,
+  AbhaRequestOtpInput,
+  AbhaRequestOtpResponse,
+  AbhaVerifyOtpInput,
+  AbhaVerifyOtpResponse,
+  AbhaSuggestionsResponse,
+  AbhaConfirmAddressInput,
+  AbhaConfirmAddressResponse,
 } from './types';
 
 // The baseUrl can be configured via environment variables
@@ -191,6 +198,18 @@ export const ApiDataProvider: DataProvider = {
   },
   async generatePatientId(): Promise<string> {
     return api.get<{ id: string }>('/patients/generate-id').then((r) => r.data.id);
+  },
+  async abhaRequestOtp(input: AbhaRequestOtpInput): Promise<AbhaRequestOtpResponse> {
+    return api.post<AbhaRequestOtpResponse>('/patients/abha/request-otp', input).then((r) => extract<AbhaRequestOtpResponse>(r));
+  },
+  async abhaVerifyOtp(input: AbhaVerifyOtpInput): Promise<AbhaVerifyOtpResponse> {
+    return api.post<AbhaVerifyOtpResponse>('/patients/abha/verify-otp', input).then((r) => extract<AbhaVerifyOtpResponse>(r));
+  },
+  async abhaGetSuggestions(txnId: string): Promise<AbhaSuggestionsResponse> {
+    return api.get<AbhaSuggestionsResponse>(`/patients/abha/suggestions/${txnId}`).then((r) => extract<AbhaSuggestionsResponse>(r));
+  },
+  async abhaConfirmAddress(input: AbhaConfirmAddressInput): Promise<AbhaConfirmAddressResponse> {
+    return api.post<AbhaConfirmAddressResponse>('/patients/abha/confirm-address', input).then((r) => extract<AbhaConfirmAddressResponse>(r));
   },
 
   // ── Visits ─────────────────────────────────────────────────────
