@@ -197,7 +197,7 @@ export const ApiDataProvider: DataProvider = {
   async listVisits(params?: VisitListParams): Promise<Visit[]> {
     return api.get<Visit[]>('/visits', { params }).then((r) => extractArray<Visit>(r, 'visits'));
   },
-  async getVisit(visitId: number): Promise<Visit | undefined> {
+  async getVisit(visitId: string | number): Promise<Visit | undefined> {
     return api.get<Visit>(`/visits/${visitId}`).then((r) => extract<Visit>(r));
   },
   async getPatientVisits(patientId: string): Promise<Visit[]> {
@@ -206,10 +206,10 @@ export const ApiDataProvider: DataProvider = {
   async createVisit(input: CreateVisitInput): Promise<Visit> {
     return api.post<Visit>('/visits', input).then((r) => extract<Visit>(r));
   },
-  async updateVisit(visitId: number, input: UpdateVisitInput): Promise<Visit> {
+  async updateVisit(visitId: string | number, input: UpdateVisitInput): Promise<Visit> {
     return api.put<Visit>(`/visits/${visitId}`, input).then((r) => extract<Visit>(r));
   },
-  async deleteVisit(visitId: number): Promise<void> {
+  async deleteVisit(visitId: string | number): Promise<void> {
     return api.delete(`/visits/${visitId}`).then(() => undefined);
   },
   async getTodayVisits(): Promise<Visit[]> {
@@ -221,7 +221,7 @@ export const ApiDataProvider: DataProvider = {
   async getUpcomingFollowUps(days = 7): Promise<FollowUpItem[]> {
     return api.get<FollowUpItem[]>('/visits/followups/upcoming', { params: { days } }).then((r) => extractArray<FollowUpItem>(r, 'followups'));
   },
-  async markFollowUpAttended(visitId: number): Promise<Visit> {
+  async markFollowUpAttended(visitId: string | number): Promise<Visit> {
     return api.post<Visit>(`/visits/${visitId}/mark-attended`).then((r) => extract<Visit>(r));
   },
 

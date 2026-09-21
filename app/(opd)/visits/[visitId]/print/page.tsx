@@ -8,7 +8,7 @@ import { parseDoseToWords } from '@/lib/medicationInstructions';
 
 export default function PrintRxPage({ params }: { params: Promise<{ visitId: string }> }) {
   const { visitId } = use(params);
-  const { data: visit, isLoading: visitLoading } = useVisit(parseInt(visitId));
+  const { data: visit, isLoading: visitLoading } = useVisit(visitId);
   const { data: patient, isLoading: patientLoading } = usePatient(visit?.patientId || '');
   const { data: settings, isLoading: settingsLoading } = useSettings();
 

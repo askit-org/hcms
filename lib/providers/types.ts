@@ -271,15 +271,15 @@ export interface DataProvider {
 
   // ── Visits ─────────────────────────────────────────────────────
   listVisits(params?: VisitListParams): Promise<Visit[]>;
-  getVisit(visitId: number): Promise<Visit | undefined>;
+  getVisit(visitId: string | number): Promise<Visit | undefined>;
   getPatientVisits(patientId: string): Promise<Visit[]>;
   createVisit(input: CreateVisitInput): Promise<Visit>;
-  updateVisit(visitId: number, input: UpdateVisitInput): Promise<Visit>;
-  deleteVisit(visitId: number): Promise<void>;
+  updateVisit(visitId: string | number, input: UpdateVisitInput): Promise<Visit>;
+  deleteVisit(visitId: string | number): Promise<void>;
   getTodayVisits(): Promise<Visit[]>;
   getTodayFollowUps(): Promise<FollowUpItem[]>;
   getUpcomingFollowUps(days?: number): Promise<FollowUpItem[]>;
-  markFollowUpAttended(visitId: number): Promise<Visit>;
+  markFollowUpAttended(visitId: string | number): Promise<Visit>;
 
   // ── Medicines ──────────────────────────────────────────────────
   listMedicines(params?: MedicineListParams): Promise<Medicine[]>;

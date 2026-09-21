@@ -37,7 +37,7 @@ export const keys = {
   patients: () => [...keys.all, 'patients'] as const,
   patient: (id: string) => [...keys.patients(), id] as const,
   visits: () => [...keys.all, 'visits'] as const,
-  visit: (id: number) => [...keys.visits(), id] as const,
+  visit: (id: string | number) => [...keys.visits(), id] as const,
   patientVisits: (pid: string) => [...keys.visits(), 'patient', pid] as const,
   medicines: () => [...keys.all, 'medicines'] as const,
   templates: () => [...keys.all, 'templates'] as const,
@@ -121,7 +121,7 @@ export function usePatientVisits(patientId: string) {
   });
 }
 
-export function useVisit(id: number) {
+export function useVisit(id: string | number) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
   const { hasPermission } = usePermissions();
@@ -168,7 +168,7 @@ export function useVisitMutations() {
   });
 
   const update = useMutation({
-    mutationFn: ({ id, input }: { id: number; input: UpdateVisitInput }) => 
+    mutationFn: ({ id, input }: { id: string | number; input: UpdateVisitInput }) => 
       provider.updateVisit(id, input),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: keys.visit(id) });
@@ -178,7 +178,7 @@ export function useVisitMutations() {
   });
 
   const markFollowUp = useMutation({
-    mutationFn: (id: number) => provider.markFollowUpAttended(id),
+    mutationFn: (id: string | number) => provider.markFollowUpAttended(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.followups() });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
