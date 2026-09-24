@@ -376,7 +376,7 @@ export default function AppointmentsPage() {
   const canRegister = !isDoctorOrSuperAdmin && hasPermission('PATIENTS', 'canCreate');
 
   // Real API hooks for fetching and creating patients
-  const { data: dbPatients = [] } = usePatients();
+  const { data: dbPatients = [], refetch: refetchPatients } = usePatients();
   const { create: createPatientMut } = usePatientMutations();
 
   // Real API hooks for Live OPD Queue persistence
@@ -682,6 +682,8 @@ export default function AppointmentsPage() {
     try {
       await updateStatusMut.mutateAsync({ id, status: 'COMPLETED' });
       await removeMut.mutateAsync(id);
+      await refetchPatients();
+      await refetchQueue();
     } catch (_) {
       setLocalQueue((prev) => prev.filter((q) => q.id !== id));
     }
