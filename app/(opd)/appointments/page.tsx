@@ -1044,23 +1044,6 @@ export default function AppointmentsPage() {
                           <span style={{ color: 'var(--text-muted)', cursor: 'grab' }} title="Drag card into queue">
                             <GripVertical size={16} />
                           </span>
-                          <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: '50%',
-                              background: 'var(--accent-glow)',
-                              color: 'var(--accent)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 800,
-                              fontSize: '0.88rem',
-                              border: '1px solid var(--accent)',
-                            }}
-                          >
-                            {patient.name.charAt(0)}
-                          </div>
                           <div>
                             <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                               {patient.name} {patient.age ? <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--text-muted)' }}>({patient.age}{patient.gender ? patient.gender.charAt(0) : ''})</span> : null}
@@ -1330,12 +1313,6 @@ export default function AppointmentsPage() {
             <div>
               Status: <span style={{ color: nowServing ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 700 }}>{nowServing ? 'In Session' : 'Idle'}</span>
             </div>
-            <button
-              onClick={() => toast('Queue broadcasted to TV display.', 'success')}
-              style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: '0.74rem', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}
-            >
-              Broadcast Display ↗
-            </button>
           </div>
 
         </div>
