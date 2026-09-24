@@ -25,16 +25,29 @@ interface InstructionPickerProps {
 export default function InstructionPicker({
   instructionKeys = [],
   customInstruction = '',
-  languages = ['en', 'hi'],
+  languages,
   onChange,
 }: InstructionPickerProps) {
   const [open, setOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedKeys, setSelectedKeys] = useState<string[]>(instructionKeys);
   const [customText, setCustomText] = useState(customInstruction);
-  const [selectedLangs, setSelectedLangs] = useState<InstructionLanguage[]>(
-    languages.length > 0 ? languages : ['en', 'hi']
-  );
+
+  const getInitialLangs = () => {
+    if (languages && languages.length > 0) return languages;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hcms-instruction-langs');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return ['en', 'hi'] as InstructionLanguage[];
+  };
+
+  const [selectedLangs, setSelectedLangs] = useState<InstructionLanguage[]>(getInitialLangs);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -45,6 +58,18 @@ export default function InstructionPicker({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
+    
+    // If no languages were provided explicitly (e.g. new medicine row), sync parent with our initialized local storage languages
+    if (!languages || languages.length === 0) {
+      const formattedText = formatInstructionsText(selectedKeys, selectedLangs, customText);
+      onChange({
+        instructionKeys: selectedKeys,
+        customInstruction: customText,
+        languages: selectedLangs,
+        formattedText,
+      });
+    }
+    
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
@@ -87,6 +112,9 @@ export default function InstructionPicker({
       next = [...selectedLangs, lang];
     }
     setSelectedLangs(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hcms-instruction-langs', JSON.stringify(next));
+    }
     triggerUpdate(selectedKeys, customText, next);
   };
 
