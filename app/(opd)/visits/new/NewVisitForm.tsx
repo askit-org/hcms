@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations } from '@/lib/hooks/useQueries';
+import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
@@ -57,6 +57,8 @@ export default function NewVisitForm() {
   const { data: diseaseOptions = [] } = useAppOptions('DISEASE');
   const { data: categoryOptions = [] } = useAppOptions('CATEGORY');
   const { data: templates = [] } = useTemplates();
+  const { data: dbQueue, refetch: refetchQueue } = useQueue();
+  const { updateStatus: updateStatusMut, removeFromQueue: removeMut } = useQueueMutations();
 
   const activeComplaints = [...new Set([...QUICK_COMPLAINTS, ...complaintOptions.map(o => o.value)])];
   const activeDiseases = diseaseOptions.map(o => o.value);
@@ -288,6 +290,21 @@ export default function NewVisitForm() {
         followUpDate: form.followUpDate || undefined,
         followUpAttended: false,
       });
+
+      // Check if patient is in queue and dequeue
+      if (Array.isArray(dbQueue)) {
+        const queuedPatient = dbQueue.find((q: any) => q.patientId === selectedPatient!.patientId);
+        if (queuedPatient) {
+          try {
+            await updateStatusMut.mutateAsync({ id: queuedPatient.id, status: 'COMPLETED' });
+            await removeMut.mutateAsync(queuedPatient.id);
+            await refetchQueue();
+          } catch (e) {
+            console.error('Failed to dequeue patient', e);
+          }
+        }
+      }
+
       clearVisitDraft();
       isFormDirty.current = false;
       toast('OPD Visit saved successfully!', 'success');
