@@ -13,10 +13,13 @@ import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
 
+import { getErrorMessage } from '@/lib/utils/error';
+
 type FollowUpItem = { visit: Visit; patient: Patient | undefined };
 
 export default function FollowUpPage() {
   const [tab, setTab] = useState<'today' | 'upcoming' | 'all'>('today');
+  const [attendedIds, setAttendedIds] = useState<Set<string | number>>(new Set());
   const provider = useProviderStore(s => s.provider);
 
   const { today, upcoming } = useFollowUps();
@@ -28,8 +31,10 @@ export default function FollowUpPage() {
     queryFn: () => provider.getUpcomingFollowUps(9999)
   });
 
-  const todayFU = today.data || [];
-  const upcomingFU = upcoming.data || [];
+  const todayFU = (today.data || []).filter(item => item.visit?.id && !attendedIds.has(item.visit.id) && !item.visit.followUpAttended);
+  const upcomingFU = (upcoming.data || []).filter(item => item.visit?.id && !attendedIds.has(item.visit.id) && !item.visit.followUpAttended);
+  const allFUClean = (allFU || []).filter(item => item.visit?.id && !attendedIds.has(item.visit.id) && !item.visit.followUpAttended);
+  
   const loading = today.isLoading || upcoming.isLoading || (tab === 'all' && allLoading);
 
   const load = async () => {
@@ -39,13 +44,25 @@ export default function FollowUpPage() {
   };
 
   const markAttended = async (v: Visit) => {
-    if (v.id) {
-      await markFollowUp.mutateAsync(v.id);
-      toast(`Marked as attended for ${v.followUpDate}.`, 'success');
+    if (!v.id) return;
+    const vid = v.id;
+    // Optimistically mark as completed so it disappears instantly
+    setAttendedIds(prev => new Set(prev).add(vid));
+    try {
+      await markFollowUp.mutateAsync(vid);
+      await load();
+      toast(`Marked as attended!`, 'success');
+    } catch (err) {
+      setAttendedIds(prev => {
+        const next = new Set(prev);
+        next.delete(vid);
+        return next;
+      });
+      toast(getErrorMessage(err, 'Failed to mark follow-up as attended.'), 'error');
     }
   };
 
-  const items = tab === 'today' ? todayFU : tab === 'upcoming' ? upcomingFU : allFU;
+  const items = tab === 'today' ? todayFU : tab === 'upcoming' ? upcomingFU : allFUClean;
 
   const getDaysLabel = (dateStr: string) => {
     const today = new Date();
