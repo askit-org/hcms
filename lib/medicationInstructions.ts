@@ -161,6 +161,27 @@ export function parseDoseToWords(doseStr: string): DoseWords {
   const s = doseStr.trim();
   const lower = s.toLowerCase();
 
+  // If doseStr is in format "Unit (Pattern)" like "2 drops (1-0-0)" or "5 ml (1-0-1)"
+  const bracketMatch = s.match(/^(.*?)\s*\((.*?)\)$/);
+  if (bracketMatch) {
+    const unitPrefix = bracketMatch[1].trim();
+    const patternPart = bracketMatch[2].trim();
+    const patternWords = parseDoseToWords(patternPart);
+    if (patternWords.en && patternWords.en !== patternPart) {
+      return {
+        en: `${unitPrefix} (${patternWords.en})`,
+        hi: `${unitPrefix} (${patternWords.hi})`,
+        mr: `${unitPrefix} (${patternWords.mr})`,
+      };
+    } else {
+      return {
+        en: `${unitPrefix} (${patternPart})`,
+        hi: `${unitPrefix} (${patternPart})`,
+        mr: `${unitPrefix} (${patternPart})`,
+      };
+    }
+  }
+
   if (lower === 'sos' || lower.includes('needed')) {
     return { en: 'As needed (SOS)', hi: 'ज़रूरत पड़ने पर', mr: 'गरज असल्यास' };
   }
@@ -177,9 +198,15 @@ export function parseDoseToWords(doseStr: string): DoseWords {
     return { en: '1 per month', hi: 'महीने में 1 बार', mr: 'महिनातून 1 वेळ' };
   }
 
-  const parts = s.split('-').map(p => p.trim());
+  const cleanSlotPattern = s.replace(/[()]/g, '').trim();
+  const parts = cleanSlotPattern.split('-').map(p => p.trim());
   if (parts.length === 3) {
-    const [m, a, n] = parts;
+    const [mRaw, aRaw, nRaw] = parts;
+    const cleanQty = (str: string) => str.replace(/[^\d./]/g, '').trim() || str;
+
+    const m = cleanQty(mRaw);
+    const a = cleanQty(aRaw);
+    const n = cleanQty(nRaw);
 
     const enParts: string[] = [];
     const hiParts: string[] = [];
