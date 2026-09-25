@@ -222,7 +222,15 @@ export const ApiDataProvider: DataProvider = {
     return api.get<FollowUpItem[]>('/visits/followups/upcoming', { params: { days } }).then((r) => extractArray<FollowUpItem>(r, 'followups'));
   },
   async markFollowUpAttended(visitId: string | number): Promise<Visit> {
-    return api.post<Visit>(`/visits/${visitId}/mark-attended`).then((r) => extract<Visit>(r));
+    try {
+      return await api.post<Visit>(`/visits/${visitId}/mark-attended`).then((r) => extract<Visit>(r));
+    } catch (err) {
+      try {
+        return await api.put<Visit>(`/visits/${visitId}`, { followUpAttended: true }).then((r) => extract<Visit>(r));
+      } catch (err2) {
+        return await api.patch<Visit>(`/visits/${visitId}`, { followUpAttended: true }).then((r) => extract<Visit>(r));
+      }
+    }
   },
 
   // ── Medicines ──────────────────────────────────────────────────

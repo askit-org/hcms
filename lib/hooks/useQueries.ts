@@ -177,6 +177,16 @@ export function useVisitMutations() {
     },
   });
 
+  const remove = useMutation({
+    mutationFn: (id: string | number) => provider.deleteVisit(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: keys.visit(id) });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+      qc.invalidateQueries({ queryKey: keys.followups() });
+    },
+  });
+
   const markFollowUp = useMutation({
     mutationFn: (id: string | number) => provider.markFollowUpAttended(id),
     onSuccess: () => {
@@ -186,7 +196,7 @@ export function useVisitMutations() {
     },
   });
 
-  return { create, update, markFollowUp };
+  return { create, update, remove, markFollowUp };
 }
 
 // ── Dashboard ──────────────────────────────────────────────────

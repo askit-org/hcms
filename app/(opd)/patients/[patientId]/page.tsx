@@ -28,7 +28,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
   const { data: visits = [], isLoading: visitsLoading } = usePatientVisits(patientId);
   const { data: settings } = useSettings();
   const { remove: removePatient, update: updatePatientMut } = usePatientMutations();
-  const { update: updateVisit } = useVisitMutations();
+  const { update: updateVisit, remove: removeVisit } = useVisitMutations();
 
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
   const [tab, setTab] = useState<'overview' | 'visits'>('overview');
@@ -124,6 +124,22 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
         await removePatient.mutateAsync(patient.patientId);
         toast('Patient deleted.', 'info');
         router.push('/patients');
+      },
+    });
+  };
+
+  const handleDeleteVisit = (v: Visit) => {
+    if (!v.id) return;
+    setConfirmModalState({
+      isOpen: true,
+      title: "Delete OPD Visit",
+      description: `Are you sure you want to delete the OPD visit on ${new Date(v.date).toLocaleDateString('en-IN')}? This action cannot be undone.`,
+      confirmText: "Delete Visit",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
+        await removeVisit.mutateAsync(v.id!);
+        toast('OPD Visit deleted successfully.', 'info');
       },
     });
   };
@@ -336,7 +352,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                     {[
                       { l: 'Chief Complaints', v: v.chiefComplaints },
                       { l: 'Diagnosis', v: v.diagnosis },
-                      { l: 'Treatment', v: v.treatment },
+                      { l: 'Treatment', v: v.treatment ? `${v.treatment}${v.hideTreatmentInRx ? ' (Hidden on Rx)' : ''}` : '' },
                       { l: 'BP', v: v.bp }, { l: 'Pulse', v: v.pulse },
                       { l: 'Temp', v: v.temp }, { l: 'SpO₂', v: v.spo2 },
                     ].filter(i => i.v).map(item => (
@@ -374,6 +390,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print / Share Rx</Link>
+                    <Link href={`/visits/${v.id}/edit`} className="btn btn-primary btn-sm"><Edit2 size={14} /> Edit Visit</Link>
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={(e) => { e.stopPropagation(); handleDeleteVisit(v); }}>
+                      <Trash2 size={14} /> Delete Visit
+                    </button>
                     {v.followUpDate && !v.followUpAttended && (
                       <button className="btn btn-success btn-sm" onClick={async (e) => {
                         e.stopPropagation();

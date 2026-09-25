@@ -42,6 +42,7 @@ export interface Visit {
   spo2?: string;
   weight?: string;
   treatment?: string;
+  hideTreatmentInRx?: boolean;
   prescriptionNotes?: string;
   medicines?: PrescribedMedicine[];
   followUpDate?: string;

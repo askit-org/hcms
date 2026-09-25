@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
+import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations, useVisit } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
@@ -16,6 +16,7 @@ import InstructionPicker from '@/components/InstructionPicker';
 import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
+import ConfirmModal from '@/components/ConfirmModal';
 
 
 const QUICK_COMPLAINTS = [
@@ -27,7 +28,7 @@ const QUICK_COMPLAINTS = [
 const DOSE_OPTIONS = ['1-0-1', '1-1-1', '0-0-1', '1-0-0', '0-1-0', '1/2-0-1/2', 'SOS', 'As needed', 'Stat'];
 const DURATION_OPTIONS = ['1 day', '3 days', '5 days', '7 days', '10 days', '14 days', '30 days', '90 days'];
 
-export default function NewVisitForm() {
+export default function EditVisitForm({ visitId }: { visitId: string }) {
   const router = useRouter();
   const sp = useSearchParams();
   const prePatientId = sp.get('patientId') || '';
@@ -42,9 +43,6 @@ export default function NewVisitForm() {
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const [visitDate, setVisitDate] = useState<string>(todayISO);
-
   const [form, setForm] = useState({
     category: '', chiefComplaints: '', diagnosis: '', bp: '', pulse: '', temp: '', spo2: '',
     weight: '', treatment: '', prescriptionNotes: '', followUpDate: '',
@@ -52,7 +50,8 @@ export default function NewVisitForm() {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const provider = useProviderStore((s) => s.provider);
-  const { create: createVisit } = useVisitMutations();
+  const { data: visitData, isLoading: visitLoading } = useVisit(visitId);
+  const { update: updateVisit, remove: removeVisit } = useVisitMutations();
   const { create: createOption } = useAppOptionMutations();
   const { data: medicinesData = [] } = useMedicines();
   const { data: complaintOptions = [] } = useAppOptions('CHIEF_COMPLAINT');
@@ -64,17 +63,30 @@ export default function NewVisitForm() {
 
   const activeComplaints = [...new Set([...QUICK_COMPLAINTS, ...complaintOptions.map(o => o.value)])];
   const activeDiseases = diseaseOptions.map(o => o.value);
+
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [hideTreatmentInRx, setHideTreatmentInRx] = useState(false);
 
-  useEffect(() => {
+  const handleDeleteVisit = async () => {
+    if (!visitId) return;
+    setDeleting(true);
     try {
-      const pref = localStorage.getItem('hcms_pref_hide_treatment_in_rx');
-      if (pref !== null) {
-        setHideTreatmentInRx(JSON.parse(pref));
+      await removeVisit.mutateAsync(visitId.toString());
+      toast('Visit deleted successfully', 'success');
+      if (selectedPatient) {
+        router.push(`/patients/${selectedPatient.patientId}`);
+      } else {
+        router.push('/patients');
       }
-    } catch (e) {}
-  }, []);
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to delete visit.'), 'error');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
 
   const handleToggleHideTreatment = (checked: boolean) => {
     setHideTreatmentInRx(checked);
@@ -84,7 +96,7 @@ export default function NewVisitForm() {
   };
 
   const hasFormChanges = Boolean(
-    selectedPatient || form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0
+    form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0 || form.bp || form.pulse || form.temp || form.spo2 || form.weight || form.followUpDate
   );
 
   const handleSubmitRef = useRef<any>(null);
@@ -116,11 +128,51 @@ export default function NewVisitForm() {
     e.preventDefault();
     if (hasFormChanges) {
       setShowExitModal(true);
+    } else if (selectedPatient) {
+      router.push(`/patients/${selectedPatient.patientId}`);
     } else {
       router.push('/patients');
     }
   };
 
+  // Load visit data
+  useEffect(() => {
+    if (visitData) {
+      if (visitData.patientId && !selectedPatient) {
+        provider.getPatient(visitData.patientId.toString()).then(p => {
+          if (p) setSelectedPatient(p);
+        });
+      }
+      setForm(prev => ({
+        ...prev,
+        category: visitData.category || '',
+        chiefComplaints: visitData.chiefComplaints || '',
+        diagnosis: visitData.diagnosis || '',
+        bp: visitData.bp || '',
+        pulse: visitData.pulse || '',
+        temp: visitData.temp || '',
+        spo2: visitData.spo2 || '',
+        weight: visitData.weight || '',
+        treatment: visitData.treatment || '',
+        prescriptionNotes: visitData.prescriptionNotes || '',
+        followUpDate: visitData.followUpDate ? new Date(visitData.followUpDate).toISOString().split('T')[0] : '',
+      }));
+      if (typeof visitData.hideTreatmentInRx === 'boolean') {
+        setHideTreatmentInRx(visitData.hideTreatmentInRx);
+      } else {
+        try {
+          const pref = localStorage.getItem('hcms_pref_hide_treatment_in_rx');
+          if (pref !== null) setHideTreatmentInRx(JSON.parse(pref));
+        } catch (e) {}
+      }
+      if (visitData.medicines) setRxMeds(visitData.medicines as PrescribedMedicine[]);
+      if (visitData.chiefComplaints) {
+         const arr = visitData.chiefComplaints.split(',').map((s) => s.trim());
+         setSelectedComplaints(arr);
+      }
+    }
+  }, [visitData, provider, selectedPatient]);
+  
   // Load pre-selected patient if URL param exists
   useEffect(() => {
     if (!prePatientId) return;
@@ -273,37 +325,30 @@ export default function NewVisitForm() {
     setSaving(true);
     try {
       const now = new Date();
-      let visitDateTime = now.toISOString();
-      if (visitDate && visitDate !== todayISO) {
-        const [y, m, d] = visitDate.split('-').map(Number);
-        const customDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
-        visitDateTime = customDate.toISOString();
-      }
-
-      const savedVisit = await createVisit.mutateAsync({
-        patientId: selectedPatient!.patientId,
-        category: form.category,
-        date: visitDateTime,
-        chiefComplaints: form.chiefComplaints.trim(),
-        diagnosis: form.diagnosis.trim(),
-        bp: form.bp.trim() || undefined,
-        pulse: form.pulse.trim() || undefined,
-        temp: form.temp.trim() || undefined,
-        spo2: form.spo2.trim() || undefined,
-        weight: form.weight.trim() || undefined,
-        treatment: form.treatment.trim() || undefined,
-        hideTreatmentInRx,
-        prescriptionNotes: form.prescriptionNotes.trim() || undefined,
-        medicines: rxMeds,
-        followUpDate: form.followUpDate || undefined,
-        followUpAttended: false,
+      const updatedVisit = await updateVisit.mutateAsync({
+        id: visitId,
+        input: {
+          category: form.category,
+          chiefComplaints: form.chiefComplaints.trim(),
+          diagnosis: form.diagnosis.trim(),
+          bp: form.bp.trim() || undefined,
+          pulse: form.pulse.trim() || undefined,
+          temp: form.temp.trim() || undefined,
+          spo2: form.spo2.trim() || undefined,
+          weight: form.weight.trim() || undefined,
+          treatment: form.treatment.trim() || undefined,
+          hideTreatmentInRx,
+          prescriptionNotes: form.prescriptionNotes.trim() || undefined,
+          medicines: rxMeds,
+          followUpDate: form.followUpDate || undefined,
+        }
       });
 
-      if (savedVisit?.id) {
+      if (visitId) {
         if (hideTreatmentInRx) {
-          localStorage.setItem(`hcms_hide_tx_${savedVisit.id}`, 'true');
+          localStorage.setItem(`hcms_hide_tx_${visitId}`, 'true');
         } else {
-          localStorage.removeItem(`hcms_hide_tx_${savedVisit.id}`);
+          localStorage.removeItem(`hcms_hide_tx_${visitId}`);
         }
       }
 
@@ -322,7 +367,7 @@ export default function NewVisitForm() {
       }
 
       (window as any).__hcms_has_unsaved_visit = false;
-      toast('OPD Visit saved successfully!', 'success');
+      toast('OPD Visit updated successfully!', 'success');
       router.push(`/patients/${selectedPatient!.patientId}`);
       return true;
     } catch (err: any) {
@@ -335,14 +380,22 @@ export default function NewVisitForm() {
 
   return (
     <PageTransition className="page-transition" style={{ maxWidth: 900, margin: '0 auto' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <button type="button" onClick={handleCancelClick} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
             <ChevronLeft size={15} /> Back
           </button>
-          <div className="page-title">New OPD Visit</div>
+          <div className="page-title">Edit OPD Visit</div>
           <div className="page-subtitle">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
         </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowDeleteModal(true)}
+          style={{ color: 'var(--red, #ef4444)', borderColor: 'rgba(239, 68, 68, 0.25)', gap: 6 }}
+        >
+          <Trash2 size={15} /> Delete Visit
+        </button>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -356,7 +409,7 @@ export default function NewVisitForm() {
                 <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
               </div>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
+              
             </div>
           ) : (
             <div style={{ position: 'relative', zIndex: 100 }}>
@@ -386,77 +439,32 @@ export default function NewVisitForm() {
         {/* Visit Details */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Visit Details</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, alignItems: 'flex-start' }}>
-            <div className="form-group">
-              <label className="form-label">Visit Date <span className="required">*</span></label>
-              <input
-                type="date"
-                className="form-input"
-                max={todayISO}
-                value={visitDate}
-                onChange={e => setVisitDate(e.target.value)}
-              />
-              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className={`btn btn-xs ${visitDate === todayISO ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setVisitDate(todayISO)}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-xs ${
-                    visitDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10) ? 'btn-primary' : 'btn-ghost'
-                  }`}
-                  onClick={() => setVisitDate(new Date(Date.now() - 86400000).toISOString().slice(0, 10))}
-                >
-                  Yesterday
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-xs ${
-                    visitDate === new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10) ? 'btn-primary' : 'btn-ghost'
-                  }`}
-                  onClick={() => setVisitDate(new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10))}
-                >
-                  2 Days Ago
-                </button>
-              </div>
-              {visitDate !== todayISO && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--amber)', marginTop: 4, display: 'block', fontWeight: 500 }}>
-                  ⚠️ Backfilling visit for {new Date(visitDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Visit Category <span className="required">*</span></label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
-                  <option value="" disabled>Select category...</option>
-                  <option value="OPD">OPD</option>
-                  <option value="IPD">IPD</option>
-                  <option value="Emergency">Emergency</option>
-                  {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value)).map(c => (
-                    <option key={c.id} value={c.value}>{c.value}</option>
-                  ))}
-                </select>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={async () => {
-                    const val = prompt('Enter new category name:');
-                    if (val?.trim()) {
-                      await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
-                      set('category', val.trim());
-                      toast('Category added', 'success');
-                    }
-                  }}
-                >
-                  <Plus size={16} /> New
-                </button>
-              </div>
+          <div className="form-group" style={{ maxWidth: 300 }}>
+            <label className="form-label">Visit Category <span className="required">*</span></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
+                <option value="" disabled>Select category...</option>
+                <option value="OPD">OPD</option>
+                <option value="IPD">IPD</option>
+                <option value="Emergency">Emergency</option>
+                {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value)).map(c => (
+                  <option key={c.id} value={c.value}>{c.value}</option>
+                ))}
+              </select>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={async () => {
+                  const val = prompt('Enter new category name:');
+                  if (val?.trim()) {
+                    await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
+                    set('category', val.trim());
+                    toast('Category added', 'success');
+                  }
+                }}
+              >
+                <Plus size={16} /> New
+              </button>
             </div>
           </div>
         </div>
@@ -752,11 +760,21 @@ export default function NewVisitForm() {
           </div>
         </div>
 
-        <div className="form-actions">
-          <button type="button" onClick={handleCancelClick} className="btn btn-ghost">Cancel</button>
-          <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
-            <Stethoscope size={18} /> {saving ? 'Saving…' : 'Save OPD Visit'}
+        <div className="form-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setShowDeleteModal(true)}
+            style={{ color: 'var(--red, #ef4444)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Trash2 size={16} /> Delete Visit
           </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" onClick={handleCancelClick} className="btn btn-ghost">Cancel</button>
+            <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
+              <Stethoscope size={18} /> {saving ? 'Saving…' : 'Update OPD Visit'}
+            </button>
+          </div>
         </div>
       </form>
 
@@ -818,15 +836,15 @@ export default function NewVisitForm() {
                   <Stethoscope size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Save or Discard Visit?</h3>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Save or Discard Changes?</h3>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    You have entered visit information.
+                    You have unsaved changes in this visit.
                   </span>
                 </div>
               </div>
 
               <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px', background: 'var(--surface-1)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                Would you like to save this visit to the database directly or discard the entered information?
+                Would you like to save your updates directly to the database or discard the changes?
               </p>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -838,10 +856,14 @@ export default function NewVisitForm() {
                   className="btn btn-danger" 
                   onClick={() => {
                     setShowExitModal(false);
-                    router.push('/patients');
+                    if (selectedPatient) {
+                      router.push(`/patients/${selectedPatient.patientId}`);
+                    } else {
+                      router.push('/patients');
+                    }
                   }}
                 >
-                  Discard Visit
+                  Discard Changes
                 </button>
                 <button 
                   type="button" 
@@ -858,6 +880,19 @@ export default function NewVisitForm() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteVisit}
+        title="Delete OPD Visit"
+        description="Are you sure you want to delete this OPD visit? This action will permanently remove the visit record and prescription details."
+        confirmText="Delete Visit"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={deleting}
+      />
     </PageTransition>
   );
 }
