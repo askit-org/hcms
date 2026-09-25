@@ -42,6 +42,9 @@ export default function NewVisitForm() {
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [visitDate, setVisitDate] = useState<string>(todayISO);
+
   const [form, setForm] = useState({
     category: '', chiefComplaints: '', diagnosis: '', bp: '', pulse: '', temp: '', spo2: '',
     weight: '', treatment: '', prescriptionNotes: '', followUpDate: '',
@@ -270,10 +273,17 @@ export default function NewVisitForm() {
     setSaving(true);
     try {
       const now = new Date();
+      let visitDateTime = now.toISOString();
+      if (visitDate && visitDate !== todayISO) {
+        const [y, m, d] = visitDate.split('-').map(Number);
+        const customDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+        visitDateTime = customDate.toISOString();
+      }
+
       const savedVisit = await createVisit.mutateAsync({
         patientId: selectedPatient!.patientId,
         category: form.category,
-        date: now.toISOString(),
+        date: visitDateTime,
         chiefComplaints: form.chiefComplaints.trim(),
         diagnosis: form.diagnosis.trim(),
         bp: form.bp.trim() || undefined,
@@ -376,32 +386,77 @@ export default function NewVisitForm() {
         {/* Visit Details */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Visit Details</div>
-          <div className="form-group" style={{ maxWidth: 300 }}>
-            <label className="form-label">Visit Category <span className="required">*</span></label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
-                <option value="" disabled>Select category...</option>
-                <option value="OPD">OPD</option>
-                <option value="IPD">IPD</option>
-                <option value="Emergency">Emergency</option>
-                {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value)).map(c => (
-                  <option key={c.id} value={c.value}>{c.value}</option>
-                ))}
-              </select>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                onClick={async () => {
-                  const val = prompt('Enter new category name:');
-                  if (val?.trim()) {
-                    await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
-                    set('category', val.trim());
-                    toast('Category added', 'success');
-                  }
-                }}
-              >
-                <Plus size={16} /> New
-              </button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, alignItems: 'flex-start' }}>
+            <div className="form-group">
+              <label className="form-label">Visit Date <span className="required">*</span></label>
+              <input
+                type="date"
+                className="form-input"
+                max={todayISO}
+                value={visitDate}
+                onChange={e => setVisitDate(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`btn btn-xs ${visitDate === todayISO ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setVisitDate(todayISO)}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-xs ${
+                    visitDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10) ? 'btn-primary' : 'btn-ghost'
+                  }`}
+                  onClick={() => setVisitDate(new Date(Date.now() - 86400000).toISOString().slice(0, 10))}
+                >
+                  Yesterday
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-xs ${
+                    visitDate === new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10) ? 'btn-primary' : 'btn-ghost'
+                  }`}
+                  onClick={() => setVisitDate(new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10))}
+                >
+                  2 Days Ago
+                </button>
+              </div>
+              {visitDate !== todayISO && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--amber)', marginTop: 4, display: 'block', fontWeight: 500 }}>
+                  ⚠️ Backfilling visit for {new Date(visitDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Visit Category <span className="required">*</span></label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
+                  <option value="" disabled>Select category...</option>
+                  <option value="OPD">OPD</option>
+                  <option value="IPD">IPD</option>
+                  <option value="Emergency">Emergency</option>
+                  {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value)).map(c => (
+                    <option key={c.id} value={c.value}>{c.value}</option>
+                  ))}
+                </select>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={async () => {
+                    const val = prompt('Enter new category name:');
+                    if (val?.trim()) {
+                      await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
+                      set('category', val.trim());
+                      toast('Category added', 'success');
+                    }
+                  }}
+                >
+                  <Plus size={16} /> New
+                </button>
+              </div>
             </div>
           </div>
         </div>
