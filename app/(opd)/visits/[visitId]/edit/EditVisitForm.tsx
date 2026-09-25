@@ -16,6 +16,7 @@ import InstructionPicker from '@/components/InstructionPicker';
 import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
+import ConfirmModal from '@/components/ConfirmModal';
 
 
 const QUICK_COMPLAINTS = [
@@ -50,7 +51,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
 
   const provider = useProviderStore((s) => s.provider);
   const { data: visitData, isLoading: visitLoading } = useVisit(visitId);
-  const { update: updateVisit } = useVisitMutations();
+  const { update: updateVisit, remove: removeVisit } = useVisitMutations();
   const { create: createOption } = useAppOptionMutations();
   const { data: medicinesData = [] } = useMedicines();
   const { data: complaintOptions = [] } = useAppOptions('CHIEF_COMPLAINT');
@@ -64,7 +65,28 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
   const activeDiseases = diseaseOptions.map(o => o.value);
 
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [hideTreatmentInRx, setHideTreatmentInRx] = useState(false);
+
+  const handleDeleteVisit = async () => {
+    if (!visitId) return;
+    setDeleting(true);
+    try {
+      await removeVisit.mutateAsync(visitId.toString());
+      toast('Visit deleted successfully', 'success');
+      if (selectedPatient) {
+        router.push(`/patients/${selectedPatient.patientId}`);
+      } else {
+        router.push('/patients');
+      }
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to delete visit.'), 'error');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
 
   const handleToggleHideTreatment = (checked: boolean) => {
     setHideTreatmentInRx(checked);
@@ -358,7 +380,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
 
   return (
     <PageTransition className="page-transition" style={{ maxWidth: 900, margin: '0 auto' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <button type="button" onClick={handleCancelClick} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
             <ChevronLeft size={15} /> Back
@@ -366,6 +388,14 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           <div className="page-title">Edit OPD Visit</div>
           <div className="page-subtitle">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
         </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowDeleteModal(true)}
+          style={{ color: 'var(--red, #ef4444)', borderColor: 'rgba(239, 68, 68, 0.25)', gap: 6 }}
+        >
+          <Trash2 size={15} /> Delete Visit
+        </button>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -730,11 +760,21 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           </div>
         </div>
 
-        <div className="form-actions">
-          <button type="button" onClick={handleCancelClick} className="btn btn-ghost">Cancel</button>
-          <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
-            <Stethoscope size={18} /> {saving ? 'Saving…' : 'Update OPD Visit'}
+        <div className="form-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setShowDeleteModal(true)}
+            style={{ color: 'var(--red, #ef4444)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Trash2 size={16} /> Delete Visit
           </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" onClick={handleCancelClick} className="btn btn-ghost">Cancel</button>
+            <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
+              <Stethoscope size={18} /> {saving ? 'Saving…' : 'Update OPD Visit'}
+            </button>
+          </div>
         </div>
       </form>
 
@@ -840,6 +880,19 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteVisit}
+        title="Delete OPD Visit"
+        description="Are you sure you want to delete this OPD visit? This action will permanently remove the visit record and prescription details."
+        confirmText="Delete Visit"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={deleting}
+      />
     </PageTransition>
   );
 }
