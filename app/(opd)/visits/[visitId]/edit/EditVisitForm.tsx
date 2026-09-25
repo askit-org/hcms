@@ -64,6 +64,14 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
   const activeDiseases = diseaseOptions.map(o => o.value);
 
   const [showExitModal, setShowExitModal] = useState(false);
+  const [hideTreatmentInRx, setHideTreatmentInRx] = useState(false);
+
+  const handleToggleHideTreatment = (checked: boolean) => {
+    setHideTreatmentInRx(checked);
+    try {
+      localStorage.setItem('hcms_pref_hide_treatment_in_rx', JSON.stringify(checked));
+    } catch (e) {}
+  };
 
   const hasFormChanges = Boolean(
     form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0 || form.bp || form.pulse || form.temp || form.spo2 || form.weight || form.followUpDate
@@ -127,6 +135,14 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
         prescriptionNotes: visitData.prescriptionNotes || '',
         followUpDate: visitData.followUpDate ? new Date(visitData.followUpDate).toISOString().split('T')[0] : '',
       }));
+      if (typeof visitData.hideTreatmentInRx === 'boolean') {
+        setHideTreatmentInRx(visitData.hideTreatmentInRx);
+      } else {
+        try {
+          const pref = localStorage.getItem('hcms_pref_hide_treatment_in_rx');
+          if (pref !== null) setHideTreatmentInRx(JSON.parse(pref));
+        } catch (e) {}
+      }
       if (visitData.medicines) setRxMeds(visitData.medicines as PrescribedMedicine[]);
       if (visitData.chiefComplaints) {
          const arr = visitData.chiefComplaints.split(',').map((s) => s.trim());
@@ -287,7 +303,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
     setSaving(true);
     try {
       const now = new Date();
-      await updateVisit.mutateAsync({
+      const updatedVisit = await updateVisit.mutateAsync({
         id: visitId,
         input: {
           category: form.category,
@@ -299,11 +315,20 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           spo2: form.spo2.trim() || undefined,
           weight: form.weight.trim() || undefined,
           treatment: form.treatment.trim() || undefined,
+          hideTreatmentInRx,
           prescriptionNotes: form.prescriptionNotes.trim() || undefined,
           medicines: rxMeds,
           followUpDate: form.followUpDate || undefined,
         }
       });
+
+      if (visitId) {
+        if (hideTreatmentInRx) {
+          localStorage.setItem(`hcms_hide_tx_${visitId}`, 'true');
+        } else {
+          localStorage.removeItem(`hcms_hide_tx_${visitId}`);
+        }
+      }
 
       // Check if patient is in queue and dequeue
       if (Array.isArray(dbQueue)) {
@@ -531,8 +556,35 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
               <textarea className="form-textarea" placeholder="Clinical diagnosis…" value={form.diagnosis} onChange={e => set('diagnosis', e.target.value)} style={{ minHeight: 100 }} />
             </div>
             <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <label className="form-label" style={{ marginBottom: 0 }}>Treatment Given</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Treatment Given</label>
+                  <label 
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: 6, 
+                      fontSize: '0.76rem', 
+                      color: hideTreatmentInRx ? 'var(--amber)' : 'var(--text-secondary)', 
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      background: hideTreatmentInRx ? 'rgba(245, 158, 11, 0.12)' : 'var(--surface-1)', 
+                      padding: '3px 8px', 
+                      borderRadius: 6, 
+                      border: `1px solid ${hideTreatmentInRx ? 'var(--amber)' : 'var(--border)'}`,
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="If checked, Treatment Given notes will be hidden from printed PDF and WhatsApp share"
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={hideTreatmentInRx} 
+                      onChange={e => handleToggleHideTreatment(e.target.checked)} 
+                      style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
+                    />
+                    <span>Hide on PDF & WhatsApp</span>
+                  </label>
+                </div>
                 <VoiceInputButton
                   title="Dictate Treatment Given"
                   onTranscript={(text) => {

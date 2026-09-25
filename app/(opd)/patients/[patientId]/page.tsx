@@ -336,7 +336,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                     {[
                       { l: 'Chief Complaints', v: v.chiefComplaints },
                       { l: 'Diagnosis', v: v.diagnosis },
-                      { l: 'Treatment', v: v.treatment },
+                      { l: 'Treatment', v: v.treatment ? `${v.treatment}${v.hideTreatmentInRx ? ' (Hidden on Rx)' : ''}` : '' },
                       { l: 'BP', v: v.bp }, { l: 'Pulse', v: v.pulse },
                       { l: 'Temp', v: v.temp }, { l: 'SpO₂', v: v.spo2 },
                     ].filter(i => i.v).map(item => (

@@ -26,6 +26,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
   if (!visit || !patient) return <div style={{ padding: 40, color: '#888', textAlign: 'center' }}>Loading prescription…</div>;
 
   const age = patient.age || (patient.dob ? new Date().getFullYear() - new Date(patient.dob).getFullYear() : '');
+  const shouldHideTreatment = visit.hideTreatmentInRx === true || (typeof window !== 'undefined' && localStorage.getItem(`hcms_hide_tx_${visit.id}`) === 'true');
 
   return (
     <div>
@@ -39,7 +40,9 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
               return `${i + 1}. *${m.name}*\n   - ${m.dose} for ${m.duration}${m.instructions ? `\n   - ${m.instructions}` : ''}`;
             }).join('\n\n') || 'No medicines prescribed.';
 
-            const text = `*${clinic.clinicName}*\nDr. *${clinic.doctorName}*\n\nHello *${patient.name}*,\nHere is the summary of your prescription visit on *${new Date(visit.date).toLocaleDateString('en-IN')}*.\n\n*Diagnosis:* \n${visit.diagnosis || 'N/A'}\n\n*Prescribed Medicines:*\n${medsText}\n\n${visit.prescriptionNotes ? `*Doctor's Advice:* \n${visit.prescriptionNotes}\n\n` : ''}${visit.followUpDate ? `*Next Follow-up:* \n${new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` : ''}_Get well soon!_`;
+            const treatmentText = (visit.treatment && !shouldHideTreatment) ? `*Treatment Given:* \n${visit.treatment}\n\n` : '';
+
+            const text = `*${clinic.clinicName}*\nDr. *${clinic.doctorName}*\n\nHello *${patient.name}*,\nHere is the summary of your prescription visit on *${new Date(visit.date).toLocaleDateString('en-IN')}*.\n\n*Diagnosis:* \n${visit.diagnosis || 'N/A'}\n\n${treatmentText}*Prescribed Medicines:*\n${medsText}\n\n${visit.prescriptionNotes ? `*Doctor's Advice:* \n${visit.prescriptionNotes}\n\n` : ''}${visit.followUpDate ? `*Next Follow-up:* \n${new Date(visit.followUpDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` : ''}_Get well soon!_`;
 
             const phone = patient.mobile.replace(/\D/g, '');
             const targetPhone = phone.length === 10 ? `91${phone}` : phone;
@@ -158,8 +161,8 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
               </div>}
             </div>
 
-            {/* Diagnosis */}
-            {(visit.chiefComplaints || visit.diagnosis) && (
+            {/* Diagnosis & Treatment */}
+            {(visit.chiefComplaints || visit.diagnosis || (visit.treatment && !shouldHideTreatment)) && (
               <div style={{ marginBottom: 16 }}>
                 {visit.chiefComplaints && (
                   <div style={{ marginBottom: 6 }}>
@@ -168,9 +171,15 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                   </div>
                 )}
                 {visit.diagnosis && (
-                  <div>
+                  <div style={{ marginBottom: (visit.treatment && !shouldHideTreatment) ? 6 : 0 }}>
                     <span style={{ fontWeight: 600, color: '#475569' }}>Dx: </span>
                     <span style={{ fontWeight: 600 }}>{visit.diagnosis}</span>
+                  </div>
+                )}
+                {visit.treatment && !shouldHideTreatment && (
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#475569' }}>Treatment: </span>
+                    <span>{visit.treatment}</span>
                   </div>
                 )}
               </div>
