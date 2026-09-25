@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
+import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations, useVisit } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
@@ -27,7 +27,7 @@ const QUICK_COMPLAINTS = [
 const DOSE_OPTIONS = ['1-0-1', '1-1-1', '0-0-1', '1-0-0', '0-1-0', '1/2-0-1/2', 'SOS', 'As needed', 'Stat'];
 const DURATION_OPTIONS = ['1 day', '3 days', '5 days', '7 days', '10 days', '14 days', '30 days', '90 days'];
 
-export default function NewVisitForm() {
+export default function EditVisitForm({ visitId }: { visitId: string }) {
   const router = useRouter();
   const sp = useSearchParams();
   const prePatientId = sp.get('patientId') || '';
@@ -49,7 +49,8 @@ export default function NewVisitForm() {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const provider = useProviderStore((s) => s.provider);
-  const { create: createVisit } = useVisitMutations();
+  const { data: visitData, isLoading: visitLoading } = useVisit(visitId);
+  const { update: updateVisit } = useVisitMutations();
   const { create: createOption } = useAppOptionMutations();
   const { data: medicinesData = [] } = useMedicines();
   const { data: complaintOptions = [] } = useAppOptions('CHIEF_COMPLAINT');
@@ -61,10 +62,11 @@ export default function NewVisitForm() {
 
   const activeComplaints = [...new Set([...QUICK_COMPLAINTS, ...complaintOptions.map(o => o.value)])];
   const activeDiseases = diseaseOptions.map(o => o.value);
+
   const [showExitModal, setShowExitModal] = useState(false);
 
   const hasFormChanges = Boolean(
-    selectedPatient || form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0
+    form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0 || form.bp || form.pulse || form.temp || form.spo2 || form.weight || form.followUpDate
   );
 
   const handleSubmitRef = useRef<any>(null);
@@ -96,11 +98,43 @@ export default function NewVisitForm() {
     e.preventDefault();
     if (hasFormChanges) {
       setShowExitModal(true);
+    } else if (selectedPatient) {
+      router.push(`/patients/${selectedPatient.patientId}`);
     } else {
       router.push('/patients');
     }
   };
 
+  // Load visit data
+  useEffect(() => {
+    if (visitData) {
+      if (visitData.patientId && !selectedPatient) {
+        provider.getPatient(visitData.patientId.toString()).then(p => {
+          if (p) setSelectedPatient(p);
+        });
+      }
+      setForm(prev => ({
+        ...prev,
+        category: visitData.category || '',
+        chiefComplaints: visitData.chiefComplaints || '',
+        diagnosis: visitData.diagnosis || '',
+        bp: visitData.bp || '',
+        pulse: visitData.pulse || '',
+        temp: visitData.temp || '',
+        spo2: visitData.spo2 || '',
+        weight: visitData.weight || '',
+        treatment: visitData.treatment || '',
+        prescriptionNotes: visitData.prescriptionNotes || '',
+        followUpDate: visitData.followUpDate ? new Date(visitData.followUpDate).toISOString().split('T')[0] : '',
+      }));
+      if (visitData.medicines) setRxMeds(visitData.medicines as PrescribedMedicine[]);
+      if (visitData.chiefComplaints) {
+         const arr = visitData.chiefComplaints.split(',').map((s) => s.trim());
+         setSelectedComplaints(arr);
+      }
+    }
+  }, [visitData, provider, selectedPatient]);
+  
   // Load pre-selected patient if URL param exists
   useEffect(() => {
     if (!prePatientId) return;
@@ -253,22 +287,22 @@ export default function NewVisitForm() {
     setSaving(true);
     try {
       const now = new Date();
-      await createVisit.mutateAsync({
-        patientId: selectedPatient!.patientId,
-        category: form.category,
-        date: now.toISOString(),
-        chiefComplaints: form.chiefComplaints.trim(),
-        diagnosis: form.diagnosis.trim(),
-        bp: form.bp.trim() || undefined,
-        pulse: form.pulse.trim() || undefined,
-        temp: form.temp.trim() || undefined,
-        spo2: form.spo2.trim() || undefined,
-        weight: form.weight.trim() || undefined,
-        treatment: form.treatment.trim() || undefined,
-        prescriptionNotes: form.prescriptionNotes.trim() || undefined,
-        medicines: rxMeds,
-        followUpDate: form.followUpDate || undefined,
-        followUpAttended: false,
+      await updateVisit.mutateAsync({
+        id: visitId,
+        input: {
+          category: form.category,
+          chiefComplaints: form.chiefComplaints.trim(),
+          diagnosis: form.diagnosis.trim(),
+          bp: form.bp.trim() || undefined,
+          pulse: form.pulse.trim() || undefined,
+          temp: form.temp.trim() || undefined,
+          spo2: form.spo2.trim() || undefined,
+          weight: form.weight.trim() || undefined,
+          treatment: form.treatment.trim() || undefined,
+          prescriptionNotes: form.prescriptionNotes.trim() || undefined,
+          medicines: rxMeds,
+          followUpDate: form.followUpDate || undefined,
+        }
       });
 
       // Check if patient is in queue and dequeue
@@ -286,7 +320,7 @@ export default function NewVisitForm() {
       }
 
       (window as any).__hcms_has_unsaved_visit = false;
-      toast('OPD Visit saved successfully!', 'success');
+      toast('OPD Visit updated successfully!', 'success');
       router.push(`/patients/${selectedPatient!.patientId}`);
       return true;
     } catch (err: any) {
@@ -304,7 +338,7 @@ export default function NewVisitForm() {
           <button type="button" onClick={handleCancelClick} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
             <ChevronLeft size={15} /> Back
           </button>
-          <div className="page-title">New OPD Visit</div>
+          <div className="page-title">Edit OPD Visit</div>
           <div className="page-subtitle">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
         </div>
       </div>
@@ -320,7 +354,7 @@ export default function NewVisitForm() {
                 <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
               </div>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
+              
             </div>
           ) : (
             <div style={{ position: 'relative', zIndex: 100 }}>
@@ -647,7 +681,7 @@ export default function NewVisitForm() {
         <div className="form-actions">
           <button type="button" onClick={handleCancelClick} className="btn btn-ghost">Cancel</button>
           <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
-            <Stethoscope size={18} /> {saving ? 'Saving…' : 'Save OPD Visit'}
+            <Stethoscope size={18} /> {saving ? 'Saving…' : 'Update OPD Visit'}
           </button>
         </div>
       </form>
@@ -710,15 +744,15 @@ export default function NewVisitForm() {
                   <Stethoscope size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Save or Discard Visit?</h3>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Save or Discard Changes?</h3>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    You have entered visit information.
+                    You have unsaved changes in this visit.
                   </span>
                 </div>
               </div>
 
               <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px', background: 'var(--surface-1)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                Would you like to save this visit to the database directly or discard the entered information?
+                Would you like to save your updates directly to the database or discard the changes?
               </p>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -730,10 +764,14 @@ export default function NewVisitForm() {
                   className="btn btn-danger" 
                   onClick={() => {
                     setShowExitModal(false);
-                    router.push('/patients');
+                    if (selectedPatient) {
+                      router.push(`/patients/${selectedPatient.patientId}`);
+                    } else {
+                      router.push('/patients');
+                    }
                   }}
                 >
-                  Discard Visit
+                  Discard Changes
                 </button>
                 <button 
                   type="button" 

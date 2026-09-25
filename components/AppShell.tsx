@@ -17,7 +17,6 @@ import type { Patient, AppModel } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
 import SubscriptionBanner from '@/components/SubscriptionBanner';
 import OnboardingPlansModal from '@/components/OnboardingPlansModal';
-import { getVisitDraft, clearVisitDraft } from '@/lib/visitDraft';
 
 interface NavItem {
   href: string;
@@ -226,12 +225,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     onClick={(e) => {
                       e.preventDefault();
                       setMobileMenuOpen(false);
-                      if (pathname.startsWith('/visits/new') && item.href !== '/visits/new') {
-                        const draft = getVisitDraft();
-                        if (draft && (draft.patient || draft.form.chiefComplaints || draft.form.diagnosis || draft.rxMeds.length > 0)) {
-                          setNavConfirmTarget(item.href);
-                          return;
-                        }
+                      if ((window as any).__hcms_has_unsaved_visit) {
+                        setNavConfirmTarget(item.href);
+                        return;
                       }
                       router.push(item.href);
                     }}
@@ -294,7 +290,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      {/* Navigation Guard Modal */}
+      {/* Exit / Unsaved Visit Confirmation Modal */}
       <AnimatePresence>
         {navConfirmTarget && (
           <div className="modal-overlay" style={{ zIndex: 99999 }}>
@@ -303,54 +299,66 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              style={{ padding: '24px' }}
+              style={{ padding: '24px', textAlign: 'left' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--accent-glow)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Stethoscope size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Leave OPD Visit Page?</h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>You have unsaved changes in your current visit.</span>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Save or Discard Visit?</h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>You have unsaved changes on the visit screen.</span>
                 </div>
               </div>
 
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px', background: 'var(--surface-1)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                Your visit progress (patient info, complaints, diagnosis, and prescription) is auto-saved as a draft. When you return to <strong>New OPD Visit</strong>, you can continue right where you left off.
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px', background: 'var(--surface-1)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                Would you like to save this visit directly to the database or discard the entered information?
               </p>
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setNavConfirmTarget(null)}>
-                  Stay on Visit
+                  Continue Editing
                 </button>
                 <button 
                   type="button" 
                   className="btn btn-danger" 
                   onClick={() => {
                     const target = navConfirmTarget;
-                    clearVisitDraft();
+                    (window as any).__hcms_has_unsaved_visit = false;
                     setNavConfirmTarget(null);
                     router.push(target);
                   }}
                 >
-                  Discard & Leave
+                  Discard Visit
                 </button>
                 <button 
                   type="button" 
                   className="btn btn-primary" 
-                  onClick={() => {
+                  onClick={async () => {
                     const target = navConfirmTarget;
-                    setNavConfirmTarget(null);
-                    router.push(target);
+                    const saveFn = (window as any).__hcms_save_visit_handler;
+                    if (saveFn) {
+                      const success = await saveFn();
+                      if (success) {
+                        (window as any).__hcms_has_unsaved_visit = false;
+                        setNavConfirmTarget(null);
+                        router.push(target);
+                      }
+                    } else {
+                      (window as any).__hcms_has_unsaved_visit = false;
+                      setNavConfirmTarget(null);
+                      router.push(target);
+                    }
                   }}
                 >
-                  Save Draft & Leave
+                  Save Visit
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
       {/* Onboarding Welcome & Plan Selection Modal */}
       <OnboardingPlansModal 
         isOpen={showOnboardingPlans || subLock.isLocked} 

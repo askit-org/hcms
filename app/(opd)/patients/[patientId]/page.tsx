@@ -374,6 +374,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print / Share Rx</Link>
+                    <Link href={`/visits/${v.id}/edit`} className="btn btn-primary btn-sm"><Edit2 size={14} /> Edit Visit</Link>
                     {v.followUpDate && !v.followUpAttended && (
                       <button className="btn btn-success btn-sm" onClick={async (e) => {
                         e.stopPropagation();
