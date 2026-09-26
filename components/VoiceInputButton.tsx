@@ -19,6 +19,9 @@ declare global {
   }
 }
 
+// Browser speech recognition (e.g. Chrome) may stream audio to the browser vendor's servers.
+const SPEECH_PRIVACY_NOTE = 'Note: your browser may send audio to its vendor (e.g. Google) for speech processing.';
+
 export default function VoiceInputButton({
   onTranscript,
   title = 'Click to dictate voice text',
@@ -115,7 +118,8 @@ export default function VoiceInputButton({
       type="button"
       onClick={toggleListening}
       className={`btn-icon ${isListening ? 'listening-active' : ''} ${className}`}
-      title={isListening ? 'Click to stop listening' : title}
+      title={`${isListening ? 'Click to stop listening' : title}\n${SPEECH_PRIVACY_NOTE}`}
+      aria-label={isListening ? 'Stop voice input' : title}
       style={{
         position: 'relative',
         color: isListening ? 'var(--red, #ef4444)' : 'var(--text-muted, #64748b)',

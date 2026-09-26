@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { BarChart3, Download, FileText, Calendar, Users, Search } from 'lucide-react';
-import { useReports, usePatients } from '@/lib/hooks/useQueries';
+import { useReports } from '@/lib/hooks/useQueries';
 import PageTransition from '@/components/PageTransition';
+import type { Patient } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 
 export default function ReportsPage() {
@@ -22,10 +23,14 @@ export default function ReportsPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data: patients = [] } = usePatients();
-  const { data: visits = [], isLoading } = useReports(startDate, endDate);
+  const { data: visitPage, isLoading } = useReports(startDate, endDate);
+  const visits = visitPage?.data ?? [];
+  const totalInRange = visitPage?.meta.total ?? 0;
+  const isTruncated = totalInRange > visits.length;
 
-  const patMap = new Map(patients.map(p => [p.patientId, p]));
+  // Patient details come from the `patient` relation joined onto each visit by GET /visits
+  const patMap = new Map<string, Patient>();
+  visits.forEach(v => { if (v.patient) patMap.set(v.patientId, v.patient); });
 
   const filteredVisits = visits.filter(v => {
     const d = v.date.split('T')[0];
@@ -44,10 +49,11 @@ export default function ReportsPage() {
 
   // Stats for the period
   const periodPatientIds = new Set(filteredVisits.map(v => v.patientId));
-  const allPatientIds = new Set(patients.map(p => p.patientId));
+  // "New patient" = a patient seen in this period whose record was created (registered) within the
+  // selected date range. Based on patient.createdAt, so it no longer needs every patient/visit loaded.
   const newInPeriod = [...periodPatientIds].filter(id => {
-    const firstVisit = visits.filter(v => v.patientId === id).sort((a, b) => a.date.localeCompare(b.date))[0];
-    return firstVisit && firstVisit.date.split('T')[0] >= startDate && firstVisit.date.split('T')[0] <= endDate;
+    const created = patMap.get(id)?.createdAt?.split('T')[0];
+    return !!created && created >= startDate && created <= endDate;
   }).length;
 
   // Export CSV
@@ -168,6 +174,12 @@ export default function ReportsPage() {
           </div>
         ))}
       </div>
+
+      {isTruncated && (
+        <div style={{ marginBottom: 12, fontSize: '0.8rem', color: 'var(--amber)', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 10, padding: '8px 12px' }}>
+          Only the first {visits.length.toLocaleString('en-IN')} of {totalInRange.toLocaleString('en-IN')} visits in this range are included. Narrow the date range for complete figures.
+        </div>
+      )}
 
       {/* Visits Table */}
       {isLoading ? (
