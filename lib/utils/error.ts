@@ -27,10 +27,9 @@ export function getErrorMessage(err: any, fallbackMessage: string = 'An unexpect
       if (typeof responseData.error === 'string' && responseData.error.trim()) {
         return responseData.error.trim();
       }
-      if (typeof responseData.error === 'object') {
-        try {
-          return JSON.stringify(responseData.error);
-        } catch (_) {}
+      // Never serialize raw error objects into user-facing text (may leak internals); fall through
+      if (typeof responseData.error === 'object' && typeof responseData.error?.message === 'string' && responseData.error.message.trim()) {
+        return responseData.error.message.trim();
       }
     }
   }

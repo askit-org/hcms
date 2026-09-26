@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Users, UserPlus, Search, Eye, Stethoscope, Phone,
-  Calendar, X, Edit2, Save, AlertTriangle, ArrowLeftRight
+  Calendar, X, Edit2, Save, AlertTriangle, ArrowLeftRight, ArchiveRestore, RotateCcw
 } from 'lucide-react';
-import { usePatients, useAppOptions, usePatientMutations } from '@/lib/hooks/useQueries';
+import { usePatients, useAppOptions, usePatientMutations, useDeletedPatients } from '@/lib/hooks/useQueries';
+import { usePermissions } from '@/lib/hooks/usePermissions';
+import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import type { Patient } from '@/lib/providers/types';
@@ -15,6 +17,10 @@ import { motion } from 'framer-motion';
 import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
+import Pagination from '@/components/Pagination';
+
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function PatientsPage() {
   const [query, setQuery] = useState('');
@@ -22,8 +28,11 @@ export default function PatientsPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [showDateFilter, setShowDateFilter] = useState(false);
-  const [displayedLimit, setDisplayedLimit] = useState(25);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(1);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { isSuperAdmin, hasPermission } = usePermissions();
+  const canManageDeleted = isSuperAdmin || hasPermission('PATIENTS', 'canDelete');
   const router = useRouter();
 
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -33,19 +42,33 @@ export default function PatientsPage() {
 
   const { update: updatePatientMut } = usePatientMutations();
   const { data: categoryOptions = [] } = useAppOptions('CATEGORY');
-  const { data: allPatients = [], isLoading: loading, error } = usePatients({
-    category: category !== 'All' ? category : undefined
-  });
-
   // Date range validation check
   const isInvalidDateRange = useMemo(() => {
     return !!(fromDate && toDate && fromDate > toDate);
   }, [fromDate, toDate]);
 
+  // Search is sent to the server (name / patient ID / mobile), debounced
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Server-side paging & filtering
+  const { data: patientPage, isLoading: loading, isFetching, error } = usePatients({
+    search: debouncedQuery || undefined,
+    category: category !== 'All' ? category : undefined,
+    fromDate: !isInvalidDateRange && fromDate ? fromDate : undefined,
+    toDate: !isInvalidDateRange && toDate ? toDate : undefined,
+    page,
+    limit: PAGE_SIZE,
+  });
+  const totalPatients = patientPage?.meta.total ?? 0;
+
   const swapDates = () => {
     const temp = fromDate;
     setFromDate(toDate);
     setToDate(temp);
+    setPage(1);
     toast('Date range swapped!', 'info');
   };
 
@@ -100,53 +123,13 @@ export default function PatientsPage() {
     }
   };
 
-  const filteredPatients = useMemo(() => {
-    if (isInvalidDateRange) return [];
-
-    return allPatients.filter(p => {
-      // Date filter
-      const d = p.createdAt.split('T')[0];
-      if (fromDate && d < fromDate) return false;
-      if (toDate && d > toDate) return false;
-
-      // Text Search
-      if (query) {
-        const q = query.toLowerCase();
-        if (!p.name.toLowerCase().includes(q) && 
-            !p.mobile.includes(q) && 
-            !p.patientId.toLowerCase().includes(q) &&
-            !(p.abhaNumber && p.abhaNumber.toLowerCase().includes(q))) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [allPatients, fromDate, toDate, query, isInvalidDateRange]);
-
-  // Infinite Scroll Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && displayedLimit < filteredPatients.length) {
-          setDisplayedLimit(prev => prev + 25);
-        }
-      },
-      { threshold: 0.2 }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [displayedLimit, filteredPatients.length]);
-
-  const visiblePatients = useMemo(() => {
-    return filteredPatients.slice(0, displayedLimit);
-  }, [filteredPatients, displayedLimit]);
+  const filteredPatients = useMemo(
+    () => (isInvalidDateRange ? [] : patientPage?.data ?? []),
+    [patientPage, isInvalidDateRange]
+  );
 
   const hasDateFilter = !!(fromDate || toDate);
-  const clearDateFilter = () => { setFromDate(''); setToDate(''); };
+  const clearDateFilter = () => { setFromDate(''); setToDate(''); setPage(1); };
 
   const container = {
     hidden: { opacity: 0 },
@@ -173,15 +156,28 @@ export default function PatientsPage() {
       <div className="page-header">
         <div>
           <div className="page-title">Patient Directory</div>
-          <div className="page-subtitle">{allPatients.length} registered patients</div>
+          <div className="page-subtitle">{totalPatients} {hasDateFilter || category !== 'All' || debouncedQuery ? 'matching' : 'registered'} patients</div>
         </div>
         <div className="flex-wrap-header-actions">
+          {canManageDeleted && (
+            <button
+              type="button"
+              className={`btn btn-secondary ${showDeleted ? 'active' : ''}`}
+              onClick={() => setShowDeleted(v => !v)}
+            >
+              {showDeleted ? <><Users size={16} /> Active Patients</> : <><ArchiveRestore size={16} /> Recently deleted</>}
+            </button>
+          )}
           <Link href="/patients/new" className="btn btn-primary">
             <UserPlus size={16} /> Register Patient
           </Link>
         </div>
       </div>
 
+      {showDeleted && canManageDeleted ? (
+        <RecentlyDeletedPatients />
+      ) : (
+      <>
       {/* ── Filters & Search Controls ────────────────────────────────── */}
       <div className="filter-bar" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
         {/* Top Control Row: Tabs & Date Filter Toggle */}
@@ -192,7 +188,7 @@ export default function PatientsPage() {
               <button
                 key={cat}
                 className={`cat-pill ${category === cat ? 'active' : ''}`}
-                onClick={() => { setCategory(cat); setDisplayedLimit(25); }}
+                onClick={() => { setCategory(cat); setPage(1); }}
               >
                 {cat}
               </button>
@@ -231,7 +227,7 @@ export default function PatientsPage() {
                   if (toDate && val > toDate) {
                     setToDate(val);
                   }
-                  setDisplayedLimit(25);
+                  setPage(1);
                 }}
                 title="From Registration Date"
               />
@@ -255,7 +251,7 @@ export default function PatientsPage() {
                     return;
                   }
                   setToDate(val);
-                  setDisplayedLimit(25);
+                  setPage(1);
                 }}
                 title="To Registration Date"
               />
@@ -285,14 +281,14 @@ export default function PatientsPage() {
           <input
             className="search-input"
             style={{ padding: '12px 14px 12px 42px', fontSize: '0.9rem', borderRadius: 12 }}
-            placeholder="Search name, mobile, or ABHA…"
+            placeholder="Search name, mobile, or patient ID…"
             value={query}
-            onChange={e => { setQuery(e.target.value); setDisplayedLimit(25); }}
+            onChange={e => { setQuery(e.target.value); setPage(1); }}
           />
           {query && (
             <button
               style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
-              onClick={() => setQuery('')}
+              onClick={() => { setQuery(''); setPage(1); }}
             >
               <X size={16} />
             </button>
@@ -350,7 +346,7 @@ export default function PatientsPage() {
               </tr>
             </thead>
             <motion.tbody variants={container} initial="hidden" animate="show">
-              {visiblePatients.map(p => (
+              {filteredPatients.map(p => (
                 <motion.tr variants={item} key={p.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/patients/${p.patientId}`)}>
                   <td style={{ fontWeight: 600 }}>{p.name}</td>
                   <td>
@@ -398,14 +394,13 @@ export default function PatientsPage() {
               ))}
             </motion.tbody>
           </table>
-
-          {/* Infinite Scroll Sentinel */}
-          {displayedLimit < filteredPatients.length && (
-            <div ref={loadMoreRef} style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Loading more patients ({visiblePatients.length} of {filteredPatients.length})…
-            </div>
-          )}
         </div>
+      )}
+
+      {!isInvalidDateRange && (
+        <Pagination meta={patientPage?.meta} onPageChange={setPage} disabled={isFetching} />
+      )}
+      </>
       )}
 
       {/* ── Edit Patient Modal ────────────────────────────────────────── */}
@@ -472,5 +467,99 @@ export default function PatientsPage() {
         </div>
       )}
     </PageTransition>
+  );
+}
+
+const DELETED_PAGE_SIZE = 25;
+
+/** Soft-deleted patients (with their visits) that can be restored. */
+function RecentlyDeletedPatients() {
+  const [page, setPage] = useState(1);
+  const [toRestore, setToRestore] = useState<Patient | null>(null);
+  const { data, isLoading, isFetching, isError, refetch } = useDeletedPatients(page, DELETED_PAGE_SIZE, true);
+  const { restore } = usePatientMutations();
+  const rows = data?.data ?? [];
+
+  const confirmRestore = async () => {
+    if (!toRestore) return;
+    try {
+      await restore.mutateAsync(toRestore.patientId);
+      toast(`${toRestore.name} restored with their visits.`, 'success');
+      setToRestore(null);
+    } catch {
+      // The API client already shows the backend message (e.g. mobile number now used by another patient)
+      setToRestore(null);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="card-title" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ArchiveRestore size={16} /> Recently deleted
+        {data && <span className="badge badge-teal">{data.meta.total}</span>}
+      </div>
+      <p style={{ margin: '0 0 14px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+        Deleted patients and their visits are hidden from the clinic but kept. Restore a patient to bring back their records.
+      </p>
+
+      {isLoading ? (
+        <LoadingScreen message="Loading deleted patients..." />
+      ) : isError ? (
+        <ErrorState message="Could not load deleted patients." onRetry={() => refetch()} />
+      ) : rows.length === 0 ? (
+        <div className="empty-state">
+          <ArchiveRestore />
+          <h4>Nothing here</h4>
+          <p>Deleted patients will appear here and can be restored.</p>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Patient ID</th>
+                <th>Mobile</th>
+                <th>Deleted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(p => (
+                <tr key={p.patientId}>
+                  <td style={{ fontWeight: 600 }}>{p.name}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{p.patientId}</td>
+                  <td>{p.mobile || '—'}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>{p.deletedAt ? new Date(p.deletedAt).toLocaleDateString('en-IN') : '—'}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setToRestore(p)}
+                      disabled={restore.isPending}
+                    >
+                      <RotateCcw size={14} /> Restore
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Pagination meta={data?.meta} onPageChange={setPage} disabled={isFetching} />
+
+      <ConfirmModal
+        isOpen={!!toRestore}
+        onClose={() => setToRestore(null)}
+        onConfirm={confirmRestore}
+        title="Restore patient?"
+        description={toRestore ? `${toRestore.name} (${toRestore.patientId}) and their visits will be visible again.` : ''}
+        confirmText="Restore Patient"
+        variant="info"
+        isLoading={restore.isPending}
+      />
+    </div>
   );
 }

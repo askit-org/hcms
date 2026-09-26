@@ -13,6 +13,8 @@ export interface Patient {
   abhaNumber?: string;
   permanentConditions?: string[];
   createdAt: string;
+  /** Set when the patient is soft-deleted (restorable from "Recently deleted"). */
+  deletedAt?: string | null;
 }
 
 export interface PrescribedMedicine {
@@ -48,6 +50,8 @@ export interface Visit {
   followUpDate?: string;
   followUpAttended?: boolean;
   createdAt: string;
+  /** Joined patient record (included by GET /visits). */
+  patient?: Patient;
 }
 
 export interface Medicine {

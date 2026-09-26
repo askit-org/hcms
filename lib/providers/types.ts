@@ -46,7 +46,12 @@ export type ClinicSettings = {
 
 export type AuthLoginInput = { email: string; password?: string };
 export type AuthSignupInput = ClinicSettings & { email: string; password?: string };
-export type UpdateUserInput = Partial<ClinicSettings> & { email?: string; password?: string };
+export type UpdateUserInput = Partial<ClinicSettings> & {
+  email?: string;
+  password?: string;
+  /** Required by the backend whenever `email` or `password` is being changed. */
+  currentPassword?: string;
+};
 
 export type UserRole = 'SUPER_ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'ASSISTANT' | 'COMPOUNDER';
 
@@ -154,23 +159,21 @@ export interface UserSubscription {
   subscriptionEndDate?: string;
 }
 
+// Premium is only activated via the Razorpay verify-payment flow; select-plan never activates it.
 export type SelectPlanInput = {
   planType: 'trial' | 'premium';
-  paymentRef?: string;
 };
 
 export type VerifyPaymentInput = {
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   razorpay_signature?: string;
-  paymentRef?: string; // Fallback for manual
-  amount?: number;
   planType?: string;
 };
 
+// Price is decided server-side; the client must never send an amount.
 export type RazorpayOrderRequest = {
   planType?: string;
-  amount?: number;
 };
 
 export type RazorpayOrderResponse = {
@@ -193,7 +196,7 @@ export interface SubscriptionResponse {
 export interface PatientListParams {
   search?: string;
   page?: number;
-  limit?: number;
+  limit?: number; // backend default 50, max 500
   category?: string; // 'OPD' | 'IPD' | 'Suwarna Pashan' | etc.
   fromDate?: string; // ISO date YYYY-MM-DD
   toDate?: string;   // ISO date YYYY-MM-DD
@@ -204,7 +207,7 @@ export interface VisitListParams {
   startDate?: string; // ISO date YYYY-MM-DD
   endDate?: string;   // ISO date YYYY-MM-DD
   page?: number;
-  limit?: number;
+  limit?: number; // default 100 / max 500; with both dates: default & max 5000
 }
 
 export interface MedicineListParams {
@@ -213,6 +216,18 @@ export interface MedicineListParams {
 }
 
 // ─── Response wrappers ────────────────────────────────────────────
+
+/** Pagination metadata returned by paged list endpoints (`{ success, data, meta }`). */
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export interface ListPage<T> {
+  data: T[];
+  meta: PageMeta;
+}
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -236,6 +251,149 @@ export interface DashboardStats {
   upcomingFollowUps: number;
   recentVisits: Array<{ visit: Visit; patient: Patient | undefined }>;
   todayFollowUpList: FollowUpItem[];
+}
+
+// ─── OPD Queue ────────────────────────────────────────────────────
+
+export type QueueStatus = 'NOW_SERVING' | 'NEXT_IN_LINE' | 'WAITING' | 'IN_SESSION' | 'COMPLETED' | 'SKIPPED';
+
+/** Queue item as returned by the backend (see app/(opd)/appointments for the full UI shape). */
+export interface QueueEntry {
+  id: string;
+  tokenNo: number;
+  patientId: string;
+  patientName: string;
+  mobile: string;
+  queuedAt: string;
+  status: QueueStatus;
+  [key: string]: unknown;
+}
+
+export interface EnqueueInput {
+  patientId: string;
+  reason?: string;
+  category?: string;
+  priority?: 'NORMAL' | 'HIGH' | 'EMERGENCY';
+  vitals?: { bp?: string; pulse?: string; temp?: string; spo2?: string };
+  chamberNo?: string;
+}
+
+export interface UpdateQueueStatusInput {
+  id: string;
+  status: QueueStatus;
+  inRoomSince?: string;
+}
+
+// ─── Platform operator (AMAN) ─────────────────────────────────────
+
+/** Global platform role. Only the platform operator has one; clinic users have `null`. */
+export type PlatformRole = 'AMAN';
+
+/** Subscription as formatted by the backend for platform tooling (dates may be null). */
+export interface PlatformSubscription {
+  planType: 'trial' | 'premium' | 'none';
+  subscriptionStatus: 'active' | 'trialing' | 'expired' | 'pending_payment';
+  hasSelectedPlan: boolean;
+  billingCycle?: 'monthly';
+  subscriptionStartDate?: string | null;
+  subscriptionEndDate?: string | null;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  paidAmount?: number;
+  paymentRef?: string;
+  activatedAt?: string;
+}
+
+export interface PlatformStats {
+  organizations: number;
+  users: number;
+  patients: number;
+  visits: number;
+  paidTransactions: number;
+  revenue: number;
+}
+
+export interface PlatformListParams {
+  search?: string;
+  page?: number;
+  limit?: number; // backend max 100
+}
+
+export type PlatformPageMeta = PageMeta;
+export type PlatformPage<T> = ListPage<T>;
+
+export interface PlatformOrganizationOwner {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  isActive: boolean | null;
+}
+
+export interface PlatformOrganization {
+  id: string;
+  name: string;
+  city?: string | null;
+  phone?: string | null;
+  createdAt: string;
+  owner: PlatformOrganizationOwner;
+  userCount: number;
+  patientCount: number;
+  subscription: PlatformSubscription | null;
+}
+
+export interface PlatformOrganizationUser {
+  id: string;
+  name: string | null;
+  email: string;
+  phone?: string | null;
+  roleName: string | null;
+  roleCode: string | null;
+  isOwner: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface PlatformTransaction {
+  id: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  planType?: string | null;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  createdAt: string;
+}
+
+export interface PlatformOrganizationDetail {
+  id: string;
+  name: string;
+  city?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  ownerId: string;
+  createdAt: string;
+  patientCount: number;
+  visitCount: number;
+  subscription: PlatformSubscription | null;
+  users: PlatformOrganizationUser[];
+  transactions: PlatformTransaction[];
+}
+
+export type AdminSubscriptionAction = 'activate' | 'extend' | 'disable';
+
+export interface AdminUpdateSubscriptionInput {
+  action: AdminSubscriptionAction;
+  planType?: 'trial' | 'premium'; // activate (and optionally extend)
+  days?: number; // 1..3650
+}
+
+export interface AdminUpdateSubscriptionResponse {
+  success: boolean;
+  message?: string;
+  data: PlatformSubscription;
 }
 
 // ─── THE DATA PROVIDER INTERFACE ─────────────────────────────────
@@ -262,15 +420,18 @@ export interface DataProvider {
   deleteRole(roleId: string): Promise<void>;
 
   // ── Patients ───────────────────────────────────────────────────
-  listPatients(params?: PatientListParams): Promise<Patient[]>;
+  listPatients(params?: PatientListParams): Promise<ListPage<Patient>>;
   getPatient(patientId: string): Promise<Patient | undefined>;
   createPatient(input: CreatePatientInput): Promise<Patient>;
   updatePatient(patientId: string, input: UpdatePatientInput): Promise<Patient>;
+  /** Soft delete: the patient and their visits are hidden but can be restored. */
   deletePatient(patientId: string): Promise<void>;
+  listDeletedPatients(params?: { page?: number; limit?: number }): Promise<ListPage<Patient>>;
+  restorePatient(patientId: string): Promise<Patient>;
   generatePatientId(): Promise<string>;
 
   // ── Visits ─────────────────────────────────────────────────────
-  listVisits(params?: VisitListParams): Promise<Visit[]>;
+  listVisits(params?: VisitListParams): Promise<ListPage<Visit>>;
   getVisit(visitId: string | number): Promise<Visit | undefined>;
   getPatientVisits(patientId: string): Promise<Visit[]>;
   createVisit(input: CreateVisitInput): Promise<Visit>;
@@ -306,4 +467,21 @@ export interface DataProvider {
   listOptions(type?: string): Promise<AppOption[]>;
   createOption(input: CreateAppOptionInput): Promise<AppOption>;
   deleteOption(id: number): Promise<void>;
+
+  // ── OPD Queue ──────────────────────────────────────────────────
+  getQueue(): Promise<QueueEntry[]>;
+  enqueue(input: EnqueueInput): Promise<unknown>;
+  callNextInQueue(): Promise<unknown>;
+  updateQueueStatus(input: UpdateQueueStatusInput): Promise<unknown>;
+  removeFromQueue(id: string): Promise<void>;
+  /** Saves the order of today's WAITING items; returns the queue in the new order. */
+  reorderQueue(orderedIds: string[], chamberNo?: string): Promise<QueueEntry[]>;
+
+  // ── Platform operator (AMAN only; backend returns 403 otherwise) ──
+  getPlatformStats(): Promise<PlatformStats>;
+  listPlatformOrganizations(params?: PlatformListParams): Promise<PlatformPage<PlatformOrganization>>;
+  getPlatformOrganization(orgId: string): Promise<PlatformOrganizationDetail>;
+  updatePlatformOrganizationSubscription(orgId: string, input: AdminUpdateSubscriptionInput): Promise<AdminUpdateSubscriptionResponse>;
+  updatePlatformUserStatus(userId: string, isActive: boolean): Promise<void>;
+  listPlatformTransactions(params?: PlatformListParams): Promise<PlatformPage<PlatformTransaction>>;
 }

@@ -116,13 +116,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     setConfirmModalState({
       isOpen: true,
       title: "Delete Patient",
-      description: `Are you sure you want to delete patient ${patient.name}? This will permanently remove all their visits, prescriptions, and medical records.`,
+      description: `Are you sure you want to delete patient ${patient.name}? The patient and their visits will be hidden, and can be restored later from "Recently deleted" on the Patients page.`,
       confirmText: "Delete Patient",
       variant: "danger",
       onConfirm: async () => {
         setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
         await removePatient.mutateAsync(patient.patientId);
-        toast('Patient deleted.', 'info');
+        toast('Patient moved to Recently deleted.', 'info');
         router.push('/patients');
       },
     });
