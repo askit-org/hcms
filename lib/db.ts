@@ -8,6 +8,8 @@ export interface Patient {
   dob?: string;
   gender: string;
   mobile: string;
+  relation?: string;
+  guardianName?: string;
   address?: string;
   occupation?: string;
   abhaNumber?: string;
