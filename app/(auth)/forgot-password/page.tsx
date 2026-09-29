@@ -24,13 +24,9 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await forgotPassword.mutateAsync({ email: email.trim() });
-      if (res.success !== false) {
-        setSubmitted(true);
-        toast('Password reset instructions sent!', 'success');
-      } else {
-        toast(res.error || 'Failed to send reset link', 'error');
-      }
+      // The backend always answers with the same generic message so account existence isn't revealed
+      await forgotPassword.mutateAsync({ email: email.trim() });
+      setSubmitted(true);
     } catch (err: any) {
       toast(getErrorMessage(err, 'Network error occurred'), 'error');
     } finally {
@@ -71,7 +67,7 @@ export default function ForgotPasswordPage() {
         </h1>
         <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.88rem', lineHeight: 1.5 }}>
           {submitted
-            ? `We sent password reset instructions to ${email}. Follow the link in the email to reset your password.`
+            ? 'If an account exists for this email, a reset link has been sent. Follow the link in the email to reset your password.'
             : 'No worries! Enter your registered doctor email address below and we will send you instructions to reset your password.'}
         </p>
       </div>

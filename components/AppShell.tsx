@@ -11,12 +11,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
 import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
 import { useAuth, checkSubscriptionLock } from '@/lib/hooks/useAuth';
-import { usePermissions } from '@/lib/hooks/usePermissions';
-import { useQueryClient } from '@tanstack/react-query';
+import { usePermissions, ADMIN_HOME_ROUTE } from '@/lib/hooks/usePermissions';
+import { useSessionGuard } from '@/lib/hooks/useSessionGuard';
+import { isTokenExpired, logout } from '@/lib/auth/session';
 import type { Patient, AppModel } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
 import SubscriptionBanner from '@/components/SubscriptionBanner';
 import OnboardingPlansModal from '@/components/OnboardingPlansModal';
+import LoadingScreen from '@/components/LoadingScreen';
 
 interface NavItem {
   href: string;
@@ -68,7 +70,7 @@ function GlobalSearch() {
 
   const doSearch = useCallback(async (q: string) => {
     if (!hasPermission('PATIENTS', 'canRead') || !q.trim()) { setResults([]); setOpen(false); return; }
-    const r = await provider.listPatients({ search: q });
+    const { data: r } = await provider.listPatients({ search: q, limit: 8 });
     setResults(r.slice(0, 8));
     setOpen(r.length > 0);
   }, [provider, hasPermission]);
@@ -118,18 +120,24 @@ function GlobalSearch() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { isSuperAdmin, hasPermission, canAccessRoute, getFirstAllowedRoute } = usePermissions();
+  const { isPlatformAdmin, isSuperAdmin, hasPermission, canAccessRoute, getFirstAllowedRoute } = usePermissions();
   const { data: settings } = useSettings();
   const { today } = useFollowUps();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [navConfirmTarget, setNavConfirmTarget] = useState<string | null>(null);
   const [showOnboardingPlans, setShowOnboardingPlans] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const subLock = checkSubscriptionLock(user?.subscription);
+  // The platform operator (AMAN) has no clinic subscription and never sees the plan lock
+  const subLock = isPlatformAdmin
+    ? { isLocked: false, reason: null, daysRemaining: null }
+    : checkSubscriptionLock(user?.subscription);
+  const hasValidSession = isAuthenticated && !!token && !isTokenExpired(token);
+
+  // Token expiry, idle timeout and cross-tab logout
+  useSessionGuard(hasHydrated && isAuthenticated);
 
   useEffect(() => {
     if (useAuth.persist.hasHydrated()) {
@@ -146,7 +154,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setMounted(true);
     if (hasHydrated) {
       if (!isAuthenticated) {
-        router.push('/login');
+        router.replace('/login');
+      } else if (isPlatformAdmin) {
+        router.replace(ADMIN_HOME_ROUTE);
       } else if (subLock.isLocked) {
         setShowOnboardingPlans(true);
       } else if (!canAccessRoute(pathname)) {
@@ -154,7 +164,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         router.replace(allowedRoute);
       }
     }
-  }, [hasHydrated, isAuthenticated, user, subLock.isLocked, pathname, canAccessRoute, getFirstAllowedRoute, router]);
+  }, [hasHydrated, isAuthenticated, isPlatformAdmin, user, subLock.isLocked, pathname, canAccessRoute, getFirstAllowedRoute, router]);
 
   const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
@@ -170,8 +180,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const defaultHome = getFirstAllowedRoute();
 
+  // Never mount protected pages (and their queries) until the persisted session is restored and valid
+  if (!mounted || !hasHydrated || !hasValidSession || isPlatformAdmin) {
+    return <LoadingScreen message="Restoring session..." />;
+  }
+
   return (
-    <div className="app-shell" style={{ display: mounted && isAuthenticated ? 'flex' : 'none' }}>
+    <div className="app-shell" style={{ display: 'flex' }}>
       {/* Mobile Backdrop Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
@@ -250,12 +265,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button 
             className="btn btn-ghost btn-sm" 
             style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--text-secondary)', marginTop: 8 }}
-            onClick={() => {
-              queryClient.cancelQueries();
-              queryClient.clear();
-              logout();
-              router.push('/login');
-            }}
+            onClick={() => logout()}
           >
             <LogOut size={16} style={{ marginRight: 8 }} /> Log Out
           </button>

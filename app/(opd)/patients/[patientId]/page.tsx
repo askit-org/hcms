@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus
 } from 'lucide-react';
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
 import type { Visit, Patient } from '@/lib/providers/types';
@@ -39,6 +39,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     dob: '',
     gender: 'Male',
     mobile: '',
+    relation: 'Self',
+    guardianName: '',
     address: '',
     occupation: '',
     abhaNumber: ''
@@ -68,6 +70,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
         dob: patient.dob || '',
         gender: patient.gender || 'Male',
         mobile: patient.mobile || '',
+        relation: patient.relation || 'Self',
+        guardianName: patient.guardianName || '',
         address: patient.address || '',
         occupation: patient.occupation || '',
         abhaNumber: patient.abhaNumber || ''
@@ -99,6 +103,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           dob: editForm.dob || undefined,
           gender: editForm.gender,
           mobile: editForm.mobile.trim(),
+          relation: editForm.relation,
+          guardianName: editForm.relation !== 'Self' ? editForm.guardianName.trim() : undefined,
           address: editForm.address.trim() || undefined,
           occupation: editForm.occupation.trim() || undefined,
           abhaNumber: editForm.abhaNumber.trim() || undefined,
@@ -116,13 +122,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     setConfirmModalState({
       isOpen: true,
       title: "Delete Patient",
-      description: `Are you sure you want to delete patient ${patient.name}? This will permanently remove all their visits, prescriptions, and medical records.`,
+      description: `Are you sure you want to delete patient ${patient.name}? The patient and their visits will be hidden, and can be restored later from "Recently deleted" on the Patients page.`,
       confirmText: "Delete Patient",
       variant: "danger",
       onConfirm: async () => {
         setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
         await removePatient.mutateAsync(patient.patientId);
-        toast('Patient deleted.', 'info');
+        toast('Patient moved to Recently deleted.', 'info');
         router.push('/patients');
       },
     });
@@ -258,6 +264,27 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   <label className="form-label">Mobile Number <span className="required">*</span></label>
                   <input className="form-input" type="tel" maxLength={10} placeholder="10-digit mobile number" value={editForm.mobile} onChange={e => setEditForm(f => ({ ...f, mobile: e.target.value }))} />
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label className="form-label">Relation</label>
+                    <select className="form-select" value={editForm.relation} onChange={e => {
+                      setEditForm(f => ({ ...f, relation: e.target.value }));
+                      if (e.target.value === 'Self') setEditForm(f => ({ ...f, guardianName: '' }));
+                    }}>
+                      <option value="Self">Self</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Child">Child</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {editForm.relation !== 'Self' && (
+                    <div>
+                      <label className="form-label">Guardian Name <span className="required">*</span></label>
+                      <input className="form-input" placeholder="Guardian's name" value={editForm.guardianName} onChange={e => setEditForm(f => ({ ...f, guardianName: e.target.value }))} />
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="form-label">ABHA Number</label>
                   <input className="form-input" placeholder="14-digit ABHA number" maxLength={14} value={editForm.abhaNumber} onChange={e => setEditForm(f => ({ ...f, abhaNumber: e.target.value.replace(/\D/g, '') }))} />
@@ -274,7 +301,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                 {[
-                  { icon: <Phone size={15} />, label: 'Mobile', value: patient.mobile },
+                  { icon: <Phone size={15} />, label: 'Mobile', value: `${patient.mobile} ${patient.relation !== 'Self' ? `(${patient.relation})` : ''}` },
+                  ...(patient.relation !== 'Self' && patient.guardianName ? [{ icon: <UserPlus size={15} />, label: 'Guardian', value: patient.guardianName }] : []),
                   { icon: <ClipboardList size={15} />, label: 'ABHA No.', value: patient.abhaNumber || '—' },
                   { icon: <MapPin size={15} />, label: 'Address', value: patient.address || '—' },
                   { icon: <Briefcase size={15} />, label: 'Occupation', value: patient.occupation || '—' },

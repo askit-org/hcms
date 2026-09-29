@@ -44,16 +44,42 @@ import type {
   RazorpayOrderRequest,
   RazorpayOrderResponse,
   SubscriptionResponse,
+  EnqueueInput,
+  QueueEntry,
+  UpdateQueueStatusInput,
+  PlatformStats,
+  PlatformListParams,
+  PlatformPage,
+  ListPage,
+  PlatformOrganization,
+  PlatformOrganizationDetail,
+  PlatformTransaction,
+  AdminUpdateSubscriptionInput,
+  AdminUpdateSubscriptionResponse,
 } from './types';
 
-// The baseUrl can be configured via environment variables
+// The API base URL must be configured explicitly (next.config.ts fails production builds without it).
+// There is intentionally no same-origin fallback: this app has no API routes of its own.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+if (!API_BASE_URL && typeof window !== 'undefined') {
+  console.error('[HCMS] NEXT_PUBLIC_API_URL is not set — API requests will fail.');
+}
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** When true, a 401 on this request is returned to the caller instead of ending the session. */
+    skipAuthLogout?: boolean;
+  }
+}
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
+  baseURL: API_BASE_URL,
   timeout: 5000, // 5s timeout to prevent hanging browser network sockets
 });
 
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
+import { logout } from '@/lib/auth/session';
 
 // Request Interceptor: Attach the current token from useAuth store to every request
 api.interceptors.request.use((config) => {
@@ -65,25 +91,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response Interceptor: Surface backend error messages in toast, but suppress auth token errors on logout
+// Response Interceptor: Surface backend error messages in toast; end the session on HTTP 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const errorMsg = getErrorMessage(error, '');
-    const isAuthError =
-      status === 401 ||
-      (typeof errorMsg === 'string' &&
-        (errorMsg.toLowerCase().includes('token') ||
-          errorMsg.toLowerCase().includes('unauthorized') ||
-          errorMsg.toLowerCase().includes('revoked') ||
-          errorMsg.toLowerCase().includes('session has expired')));
+    const isAuthenticated = useAuth.getState().isAuthenticated;
 
-    // If user is logged out or token error occurred, suppress toast popup & clean auth state
-    if (isAuthError || !useAuth.getState().isAuthenticated) {
-      if (useAuth.getState().isAuthenticated) {
-        useAuth.getState().logout();
+    if (status === 401) {
+      // Requests that expect 401 as a normal outcome (e.g. wrong current password) handle it themselves
+      if (isAuthenticated && !error.config?.skipAuthLogout) {
+        logout('unauthorized');
       }
+      return Promise.reject(error);
+    }
+
+    // Logged out: let callers handle errors without global toasts
+    if (!isAuthenticated) {
       return Promise.reject(error);
     }
 
@@ -122,6 +146,21 @@ function extractArray<T>(response: { data: any }, key?: string): T[] {
 
 const res = <T>(response: { data: any }): T => extract<T>(response);
 
+// Paginated lists: `{ success, data: [...], meta: { page, limit, total } }` — keep the meta
+function extractPage<T>(response: { data: unknown }): ListPage<T> {
+  const d = response.data as { data?: unknown; meta?: Partial<Record<'page' | 'limit' | 'total', unknown>> } | unknown[] | null;
+  const rows = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
+  const meta = !Array.isArray(d) && d?.meta ? d.meta : {};
+  return {
+    data: rows as T[],
+    meta: {
+      page: Number(meta.page) || 1,
+      limit: Number(meta.limit) || rows.length,
+      total: Number(meta.total) || rows.length,
+    },
+  };
+}
+
 export const ApiDataProvider: DataProvider = {
   // ── Auth ───────────────────────────────────────────────────────
   async authLogin(input: AuthLoginInput): Promise<AuthResponse> {
@@ -131,7 +170,8 @@ export const ApiDataProvider: DataProvider = {
     return api.post<AuthResponse>('/auth/signup', input).then((r) => extract<AuthResponse>(r));
   },
   async updateUser(input: UpdateUserInput): Promise<AuthResponse> {
-    return api.put<AuthResponse>('/auth/user', input).then((r) => extract<AuthResponse>(r));
+    // A wrong `currentPassword` yields 401 — surface it to the form instead of logging out
+    return api.put<AuthResponse>('/auth/user', input, { skipAuthLogout: !!input.currentPassword }).then((r) => extract<AuthResponse>(r));
   },
   async forgotPassword(input: ForgotPasswordInput): Promise<ForgotPasswordResponse> {
     return api.post<ForgotPasswordResponse>('/auth/forgot-password', input).then((r) => extract<ForgotPasswordResponse>(r));
@@ -174,8 +214,8 @@ export const ApiDataProvider: DataProvider = {
   },
 
   // ── Patients ───────────────────────────────────────────────────
-  async listPatients(params?: PatientListParams): Promise<Patient[]> {
-    return api.get<Patient[]>('/patients', { params }).then((r) => extractArray<Patient>(r, 'patients'));
+  async listPatients(params?: PatientListParams): Promise<ListPage<Patient>> {
+    return api.get('/patients', { params }).then((r) => extractPage<Patient>(r));
   },
   async getPatient(patientId: string): Promise<Patient | undefined> {
     return api.get<Patient>(`/patients/${patientId}`).then((r) => extract<Patient>(r));
@@ -189,13 +229,19 @@ export const ApiDataProvider: DataProvider = {
   async deletePatient(patientId: string): Promise<void> {
     return api.delete(`/patients/${patientId}`).then(() => undefined);
   },
+  async listDeletedPatients(params?: { page?: number; limit?: number }): Promise<ListPage<Patient>> {
+    return api.get('/patients/deleted', { params }).then((r) => extractPage<Patient>(r));
+  },
+  async restorePatient(patientId: string): Promise<Patient> {
+    return api.post<Patient>(`/patients/${encodeURIComponent(patientId)}/restore`).then((r) => extract<Patient>(r));
+  },
   async generatePatientId(): Promise<string> {
     return api.get<{ id: string }>('/patients/generate-id').then((r) => r.data.id);
   },
 
   // ── Visits ─────────────────────────────────────────────────────
-  async listVisits(params?: VisitListParams): Promise<Visit[]> {
-    return api.get<Visit[]>('/visits', { params }).then((r) => extractArray<Visit>(r, 'visits'));
+  async listVisits(params?: VisitListParams): Promise<ListPage<Visit>> {
+    return api.get('/visits', { params }).then((r) => extractPage<Visit>(r));
   },
   async getVisit(visitId: string | number): Promise<Visit | undefined> {
     return api.get<Visit>(`/visits/${visitId}`).then((r) => extract<Visit>(r));
@@ -289,5 +335,47 @@ export const ApiDataProvider: DataProvider = {
   },
   async deleteOption(id: number): Promise<void> {
     return api.delete(`/options/${id}`).then(() => undefined);
+  },
+
+  // ── OPD Queue ──────────────────────────────────────────────────
+  async getQueue(): Promise<QueueEntry[]> {
+    return api.get('/queue').then((r) => extractArray<QueueEntry>(r, 'queue'));
+  },
+  async enqueue(input: EnqueueInput): Promise<unknown> {
+    return api.post('/queue/enqueue', input).then((r) => extract<unknown>(r));
+  },
+  async callNextInQueue(): Promise<unknown> {
+    return api.post('/queue/call-next', {}).then((r) => extract<unknown>(r));
+  },
+  async updateQueueStatus({ id, ...body }: UpdateQueueStatusInput): Promise<unknown> {
+    return api.patch(`/queue/${encodeURIComponent(id)}/status`, body).then((r) => extract<unknown>(r));
+  },
+  async removeFromQueue(id: string): Promise<void> {
+    return api.delete(`/queue/${encodeURIComponent(id)}`).then(() => undefined);
+  },
+  async reorderQueue(orderedIds: string[], chamberNo?: string): Promise<QueueEntry[]> {
+    return api.post('/queue/reorder', { orderedIds, chamberNo }).then((r) => extractArray<QueueEntry>(r, 'queue'));
+  },
+
+  // ── Platform operator (AMAN) ───────────────────────────────────
+  async getPlatformStats(): Promise<PlatformStats> {
+    return api.get('/platform/stats').then((r) => extract<PlatformStats>(r));
+  },
+  async listPlatformOrganizations(params?: PlatformListParams): Promise<PlatformPage<PlatformOrganization>> {
+    return api.get('/platform/organizations', { params }).then((r) => extractPage<PlatformOrganization>(r));
+  },
+  async getPlatformOrganization(orgId: string): Promise<PlatformOrganizationDetail> {
+    return api.get(`/platform/organizations/${encodeURIComponent(orgId)}`).then((r) => extract<PlatformOrganizationDetail>(r));
+  },
+  async updatePlatformOrganizationSubscription(orgId: string, input: AdminUpdateSubscriptionInput): Promise<AdminUpdateSubscriptionResponse> {
+    return api
+      .patch<AdminUpdateSubscriptionResponse>(`/platform/organizations/${encodeURIComponent(orgId)}/subscription`, input)
+      .then((r) => r.data);
+  },
+  async updatePlatformUserStatus(userId: string, isActive: boolean): Promise<void> {
+    return api.patch(`/platform/users/${encodeURIComponent(userId)}/status`, { isActive }).then(() => undefined);
+  },
+  async listPlatformTransactions(params?: PlatformListParams): Promise<PlatformPage<PlatformTransaction>> {
+    return api.get('/platform/transactions', { params }).then((r) => extractPage<PlatformTransaction>(r));
   },
 };

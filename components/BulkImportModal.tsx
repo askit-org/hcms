@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   parseMedicinesExcel, 
   downloadMedicineTemplate, 
+  MAX_IMPORT_FILE_BYTES,
   type ParsedMedicineRow 
 } from '@/lib/excelParser';
 import { useMedicines, useMedicineMutations } from '@/lib/hooks/useQueries';
@@ -66,6 +67,11 @@ export default function BulkImportModal({ isOpen, onClose }: BulkImportModalProp
     const ext = selectedFile.name.split('.').pop()?.toLowerCase();
     if (!['xlsx', 'xls', 'csv'].includes(ext || '')) {
       toast('Please select a valid Excel (.xlsx, .xls) or CSV file.', 'error');
+      return;
+    }
+    if (selectedFile.size > MAX_IMPORT_FILE_BYTES) {
+      toast('File is too large. Please upload a spreadsheet smaller than 2 MB.', 'error');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -228,7 +234,7 @@ export default function BulkImportModal({ isOpen, onClose }: BulkImportModalProp
                   <UploadCloud size={48} style={{ color: 'var(--accent)', opacity: 0.9, marginBottom: '12px' }} />
                   <h4 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: 'var(--text-primary)' }}>Click or Drag & Drop Excel Sheet Here</h4>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
-                    Supports <strong>.xlsx</strong>, <strong>.xls</strong>, or <strong>.csv</strong> spreadsheet files
+                    Supports <strong>.xlsx</strong>, <strong>.xls</strong>, or <strong>.csv</strong> spreadsheet files (max 2 MB)
                   </p>
                 </div>
 

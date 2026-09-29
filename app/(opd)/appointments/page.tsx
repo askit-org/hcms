@@ -15,6 +15,11 @@ import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 import { patientSchema, validateForm } from '@/lib/validations/schemas';
+import type { Patient } from '@/lib/providers/types';
+
+const PATIENT_SEARCH_MIN_CHARS = 2;
+const PATIENT_SEARCH_LIMIT = 20;
+const PATIENT_SEARCH_DEBOUNCE_MS = 300;
 
 export interface QueueItem {
   id: string;
@@ -375,8 +380,6 @@ export default function AppointmentsPage() {
   // Registration is allowed if user can create patients and is not in doctor-only view
   const canRegister = !isDoctorOrSuperAdmin && hasPermission('PATIENTS', 'canCreate');
 
-  // Real API hooks for fetching and creating patients
-  const { data: dbPatients = [], refetch: refetchPatients } = usePatients();
   const { create: createPatientMut } = usePatientMutations();
 
   // Real API hooks for Live OPD Queue persistence
@@ -448,17 +451,21 @@ export default function AppointmentsPage() {
   const waitingList = useMemo(() => queue.filter((q) => q.status === 'NEXT_IN_LINE' || q.status === 'WAITING'), [queue]);
   const maxTokenNo = useMemo(() => (queue.length === 0 ? 0 : Math.max(...queue.map((q) => q.tokenNo))), [queue]);
 
-  // Real API Search results
+  // Server-side patient search (name / UHID / mobile): debounced, only once 2+ characters are typed
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), PATIENT_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  const patientSearchTerm = debouncedSearch.length >= PATIENT_SEARCH_MIN_CHARS ? debouncedSearch : '';
+  const { data: patientSearchPage } = usePatients(
+    { search: patientSearchTerm, limit: PATIENT_SEARCH_LIMIT },
+    { enabled: !!patientSearchTerm }
+  );
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return dbPatients.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.patientId.toLowerCase().includes(q) ||
-        p.mobile.includes(q)
-    ).slice(0, 8);
-  }, [searchQuery, dbPatients]);
+    if (searchQuery.trim().length < PATIENT_SEARCH_MIN_CHARS || !patientSearchTerm) return [];
+    return patientSearchPage?.data ?? [];
+  }, [searchQuery, patientSearchTerm, patientSearchPage]);
 
   // DOB Change Auto-calculates Age
   const handleDobChange = (dobValue: string) => {
@@ -493,7 +500,7 @@ export default function AppointmentsPage() {
   };
 
   // Select patient from API search and place on Canvas Board
-  const handleSelectPatientFromSearch = (p: (typeof dbPatients)[0]) => {
+  const handleSelectPatientFromSearch = (p: Patient) => {
     const existingInCanvas = canvasPatients.find((c) => c.patientId === p.patientId);
     if (existingInCanvas) {
       toast(`${p.name} is already selected!`, 'info');
@@ -588,12 +595,9 @@ export default function AppointmentsPage() {
     const isFirstInQueue = waitingList.length === 0 && !nowServing;
 
     try {
+      // Name/age/gender/mobile are taken from the patient record server-side
       await enqueueMut.mutateAsync({
         patientId: patient.patientId,
-        patientName: patient.name,
-        age: patient.age,
-        gender: patient.gender,
-        mobile: patient.mobile,
         reason: patient.reason,
         category: patient.category,
       });
@@ -682,7 +686,6 @@ export default function AppointmentsPage() {
     try {
       await updateStatusMut.mutateAsync({ id, status: 'COMPLETED' });
       await removeMut.mutateAsync(id);
-      await refetchPatients();
       await refetchQueue();
     } catch (_) {
       setLocalQueue((prev) => prev.filter((q) => q.id !== id));

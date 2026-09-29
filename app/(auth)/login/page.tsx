@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Activity, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { usePermissions } from '@/lib/hooks/usePermissions';
+import { usePermissions, isPlatformAdminUser, ADMIN_HOME_ROUTE } from '@/lib/hooks/usePermissions';
 import { useAuthMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
+import { LOGOUT_REASON_KEY } from '@/lib/auth/session';
 import { motion } from 'framer-motion';
 
 import { loginSchema, validateForm } from '@/lib/validations/schemas';
@@ -24,6 +25,22 @@ export default function LoginPage() {
   const { authLogin } = useAuthMutations();
 
   const { getFirstAllowedRoute } = usePermissions();
+
+  // Explain automatic sign-outs (session expiry / inactivity)
+  useEffect(() => {
+    try {
+      const reason = sessionStorage.getItem(LOGOUT_REASON_KEY);
+      if (!reason) return;
+      sessionStorage.removeItem(LOGOUT_REASON_KEY);
+      if (reason === 'idle') {
+        toast('You were signed out due to inactivity.', 'info');
+      } else {
+        toast('Your session has expired. Please sign in again.', 'info');
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, []);
 
   useEffect(() => {
     const redirectAllowed = () => {
@@ -58,6 +75,11 @@ export default function LoginPage() {
     try {
       await authLogin.mutateAsync({ email, password });
       toast('Login successful! Welcome back.', 'success');
+      // Read the freshly stored user: the platform operator (AMAN) goes to the admin console
+      if (isPlatformAdminUser(useAuth.getState().user)) {
+        router.replace(ADMIN_HOME_ROUTE);
+        return;
+      }
       const allowedRoute = getFirstAllowedRoute();
       router.push(allowedRoute);
     } catch (err: any) {

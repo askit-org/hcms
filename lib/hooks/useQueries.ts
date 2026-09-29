@@ -1,10 +1,11 @@
 // lib/hooks/useQueries.ts
 // React Query wrappers around our DataProvider
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useProviderStore } from '../providers';
 import { useAuth } from './useAuth';
 import { usePermissions } from './usePermissions';
+import { startFreshSession } from '../auth/session';
 import type { 
   PatientListParams, 
   VisitListParams, 
@@ -29,6 +30,11 @@ import type {
   RazorpayOrderRequest,
   OnboardStaffInput,
   CreateRoleInput,
+  EnqueueInput,
+  UpdateQueueStatusInput,
+  QueueEntry,
+  PlatformListParams,
+  AdminUpdateSubscriptionInput,
 } from '../providers/types';
 
 // Query Keys
@@ -53,14 +59,16 @@ export const keys = {
 
 // ── Patients ───────────────────────────────────────────────────
 
-export function usePatients(params?: PatientListParams) {
+export function usePatients(params?: PatientListParams, options: { enabled?: boolean } = {}) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
   const { hasPermission } = usePermissions();
   return useQuery({
-    queryKey: [...keys.patients(), params],
+    queryKey: [...keys.patients(), 'list', params],
     queryFn: () => provider.listPatients(params),
-    enabled: isAuthenticated && !!token && hasPermission('PATIENTS', 'canRead'),
+    enabled: isAuthenticated && !!token && hasPermission('PATIENTS', 'canRead') && (options.enabled ?? true),
+    // Keep the current page visible while the next page / search result loads
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -101,11 +109,37 @@ export function usePatientMutations() {
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: keys.patient(id) });
       qc.invalidateQueries({ queryKey: keys.patients() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.followups() });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
 
-  return { create, update, remove };
+  // Restores a soft-deleted patient together with their visits (409 if the mobile is now taken)
+  const restore = useMutation({
+    mutationFn: (id: string) => provider.restorePatient(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: keys.patient(id) });
+      qc.invalidateQueries({ queryKey: keys.patients() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.followups() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  return { create, update, remove, restore };
+}
+
+export function useDeletedPatients(page: number, limit: number, enabled: boolean) {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin, hasPermission } = usePermissions();
+  return useQuery({
+    queryKey: [...keys.patients(), 'deleted', { page, limit }],
+    queryFn: () => provider.listDeletedPatients({ page, limit }),
+    enabled: enabled && isAuthenticated && !!token && (isSuperAdmin || hasPermission('PATIENTS', 'canDelete')),
+    placeholderData: keepPreviousData,
+  });
 }
 
 // ── Visits ─────────────────────────────────────────────────────
@@ -219,7 +253,8 @@ export function useReports(startDate: string, endDate: string) {
   const { isSuperAdmin, hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.visits(), 'reports', { startDate, endDate }],
-    queryFn: () => provider.listVisits({ startDate, endDate }),
+    // endDate is inclusive: extend it to the end of that (UTC) day, matching the page's date-part filter
+    queryFn: () => provider.listVisits({ startDate, endDate: `${endDate}T23:59:59.999Z` }),
     enabled: isAuthenticated && !!token && !!startDate && !!endDate && (isSuperAdmin || hasPermission('REPORTS', 'canRead')),
   });
 }
@@ -364,6 +399,7 @@ export function useAuthMutations() {
     mutationFn: (input: AuthLoginInput) => provider.authLogin(input),
     onSuccess: (data) => {
       if (data.success && data.user && data.token) {
+        startFreshSession();
         login({ user: data.user, token: data.token });
       }
     }
@@ -373,6 +409,7 @@ export function useAuthMutations() {
     mutationFn: (input: AuthSignupInput) => provider.authSignup(input),
     onSuccess: (data) => {
       if (data.success && data.user && data.token) {
+        startFreshSession();
         login({ user: data.user, token: data.token });
       }
     }
@@ -534,15 +571,12 @@ export function useRoleMutations() {
 // ── OPD Queue ───────────────────────────────────────────────────
 
 export function useQueue() {
+  const provider = useProviderStore((s) => s.provider);
   const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.queue(),
-    queryFn: async () => {
-      const res = await fetch('/api/queue');
-      if (!res.ok) throw new Error('Failed to fetch queue');
-      return res.json();
-    },
-    enabled: isAuthenticated || !!token,
+    queryFn: () => provider.getQueue(),
+    enabled: isAuthenticated && !!token,
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -550,79 +584,146 @@ export function useQueue() {
 
 export function useQueueMutations() {
   const qc = useQueryClient();
+  const provider = useProviderStore((s) => s.provider);
+  const invalidate = () => qc.invalidateQueries({ queryKey: keys.queue() });
 
   const enqueue = useMutation({
-    mutationFn: async (payload: any) => {
-      const res = await fetch('/api/queue/enqueue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('Failed to enqueue patient');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: (payload: EnqueueInput) => provider.enqueue(payload),
+    onSuccess: invalidate,
   });
 
   const callNext = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/queue/call-next', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!res.ok) throw new Error('Failed to call next patient');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: () => provider.callNextInQueue(),
+    onSuccess: invalidate,
   });
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, inRoomSince }: { id: string; status: string; inRoomSince?: string }) => {
-      const res = await fetch(`/api/queue/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, inRoomSince }),
-      });
-      if (!res.ok) throw new Error('Failed to update queue status');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: (input: UpdateQueueStatusInput) => provider.updateQueueStatus(input),
+    onSuccess: invalidate,
   });
 
   const removeFromQueue = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/queue/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to remove from queue');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: (id: string) => provider.removeFromQueue(id),
+    onSuccess: invalidate,
   });
 
+  // Persists the order of WAITING items (POST /queue/reorder). The cache is updated optimistically,
+  // rolled back on error (callers show the error toast) and replaced by the server's order on success.
   const reorderQueue = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      const res = await fetch('/api/queue/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderedIds }),
-      });
-      if (!res.ok) throw new Error('Failed to reorder queue');
-      return res.json();
+    mutationFn: (orderedIds: string[]) => provider.reorderQueue(orderedIds),
+    onMutate: async (orderedIds) => {
+      await qc.cancelQueries({ queryKey: keys.queue() });
+      const previous = qc.getQueryData<QueueEntry[]>(keys.queue());
+      if (Array.isArray(previous)) {
+        const byId = new Map(previous.map((item) => [item.id, item]));
+        const ordered = orderedIds.map((id) => byId.get(id)).filter((item): item is QueueEntry => !!item);
+        const orderedSet = new Set(orderedIds);
+        const notWaiting = previous.filter((item) => !orderedSet.has(item.id) && item.status !== 'WAITING');
+        const otherWaiting = previous.filter((item) => !orderedSet.has(item.id) && item.status === 'WAITING');
+        qc.setQueryData<QueueEntry[]>(keys.queue(), [...notWaiting, ...ordered, ...otherWaiting]);
+      }
+      return { previous };
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
+    onError: (_err, _orderedIds, context) => {
+      if (context?.previous) {
+        qc.setQueryData(keys.queue(), context.previous);
+      }
+      invalidate();
+    },
+    onSuccess: (queue) => {
+      qc.setQueryData(keys.queue(), queue);
     },
   });
 
   return { enqueue, callNext, updateStatus, removeFromQueue, reorderQueue };
+}
+
+// ── Platform operator (AMAN) ────────────────────────────────────
+
+export const platformKeys = {
+  all: [...keys.all, 'platform'] as const,
+  stats: () => [...platformKeys.all, 'stats'] as const,
+  organizations: () => [...platformKeys.all, 'organizations'] as const,
+  organizationList: (params: PlatformListParams) => [...platformKeys.organizations(), 'list', params] as const,
+  organization: (id: string) => [...platformKeys.organizations(), 'detail', id] as const,
+  transactions: (params: PlatformListParams) => [...platformKeys.all, 'transactions', params] as const,
+};
+
+function usePlatformEnabled() {
+  const { isAuthenticated, token, user } = useAuth();
+  return isAuthenticated && !!token && user?.platformRole === 'AMAN';
+}
+
+export function usePlatformStats() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.stats(),
+    queryFn: () => provider.getPlatformStats(),
+    enabled,
+    staleTime: 1000 * 60,
+  });
+}
+
+export function usePlatformOrganizations(params: PlatformListParams) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.organizationList(params),
+    queryFn: () => provider.listPlatformOrganizations(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformOrganization(orgId: string) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.organization(orgId),
+    queryFn: () => provider.getPlatformOrganization(orgId),
+    enabled: enabled && !!orgId,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformTransactions(params: PlatformListParams) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.transactions(params),
+    queryFn: () => provider.listPlatformTransactions(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore((s) => s.provider);
+
+  const invalidateOrg = (orgId?: string) => {
+    qc.invalidateQueries({ queryKey: platformKeys.stats() });
+    if (orgId) {
+      qc.invalidateQueries({ queryKey: platformKeys.organization(orgId) });
+    }
+    qc.invalidateQueries({ queryKey: [...platformKeys.organizations(), 'list'] });
+  };
+
+  const updateSubscription = useMutation({
+    mutationFn: ({ orgId, input }: { orgId: string; input: AdminUpdateSubscriptionInput }) =>
+      provider.updatePlatformOrganizationSubscription(orgId, input),
+    onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
+  });
+
+  const updateUserStatus = useMutation({
+    mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean; orgId?: string }) =>
+      provider.updatePlatformUserStatus(userId, isActive),
+    onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
+  });
+
+  return { updateSubscription, updateUserStatus };
 }
 

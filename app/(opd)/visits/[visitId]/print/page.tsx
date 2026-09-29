@@ -46,7 +46,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
 
             const phone = patient.mobile.replace(/\D/g, '');
             const targetPhone = phone.length === 10 ? `91${phone}` : phone;
-            window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`, '_blank');
+            window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
           }}
         >
           <MessageCircle size={15} /> Send via WhatsApp

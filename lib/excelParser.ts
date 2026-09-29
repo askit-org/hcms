@@ -41,14 +41,31 @@ function normalizeHeader(h: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function findValue(row: Record<string, any>, possibleKeys: string[]): string {
-  for (const rawKey of Object.keys(row)) {
-    const norm = normalizeHeader(rawKey);
-    if (possibleKeys.includes(norm)) {
-      const val = row[rawKey];
-      return val !== undefined && val !== null ? String(val).trim() : '';
-    }
-  }
+/** Maximum accepted spreadsheet size for bulk import. */
+export const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
+/** Maximum number of data rows parsed from a spreadsheet. */
+export const MAX_IMPORT_ROWS = 5000;
+
+// Only these columns are ever read from an uploaded sheet (matched by normalized header).
+// Rows are read as positional arrays, so arbitrary header names such as `__proto__`,
+// `constructor` or `prototype` are never used as object keys.
+const FIELD_ALIASES = {
+  name: ['name', 'medicinename', 'medicine', 'drug', 'drugname'],
+  category: ['category', 'type', 'group', 'class'],
+  strength: ['strength', 'dosemg', 'mg', 'dosage'],
+  unit: ['unit', 'unittype', 'form'],
+  defaultDose: ['defaultdose', 'dosage', 'dose', 'frequency', 'schedule'],
+  defaultDuration: ['defaultduration', 'duration', 'days'],
+} as const;
+
+type ImportField = keyof typeof FIELD_ALIASES;
+const IMPORT_FIELDS = Object.keys(FIELD_ALIASES) as ImportField[];
+
+function cellToString(val: unknown): string {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val).trim();
+  if (val instanceof Date) return val.toISOString();
   return '';
 }
 
@@ -56,29 +73,44 @@ export async function parseMedicinesExcel(
   file: File,
   existingMedicines: Medicine[] = []
 ): Promise<ParsedMedicineRow[]> {
+  if (file.size > MAX_IMPORT_FILE_BYTES) {
+    throw new Error('File is too large. Please upload a spreadsheet smaller than 2 MB.');
+  }
+
   const data = await file.arrayBuffer();
-  const workbook = XLSX.read(data, { type: 'array' });
+  const workbook = XLSX.read(data, { type: 'array', sheetRows: MAX_IMPORT_ROWS + 1 });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) {
     throw new Error('The uploaded file does not contain any worksheets.');
   }
 
   const worksheet = workbook.Sheets[firstSheetName];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+  const grid = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: '', blankrows: false });
+  const headerRow = Array.isArray(grid[0]) ? grid[0] : [];
+  const headers = headerRow.map((h) => normalizeHeader(cellToString(h)));
+
+  // Resolve each known field to the first matching column index (-1 when absent)
+  const columnOf = {} as Record<ImportField, number>;
+  for (const field of IMPORT_FIELDS) {
+    const aliases: readonly string[] = FIELD_ALIASES[field];
+    columnOf[field] = headers.findIndex((h) => aliases.includes(h));
+  }
 
   const existingNames = new Set(existingMedicines.map((m) => m.name.toLowerCase().trim()));
   const seenInBatch = new Set<string>();
 
   const results: ParsedMedicineRow[] = [];
+  const dataRows = grid.slice(1, MAX_IMPORT_ROWS + 1);
 
-  for (let i = 0; i < rawRows.length; i++) {
-    const row = rawRows[i];
-    const name = findValue(row, ['name', 'medicinename', 'medicine', 'drug', 'drugname']);
-    const rawCategory = findValue(row, ['category', 'type', 'group', 'class']);
-    const strength = findValue(row, ['strength', 'dosemg', 'mg', 'dosage']);
-    const unit = findValue(row, ['unit', 'unittype', 'form']);
-    const defaultDose = findValue(row, ['defaultdose', 'dosage', 'dose', 'frequency', 'schedule']);
-    const defaultDuration = findValue(row, ['defaultduration', 'duration', 'days']);
+  for (let i = 0; i < dataRows.length; i++) {
+    const cells = Array.isArray(dataRows[i]) ? dataRows[i] : [];
+    const read = (field: ImportField) => (columnOf[field] >= 0 ? cellToString(cells[columnOf[field]]) : '');
+    const name = read('name');
+    const rawCategory = read('category');
+    const strength = read('strength');
+    const unit = read('unit');
+    const defaultDose = read('defaultDose');
+    const defaultDuration = read('defaultDuration');
 
     if (!name && !rawCategory && !strength) {
       // Empty row, skip

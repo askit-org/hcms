@@ -133,7 +133,7 @@ export default function NewVisitForm() {
   useEffect(() => {
     if (!patientQuery.trim()) { setPatientResults([]); return; }
     const t = setTimeout(async () => {
-      const r = await provider.listPatients({ search: patientQuery });
+      const { data: r } = await provider.listPatients({ search: patientQuery, limit: 6 });
       setPatientResults(r.slice(0, 6));
     }, 200);
     return () => clearTimeout(t);

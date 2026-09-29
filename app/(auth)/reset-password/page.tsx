@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, ArrowLeft, Eye, EyeOff, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -12,7 +12,15 @@ import { motion } from 'framer-motion';
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token') || '';
+  // Keep the reset token in memory only; it is stripped from the address bar below
+  const [token] = useState(() => searchParams.get('token') || '');
+
+  useEffect(() => {
+    // Remove ?token= from the URL so it doesn't linger in history, screenshots or Referer headers
+    if (window.location.search.includes('token=')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,8 +38,8 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (!newPassword || newPassword.length < 6) {
-      toast('Password must be at least 6 characters long', 'error');
+    if (!newPassword || newPassword.length < 8) {
+      toast('Password must be at least 8 characters long', 'error');
       return;
     }
 
