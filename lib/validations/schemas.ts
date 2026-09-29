@@ -35,6 +35,12 @@ export const patientSchema = yup.object({
       const digits = val.trim().replace(/\D/g, '');
       return digits.length === 14;
     }),
+  relation: yup.string().optional(),
+  guardianName: yup.string().when('relation', {
+    is: (val: string) => val && val !== 'Self',
+    then: (schema) => schema.required('Guardian name is required when relation is not Self'),
+    otherwise: (schema) => schema.optional(),
+  }),
   address: yup.string().optional(),
   occupation: yup.string().optional(),
 });

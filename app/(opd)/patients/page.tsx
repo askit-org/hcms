@@ -37,7 +37,7 @@ export default function PatientsPage() {
 
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [editForm, setEditForm] = useState({
-    name: '', age: '', dob: '', gender: 'Male', mobile: '', address: '', occupation: '', abhaNumber: ''
+    name: '', age: '', dob: '', gender: 'Male', mobile: '', relation: 'Self', guardianName: '', address: '', occupation: '', abhaNumber: ''
   });
 
   const { update: updatePatientMut } = usePatientMutations();
@@ -80,6 +80,8 @@ export default function PatientsPage() {
       dob: p.dob || '',
       gender: p.gender || 'Male',
       mobile: p.mobile || '',
+      relation: p.relation || 'Self',
+      guardianName: p.guardianName || '',
       address: p.address || '',
       occupation: p.occupation || '',
       abhaNumber: p.abhaNumber || ''
@@ -111,6 +113,8 @@ export default function PatientsPage() {
           dob: editForm.dob || undefined,
           gender: editForm.gender,
           mobile: editForm.mobile.trim(),
+          relation: editForm.relation,
+          guardianName: editForm.relation !== 'Self' ? editForm.guardianName.trim() : undefined,
           address: editForm.address.trim() || undefined,
           occupation: editForm.occupation.trim() || undefined,
           abhaNumber: editForm.abhaNumber.trim() || undefined,
@@ -356,7 +360,7 @@ export default function PatientsPage() {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-                      {p.mobile}
+                      {p.mobile} {p.relation !== 'Self' ? <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({p.relation})</span> : null}
                     </div>
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>{p.abhaNumber || '—'}</td>
@@ -442,6 +446,27 @@ export default function PatientsPage() {
               <div>
                 <label className="form-label">Mobile Number <span className="required">*</span></label>
                 <input className="form-input" type="tel" maxLength={10} placeholder="10-digit mobile number" value={editForm.mobile} onChange={e => setEditForm(f => ({ ...f, mobile: e.target.value }))} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="form-label">Relation</label>
+                  <select className="form-select" value={editForm.relation} onChange={e => {
+                    setEditForm(f => ({ ...f, relation: e.target.value }));
+                    if (e.target.value === 'Self') setEditForm(f => ({ ...f, guardianName: '' }));
+                  }}>
+                    <option value="Self">Self</option>
+                    <option value="Parent">Parent</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Child">Child</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                {editForm.relation !== 'Self' && (
+                  <div>
+                    <label className="form-label">Guardian Name <span className="required">*</span></label>
+                    <input className="form-input" placeholder="Guardian's name" value={editForm.guardianName} onChange={e => setEditForm(f => ({ ...f, guardianName: e.target.value }))} />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="form-label">ABHA Number</label>

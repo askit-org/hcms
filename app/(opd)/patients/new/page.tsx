@@ -33,6 +33,8 @@ export default function NewPatientPage() {
     dob: '',
     gender: 'Male',
     mobile: '',
+    relation: 'Self',
+    guardianName: '',
     address: '',
     occupation: '',
     abhaNumber: '',
@@ -117,6 +119,8 @@ export default function NewPatientPage() {
         dob: form.dob || undefined,
         gender: form.gender,
         mobile: form.mobile.trim(),
+        relation: form.relation,
+        guardianName: form.relation !== 'Self' ? form.guardianName.trim() : undefined,
         address: form.address.trim() || undefined,
         occupation: form.occupation.trim() || undefined,
         abhaNumber: form.abhaNumber.trim() || undefined,
@@ -240,6 +244,45 @@ export default function NewPatientPage() {
                 </div>
               )}
             </div>
+
+            <div className="form-group">
+              <label className="form-label">Relation (Mobile Owner) <span className="required">*</span></label>
+              <select
+                data-field="relation"
+                className={`form-select ${errors.relation ? 'has-error' : ''}`}
+                style={errors.relation ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
+                value={form.relation}
+                onChange={e => {
+                  set('relation', e.target.value);
+                  if (e.target.value === 'Self') set('guardianName', '');
+                }}
+              >
+                <option value="Self">Self (Patient's own number)</option>
+                <option value="Parent">Parent</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Child">Child</option>
+                <option value="Other">Other Guardian</option>
+              </select>
+            </div>
+
+            {form.relation !== 'Self' && (
+              <div className="form-group">
+                <label className="form-label">Guardian Name <span className="required">*</span></label>
+                <input
+                  data-field="guardianName"
+                  className={`form-input ${errors.guardianName ? 'has-error' : ''}`}
+                  style={errors.guardianName ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
+                  placeholder="Enter guardian's name"
+                  value={form.guardianName}
+                  onChange={e => set('guardianName', e.target.value)}
+                />
+                {errors.guardianName && (
+                  <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                    <AlertCircle size={14} color="var(--red)" /> {errors.guardianName}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">ABHA Number <span style={{ color: 'var(--text-muted)' }}>(14 digits)</span></label>
