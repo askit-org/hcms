@@ -548,6 +548,7 @@ export interface IncidentQuery {
 export interface IncidentListResponse {
   success: boolean;
   summary: {
+    totalAll?: number;
     totalUnresolved: number;
     critical: number;
     error: number;

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Users, UserPlus, Search, Eye, Stethoscope, Phone,
-  Calendar, X, Edit2, Save, AlertTriangle, ArrowLeftRight, ArchiveRestore, RotateCcw
+  Calendar, X, Edit2, Save, AlertTriangle, ArrowLeftRight, ArchiveRestore, RotateCcw, Clock,
 } from 'lucide-react';
 import { usePatients, useAppOptions, usePatientMutations, useDeletedPatients } from '@/lib/hooks/useQueries';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -345,7 +345,7 @@ export default function PatientsPage() {
                 <th>Mobile</th>
                 <th>ABHA Number</th>
                 <th>Conditions</th>
-                <th>Registered</th>
+                <th>Recent Activity / Last Visit</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -380,7 +380,62 @@ export default function PatientsPage() {
                       <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}
                   </td>
-                  <td style={{ color: 'var(--text-muted)' }}>{new Date(p.createdAt).toLocaleDateString('en-IN')}</td>
+                  <td>
+                    {p.lastVisit ? (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span className="badge badge-teal" style={{ fontSize: '0.68rem', padding: '1px 6px', fontWeight: 600 }}>
+                            {p.lastVisit.category || 'OPD'}
+                          </span>
+                          <span style={{ fontWeight: 600, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+                            {new Date(p.lastVisit.date).toLocaleDateString('en-IN')}
+                          </span>
+                          {(p.visitsCount ?? 0) > 1 && (
+                            <span className="badge badge-blue" style={{ fontSize: '0.64rem', padding: '1px 5px' }}>
+                              {p.visitsCount} visits
+                            </span>
+                          )}
+                        </div>
+                        {(p.lastVisit.diagnosis || p.lastVisit.chiefComplaints) && (
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--text-secondary)',
+                              marginTop: 2,
+                              maxWidth: 190,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={p.lastVisit.diagnosis || p.lastVisit.chiefComplaints}
+                          >
+                            {p.lastVisit.diagnosis || p.lastVisit.chiefComplaints}
+                          </div>
+                        )}
+                        {p.lastVisit.doctorName && (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 1 }}>
+                            by Dr. {p.lastVisit.doctorName}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="badge badge-amber" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                            New
+                          </span>
+                          <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                            {new Date(p.createdAt).toLocaleDateString('en-IN')}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                          {p.updatedAt && new Date(p.updatedAt).getTime() - new Date(p.createdAt).getTime() > 60000
+                            ? `Updated ${new Date(p.updatedAt).toLocaleDateString('en-IN')}`
+                            : 'No visits recorded yet'}
+                        </div>
+                      </div>
+                    )}
+                  </td>
                   <td onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-secondary btn-sm" title="Edit Patient" onClick={() => openEditModal(p)}>

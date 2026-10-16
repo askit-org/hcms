@@ -207,6 +207,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.dashboard() });
       qc.invalidateQueries({ queryKey: keys.followups() });
       qc.invalidateQueries({ queryKey: keys.queue() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
     },
   });
 
@@ -217,6 +218,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.visit(id) });
       qc.invalidateQueries({ queryKey: keys.visits() }); 
       qc.invalidateQueries({ queryKey: keys.dashboard() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
     },
   });
 
@@ -227,6 +229,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.visits() });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
       qc.invalidateQueries({ queryKey: keys.followups() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
     },
   });
 
