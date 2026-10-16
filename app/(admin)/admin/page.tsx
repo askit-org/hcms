@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Building2, Users, UserRound, Stethoscope, Receipt, IndianRupee, Search, RefreshCw } from 'lucide-react';
+import { Building2, Users, UserRound, Stethoscope, Receipt, IndianRupee, Search, RefreshCw, BadgeCheck } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
 import Pagination from '@/components/Pagination';
 import { describeSubscription, formatCurrency, formatDate } from '@/components/admin/format';
 import { usePlatformOrganizations, usePlatformStats } from '@/lib/hooks/useQueries';
+import LivePulseWidget from '@/components/admin/LivePulseWidget';
+import LiveActivityFeed from '@/components/admin/LiveActivityFeed';
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -59,8 +61,11 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Live OPD Operational Pulse */}
+      <LivePulseWidget />
+
       {/* Stat Cards */}
-      <div className="dashboard-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="dashboard-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 24 }}>
         {statCards.map((c) => (
           <div
             key={c.label}
@@ -79,6 +84,9 @@ export default function AdminDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Real-Time Operational Activity Ticker */}
+      <LiveActivityFeed />
 
       {/* Organizations */}
       <div className="card">
@@ -140,6 +148,11 @@ export default function AdminDashboardPage() {
                       <td>
                         <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
                           {org.owner?.name || '—'}
+                          {org.owner?.isVerifiedDoctor && (
+                            <span title="Verified Medical License" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              <BadgeCheck size={14} color="#10b981" />
+                            </span>
+                          )}
                           {org.owner?.isActive === false && <span className="badge badge-red">Disabled</span>}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>

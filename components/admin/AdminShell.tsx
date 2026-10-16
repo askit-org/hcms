@@ -4,18 +4,23 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, Receipt, LogOut, Menu, ShieldCheck } from 'lucide-react';
+import { Building2, Receipt, LogOut, Menu, ShieldCheck, History, AlertTriangle, TrendingUp, Megaphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions, ADMIN_HOME_ROUTE } from '@/lib/hooks/usePermissions';
 import { useSessionGuard } from '@/lib/hooks/useSessionGuard';
 import { isTokenExpired, logout } from '@/lib/auth/session';
+import { usePlatformLivePulse } from '@/lib/hooks/useQueries';
 import ThemeToggle from '@/components/ThemeToggle';
 import LoadingScreen from '@/components/LoadingScreen';
 
 const adminNav = [
-  { href: ADMIN_HOME_ROUTE, label: 'Organizations', icon: Building2 },
+  { href: ADMIN_HOME_ROUTE, label: 'Organizations', icon: Building2, exact: true },
+  { href: `${ADMIN_HOME_ROUTE}/analytics`, label: 'SaaS Analytics', icon: TrendingUp },
+  { href: `${ADMIN_HOME_ROUTE}/incidents`, label: 'Incidents & Alerts', icon: AlertTriangle, badge: 'incidents' },
+  { href: `${ADMIN_HOME_ROUTE}/announcements`, label: 'Announcements', icon: Megaphone },
   { href: `${ADMIN_HOME_ROUTE}/transactions`, label: 'Transactions', icon: Receipt },
+  { href: `${ADMIN_HOME_ROUTE}/audit`, label: 'Audit & Archival', icon: History },
 ];
 
 /**
@@ -34,6 +39,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     () => false
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { data: pulse } = usePlatformLivePulse();
 
   const hasValidSession = isAuthenticated && !!token && !isTokenExpired(token);
 
@@ -53,10 +59,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     return <LoadingScreen message="Restoring session..." />;
   }
 
-  const isActive = (href: string) =>
-    href === ADMIN_HOME_ROUTE
-      ? pathname === ADMIN_HOME_ROUTE || pathname.startsWith(`${ADMIN_HOME_ROUTE}/organizations`)
-      : pathname.startsWith(href);
+  const isActive = (item: (typeof adminNav)[number]) => {
+    if (item.exact) {
+      return pathname === ADMIN_HOME_ROUTE || pathname.startsWith(`${ADMIN_HOME_ROUTE}/organizations`);
+    }
+    return pathname.startsWith(item.href);
+  };
 
   return (
     <div className="app-shell" style={{ display: 'flex' }}>
@@ -91,17 +99,34 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
         <nav className="nav-scroll">
           <div className="nav-group-label">Platform</div>
-          {adminNav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item ${isActive(item.href) ? 'active' : ''}`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <item.icon />
-              {item.label}
-            </Link>
-          ))}
+          {adminNav.map((item) => {
+            const hasUnresolved = item.badge === 'incidents' && (pulse?.unresolvedIncidents ?? 0) > 0;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-item ${isActive(item) ? 'active' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <item.icon size={18} />
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {hasUnresolved && (
+                  <span
+                    className="badge badge-error"
+                    style={{
+                      fontSize: '0.68rem',
+                      padding: '2px 6px',
+                      borderRadius: 9999,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {pulse?.unresolvedIncidents}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

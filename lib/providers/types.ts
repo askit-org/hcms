@@ -302,6 +302,10 @@ export interface PlatformSubscription {
   paidAmount?: number;
   paymentRef?: string;
   activatedAt?: string;
+  customMaxDoctors?: number | null;
+  customMaxStaff?: number | null;
+  featureFlags?: Record<string, any>;
+  internalNotes?: string | null;
 }
 
 export interface PlatformStats {
@@ -328,6 +332,7 @@ export interface PlatformOrganizationOwner {
   email: string | null;
   phone: string | null;
   isActive: boolean | null;
+  isVerifiedDoctor?: boolean | null;
 }
 
 export interface PlatformOrganization {
@@ -347,10 +352,14 @@ export interface PlatformOrganizationUser {
   name: string | null;
   email: string;
   phone?: string | null;
+  degree?: string | null;
+  regNo?: string | null;
   roleName: string | null;
   roleCode: string | null;
   isOwner: boolean;
   isActive: boolean;
+  isVerifiedDoctor?: boolean;
+  verificationStatus?: string;
   createdAt: string;
 }
 
@@ -388,6 +397,16 @@ export interface AdminUpdateSubscriptionInput {
   action: AdminSubscriptionAction;
   planType?: 'trial' | 'premium'; // activate (and optionally extend)
   days?: number; // 1..3650
+  customMaxDoctors?: number;
+  customMaxStaff?: number;
+  featureFlags?: Record<string, any>;
+  internalNotes?: string;
+  recordPayment?: {
+    amount: number;
+    paymentMode?: string;
+    note?: string;
+  };
+  reason?: string;
 }
 
 export interface AdminUpdateSubscriptionResponse {
@@ -395,6 +414,219 @@ export interface AdminUpdateSubscriptionResponse {
   message?: string;
   data: PlatformSubscription;
 }
+
+export interface ImpersonateUserInput {
+  userId: string;
+  reason: string;
+}
+
+export interface ImpersonateResponse {
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    user: import('../hooks/useAuth').AuthUser;
+  };
+}
+
+export interface PlatformOnboardingMilestone {
+  key: string;
+  label: string;
+  description: string;
+  isCompleted: boolean;
+}
+
+export interface PlatformOnboardingResponse {
+  success: boolean;
+  data: {
+    orgId: string;
+    orgName: string;
+    createdAt: string;
+    progressPercent: number;
+    completedCount: number;
+    totalMilestones: number;
+    isFullyOnboarded: boolean;
+    milestones: PlatformOnboardingMilestone[];
+  };
+}
+
+export interface PlatformAuditLogEntry {
+  id: string;
+  adminId: string;
+  adminEmail: string;
+  action: string;
+  targetOrgId?: string | null;
+  targetUserId?: string | null;
+  reason?: string | null;
+  metadata: Record<string, any>;
+  ipAddress?: string | null;
+  createdAt: string;
+}
+
+export interface PlatformAuditQuery {
+  page?: number;
+  limit?: number;
+  action?: string;
+  targetOrgId?: string;
+  targetUserId?: string;
+  search?: string;
+}
+
+export interface PlatformAuditResponse {
+  success: boolean;
+  data: PlatformAuditLogEntry[];
+  meta: { page: number; limit: number; total: number };
+}
+
+export interface PlatformAuditMonth {
+  month: string;
+  recordCount: number;
+  estimatedSizeBytes: number;
+}
+
+export interface ExportMonthlyAuditInput {
+  month: string;
+  format?: 'json' | 'csv';
+  pruneAfterDownload?: boolean;
+  confirmationCode?: string;
+}
+
+export interface ExportMonthlyAuditResponse {
+  success: boolean;
+  month: string;
+  recordCount: number;
+  sha256Checksum: string;
+  prunedFromDatabase: boolean;
+  prunedCount: number;
+  filename: string;
+  contentType: string;
+  data: string;
+}
+
+export interface PlatformLivePulseData {
+  activeClinicsToday: number;
+  activeDoctorsToday: number;
+  visitsToday: number;
+  queueWaitingNow: number;
+  queueInRoomNow: number;
+  queueCompletedToday: number;
+  unresolvedIncidents: number;
+  timestamp: string;
+}
+
+export interface PlatformLiveActivityEvent {
+  id: string;
+  type: 'visit' | 'queue' | 'staff' | 'clinic' | 'payment';
+  title: string;
+  description: string;
+  badgeColor: string;
+  createdAt: string;
+}
+
+export interface IncidentAlertItem {
+  id: string;
+  service: string;
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  title: string;
+  details?: Record<string, any>;
+  organizationId?: string | null;
+  org_name?: string | null;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  resolutionNote?: string | null;
+  createdAt: string;
+}
+
+export interface IncidentQuery {
+  page?: number;
+  limit?: number;
+  status?: 'all' | 'unresolved' | 'resolved';
+  severity?: 'info' | 'warning' | 'error' | 'critical';
+  service?: string;
+}
+
+export interface IncidentListResponse {
+  success: boolean;
+  summary: {
+    totalUnresolved: number;
+    critical: number;
+    error: number;
+    warning: number;
+  };
+  data: IncidentAlertItem[];
+  meta: { page: number; limit: number; total: number };
+}
+
+export interface ResolveIncidentInput {
+  resolutionNote?: string;
+}
+
+export interface CreateTestIncidentInput {
+  service?: string;
+  severity?: string;
+  title?: string;
+  details?: Record<string, any>;
+}
+
+export interface SaaSAnalyticsData {
+  mrr: number;
+  arr: number;
+  totalRevenue: number;
+  arpu: number;
+  totalOrgs: number;
+  activePaidClinics: number;
+  trialClinics: number;
+  expiredClinics: number;
+  noPlanClinics: number;
+  planDistribution: Array<{ name: string; count: number; color: string }>;
+  monthlyRevenueTrend: Array<{ month: string; revenue: number; count: number }>;
+  growthCohort: {
+    newClinicsThisMonth: number;
+    newClinicsLastMonth: number;
+    growthRatePct: number;
+  };
+}
+
+export interface SystemAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'critical' | 'maintenance';
+  targetRole: string | null;
+  targetOrgId: string | null;
+  startsAt: string;
+  expiresAt: string | null;
+  isActive: boolean;
+  isDismissible: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CreateAnnouncementInput {
+  title: string;
+  message: string;
+  type?: 'info' | 'warning' | 'critical' | 'maintenance';
+  targetRole?: string | null;
+  targetOrgId?: string | null;
+  startsAt?: string;
+  expiresAt?: string | null;
+  isActive?: boolean;
+  isDismissible?: boolean;
+}
+
+export interface UpdateAnnouncementInput {
+  title?: string;
+  message?: string;
+  type?: 'info' | 'warning' | 'critical' | 'maintenance';
+  targetRole?: string | null;
+  targetOrgId?: string | null;
+  startsAt?: string;
+  expiresAt?: string | null;
+  isActive?: boolean;
+  isDismissible?: boolean;
+}
+
+
 
 // ─── THE DATA PROVIDER INTERFACE ─────────────────────────────────
 // Both local.ts and api.ts implement this contract.
@@ -484,4 +716,24 @@ export interface DataProvider {
   updatePlatformOrganizationSubscription(orgId: string, input: AdminUpdateSubscriptionInput): Promise<AdminUpdateSubscriptionResponse>;
   updatePlatformUserStatus(userId: string, isActive: boolean): Promise<void>;
   listPlatformTransactions(params?: PlatformListParams): Promise<PlatformPage<PlatformTransaction>>;
+  impersonateUser(input: ImpersonateUserInput): Promise<ImpersonateResponse>;
+  getPlatformOrganizationOnboarding(orgId: string): Promise<PlatformOnboardingResponse>;
+  verifyPlatformDoctor(userId: string, input: { isVerified: boolean; verificationNotes?: string }): Promise<any>;
+  listPlatformAuditLogs(params?: PlatformAuditQuery): Promise<PlatformAuditResponse>;
+  getPlatformAuditMonths(): Promise<PlatformAuditMonth[]>;
+  exportMonthlyAudit(input: ExportMonthlyAuditInput): Promise<ExportMonthlyAuditResponse>;
+  getPlatformLivePulse(): Promise<PlatformLivePulseData>;
+  getPlatformLiveActivity(): Promise<PlatformLiveActivityEvent[]>;
+  listPlatformIncidents(params?: IncidentQuery): Promise<IncidentListResponse>;
+  resolvePlatformIncident(id: string, input?: ResolveIncidentInput): Promise<IncidentAlertItem>;
+  createTestPlatformIncident(input?: CreateTestIncidentInput): Promise<IncidentAlertItem>;
+  getPlatformAnalytics(): Promise<SaaSAnalyticsData>;
+  listPlatformAnnouncements(): Promise<SystemAnnouncement[]>;
+  createPlatformAnnouncement(input: CreateAnnouncementInput): Promise<SystemAnnouncement>;
+  updatePlatformAnnouncement(id: string, input: UpdateAnnouncementInput): Promise<SystemAnnouncement>;
+  deletePlatformAnnouncement(id: string): Promise<void>;
+  getActiveAnnouncements(): Promise<SystemAnnouncement[]>;
+  exportPlatformOrganizationData(orgId: string): Promise<{ filename: string; sha256Checksum: string; contentType: string; data: string }>;
+  purgePlatformOrganizationTestData(orgId: string, confirmationCode: string): Promise<{ success: boolean; message: string; purged: { visits: number; patients: number; queues: number } }>;
 }
+
