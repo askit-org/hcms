@@ -17,6 +17,8 @@ import { isTokenExpired, logout } from '@/lib/auth/session';
 import type { Patient, AppModel } from '@/lib/providers/types';
 import ThemeToggle from '@/components/ThemeToggle';
 import SubscriptionBanner from '@/components/SubscriptionBanner';
+import SupportModeBanner from '@/components/admin/SupportModeBanner';
+import GlobalAnnouncementBanner from '@/components/GlobalAnnouncementBanner';
 import OnboardingPlansModal from '@/components/OnboardingPlansModal';
 import LoadingScreen from '@/components/LoadingScreen';
 
@@ -274,6 +276,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="main-area">
+        <GlobalAnnouncementBanner />
+        <SupportModeBanner />
         <header className="topbar">
           <button 
             className="btn-icon" 

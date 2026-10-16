@@ -26,6 +26,12 @@ export interface AuthUser {
   tokenVersion?: number;
   /** 'AMAN' for the platform operator (no organization, role or clinic subscription); otherwise null. */
   platformRole?: import('../providers/types').PlatformRole | null;
+  /** Present when an AMAN operator is currently in an audited support/impersonation session. */
+  isSupportSession?: boolean;
+  supportSessionBy?: { id: string; email: string; name: string } | null;
+  supportReason?: string | null;
+  isVerifiedDoctor?: boolean;
+  verificationStatus?: string;
 }
 
 interface AuthState {

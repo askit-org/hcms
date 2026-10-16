@@ -56,6 +56,25 @@ import type {
   PlatformTransaction,
   AdminUpdateSubscriptionInput,
   AdminUpdateSubscriptionResponse,
+  ImpersonateUserInput,
+  ImpersonateResponse,
+  PlatformOnboardingResponse,
+  PlatformAuditQuery,
+  PlatformAuditResponse,
+  PlatformAuditMonth,
+  ExportMonthlyAuditInput,
+  ExportMonthlyAuditResponse,
+  PlatformLivePulseData,
+  PlatformLiveActivityEvent,
+  IncidentAlertItem,
+  IncidentQuery,
+  IncidentListResponse,
+  ResolveIncidentInput,
+  CreateTestIncidentInput,
+  SaaSAnalyticsData,
+  SystemAnnouncement,
+  CreateAnnouncementInput,
+  UpdateAnnouncementInput,
 } from './types';
 
 // The API base URL must be configured explicitly (next.config.ts fails production builds without it).
@@ -378,4 +397,63 @@ export const ApiDataProvider: DataProvider = {
   async listPlatformTransactions(params?: PlatformListParams): Promise<PlatformPage<PlatformTransaction>> {
     return api.get('/platform/transactions', { params }).then((r) => extractPage<PlatformTransaction>(r));
   },
+  async impersonateUser(input: ImpersonateUserInput): Promise<ImpersonateResponse> {
+    return api.post<ImpersonateResponse>('/platform/impersonate', input).then((r) => r.data);
+  },
+  async getPlatformOrganizationOnboarding(orgId: string): Promise<PlatformOnboardingResponse> {
+    return api.get<PlatformOnboardingResponse>(`/platform/organizations/${encodeURIComponent(orgId)}/onboarding`).then((r) => r.data);
+  },
+  async verifyPlatformDoctor(userId: string, input: { isVerified: boolean; verificationNotes?: string }): Promise<any> {
+    return api.patch(`/platform/users/${encodeURIComponent(userId)}/verify-doctor`, input).then((r) => r.data);
+  },
+  async listPlatformAuditLogs(params?: PlatformAuditQuery): Promise<PlatformAuditResponse> {
+    return api.get<PlatformAuditResponse>('/platform/audit-logs', { params }).then((r) => r.data);
+  },
+  async getPlatformAuditMonths(): Promise<PlatformAuditMonth[]> {
+    return api.get<{ success: boolean; data: PlatformAuditMonth[] }>('/platform/audit-logs/months').then((r) => r.data.data);
+  },
+  async exportMonthlyAudit(input: ExportMonthlyAuditInput): Promise<ExportMonthlyAuditResponse> {
+    return api.post<ExportMonthlyAuditResponse>('/platform/audit-logs/export-monthly', input).then((r) => r.data);
+  },
+  async getPlatformLivePulse(): Promise<PlatformLivePulseData> {
+    return api.get<{ success: boolean; data: PlatformLivePulseData }>('/platform/live-pulse').then((r) => r.data.data);
+  },
+  async getPlatformLiveActivity(): Promise<PlatformLiveActivityEvent[]> {
+    return api.get<{ success: boolean; data: PlatformLiveActivityEvent[] }>('/platform/live-activity').then((r) => r.data.data);
+  },
+  async listPlatformIncidents(params?: IncidentQuery): Promise<IncidentListResponse> {
+    return api.get<IncidentListResponse>('/platform/incidents', { params }).then((r) => r.data);
+  },
+  async resolvePlatformIncident(id: string, input?: ResolveIncidentInput): Promise<IncidentAlertItem> {
+    return api.patch<{ success: boolean; data: IncidentAlertItem }>(`/platform/incidents/${encodeURIComponent(id)}/resolve`, input || {}).then((r) => r.data.data);
+  },
+  async createTestPlatformIncident(input?: CreateTestIncidentInput): Promise<IncidentAlertItem> {
+    return api.post<{ success: boolean; data: IncidentAlertItem }>('/platform/incidents/test', input || {}).then((r) => r.data.data);
+  },
+  async getPlatformAnalytics(): Promise<SaaSAnalyticsData> {
+    return api.get<{ success: boolean; data: SaaSAnalyticsData }>('/platform/analytics').then((r) => r.data.data);
+  },
+  async listPlatformAnnouncements(): Promise<SystemAnnouncement[]> {
+    return api.get<{ success: boolean; data: SystemAnnouncement[] }>('/platform/announcements').then((r) => r.data.data);
+  },
+  async createPlatformAnnouncement(input: CreateAnnouncementInput): Promise<SystemAnnouncement> {
+    return api.post<{ success: boolean; data: SystemAnnouncement }>('/platform/announcements', input).then((r) => r.data.data);
+  },
+  async updatePlatformAnnouncement(id: string, input: UpdateAnnouncementInput): Promise<SystemAnnouncement> {
+    return api.patch<{ success: boolean; data: SystemAnnouncement }>(`/platform/announcements/${encodeURIComponent(id)}`, input).then((r) => r.data.data);
+  },
+  async deletePlatformAnnouncement(id: string): Promise<void> {
+    return api.delete(`/platform/announcements/${encodeURIComponent(id)}`).then(() => undefined);
+  },
+  async getActiveAnnouncements(): Promise<SystemAnnouncement[]> {
+    return api.get<{ success: boolean; data: SystemAnnouncement[] }>('/announcements/active').then((r) => r.data.data);
+  },
+  async exportPlatformOrganizationData(orgId: string): Promise<{ filename: string; sha256Checksum: string; contentType: string; data: string }> {
+    return api.get(`/platform/organizations/${encodeURIComponent(orgId)}/export`).then((r) => r.data);
+  },
+  async purgePlatformOrganizationTestData(orgId: string, confirmationCode: string): Promise<{ success: boolean; message: string; purged: { visits: number; patients: number; queues: number } }> {
+    return api.post(`/platform/organizations/${encodeURIComponent(orgId)}/purge-test-data`, { confirmationCode }).then((r) => r.data);
+  },
 };
+
+
