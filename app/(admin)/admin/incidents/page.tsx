@@ -29,7 +29,7 @@ const PAGE_SIZE = 25;
 
 export default function AdminIncidentsPage() {
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<'unresolved' | 'resolved' | 'all'>('unresolved');
+  const [statusFilter, setStatusFilter] = useState<'unresolved' | 'resolved' | 'all'>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [serviceFilter, setServiceFilter] = useState<string>('');
 
@@ -237,6 +237,13 @@ export default function AdminIncidentsPage() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button
               type="button"
+              className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => { setStatusFilter('all'); setPage(1); }}
+            >
+              All Alerts {summary.totalAll !== undefined ? `(${summary.totalAll})` : ''}
+            </button>
+            <button
+              type="button"
               className={`btn btn-sm ${statusFilter === 'unresolved' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => { setStatusFilter('unresolved'); setPage(1); }}
             >
@@ -247,14 +254,7 @@ export default function AdminIncidentsPage() {
               className={`btn btn-sm ${statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => { setStatusFilter('resolved'); setPage(1); }}
             >
-              Resolved
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => { setStatusFilter('all'); setPage(1); }}
-            >
-              All Alerts
+              Resolved {summary.totalAll !== undefined ? `(${Math.max(0, summary.totalAll - summary.totalUnresolved)})` : ''}
             </button>
           </div>
 
@@ -284,6 +284,7 @@ export default function AdminIncidentsPage() {
               <option value="RAZORPAY_WEBHOOK">Razorpay Webhooks</option>
               <option value="OPD_QUEUE">OPD Queue</option>
               <option value="AUTH_SYSTEM">Auth & Security</option>
+              <option value="SMS_GATEWAY">SMS Gateway</option>
             </select>
           </div>
         </div>
@@ -301,6 +302,14 @@ export default function AdminIncidentsPage() {
                 ? 'All platform services are operational. No active alerts!'
                 : 'No incidents match the selected filters.'}
             </p>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsTestModalOpen(true)}
+              style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <PlusCircle size={14} /> Simulate / Test Alert
+            </button>
           </div>
         ) : (
           <div className="table-wrap">
