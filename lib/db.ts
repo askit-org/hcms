@@ -15,6 +15,18 @@ export interface Patient {
   abhaNumber?: string;
   permanentConditions?: string[];
   createdAt: string;
+  updatedAt?: string;
+  lastVisitDate?: string | null;
+  visitsCount?: number;
+  lastActivityAt?: string;
+  lastVisit?: {
+    id: string;
+    date: string;
+    category: string;
+    diagnosis?: string;
+    chiefComplaints?: string;
+    doctorName?: string | null;
+  } | null;
   /** Set when the patient is soft-deleted (restorable from "Recently deleted"). */
   deletedAt?: string | null;
 }
