@@ -35,6 +35,14 @@ import type {
   QueueEntry,
   PlatformListParams,
   AdminUpdateSubscriptionInput,
+  ImpersonateUserInput,
+  PlatformAuditQuery,
+  ExportMonthlyAuditInput,
+  IncidentQuery,
+  ResolveIncidentInput,
+  CreateTestIncidentInput,
+  CreateAnnouncementInput,
+  UpdateAnnouncementInput,
 } from '../providers/types';
 
 // Query Keys
@@ -55,6 +63,7 @@ export const keys = {
   organization: () => [...keys.all, 'organization'] as const,
   roles: () => [...keys.all, 'roles'] as const,
   queue: () => [...keys.all, 'queue'] as const,
+  activeAnnouncements: () => [...keys.all, 'activeAnnouncements'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
@@ -643,10 +652,19 @@ export function useQueueMutations() {
 export const platformKeys = {
   all: [...keys.all, 'platform'] as const,
   stats: () => [...platformKeys.all, 'stats'] as const,
+  livePulse: () => [...platformKeys.all, 'livePulse'] as const,
+  liveActivity: () => [...platformKeys.all, 'liveActivity'] as const,
+  incidents: () => [...platformKeys.all, 'incidents'] as const,
+  incidentList: (params?: IncidentQuery) => [...platformKeys.incidents(), 'list', params] as const,
   organizations: () => [...platformKeys.all, 'organizations'] as const,
   organizationList: (params: PlatformListParams) => [...platformKeys.organizations(), 'list', params] as const,
   organization: (id: string) => [...platformKeys.organizations(), 'detail', id] as const,
+  onboarding: (id: string) => [...platformKeys.organizations(), 'onboarding', id] as const,
   transactions: (params: PlatformListParams) => [...platformKeys.all, 'transactions', params] as const,
+  auditLogs: (params?: PlatformAuditQuery) => [...platformKeys.all, 'auditLogs', params] as const,
+  auditMonths: () => [...platformKeys.all, 'auditMonths'] as const,
+  analytics: () => [...platformKeys.all, 'analytics'] as const,
+  announcements: () => [...platformKeys.all, 'announcements'] as const,
 };
 
 function usePlatformEnabled() {
@@ -688,6 +706,17 @@ export function usePlatformOrganization(orgId: string) {
   });
 }
 
+export function usePlatformOnboarding(orgId: string) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.onboarding(orgId),
+    queryFn: () => provider.getPlatformOrganizationOnboarding(orgId),
+    enabled: enabled && !!orgId,
+    staleTime: 1000 * 30,
+  });
+}
+
 export function usePlatformTransactions(params: PlatformListParams) {
   const provider = useProviderStore((s) => s.provider);
   const enabled = usePlatformEnabled();
@@ -700,6 +729,112 @@ export function usePlatformTransactions(params: PlatformListParams) {
   });
 }
 
+export function usePlatformAuditLogs(params?: PlatformAuditQuery) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.auditLogs(params),
+    queryFn: () => provider.listPlatformAuditLogs(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 15,
+  });
+}
+
+export function usePlatformAuditMonths() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.auditMonths(),
+    queryFn: () => provider.getPlatformAuditMonths(),
+    enabled,
+    staleTime: 1000 * 60,
+  });
+}
+
+export function usePlatformLivePulse() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.livePulse(),
+    queryFn: () => provider.getPlatformLivePulse(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformLiveActivity() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.liveActivity(),
+    queryFn: () => provider.getPlatformLiveActivity(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformIncidents(params?: IncidentQuery) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.incidentList(params),
+    queryFn: () => provider.listPlatformIncidents(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformAnalytics() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.analytics(),
+    queryFn: () => provider.getPlatformAnalytics(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformAnnouncements() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.announcements(),
+    queryFn: () => provider.listPlatformAnnouncements(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function useActiveAnnouncements() {
+  const provider = useProviderStore((s) => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: keys.activeAnnouncements(),
+    queryFn: () => provider.getActiveAnnouncements(),
+    enabled: isAuthenticated && !!token,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function usePlatformMutations() {
   const qc = useQueryClient();
   const provider = useProviderStore((s) => s.provider);
@@ -708,8 +843,10 @@ export function usePlatformMutations() {
     qc.invalidateQueries({ queryKey: platformKeys.stats() });
     if (orgId) {
       qc.invalidateQueries({ queryKey: platformKeys.organization(orgId) });
+      qc.invalidateQueries({ queryKey: platformKeys.onboarding(orgId) });
     }
     qc.invalidateQueries({ queryKey: [...platformKeys.organizations(), 'list'] });
+    qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
   };
 
   const updateSubscription = useMutation({
@@ -724,6 +861,101 @@ export function usePlatformMutations() {
     onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
   });
 
-  return { updateSubscription, updateUserStatus };
+  const verifyDoctor = useMutation({
+    mutationFn: ({ userId, isVerified, notes, orgId }: { userId: string; isVerified: boolean; notes?: string; orgId?: string }) =>
+      provider.verifyPlatformDoctor(userId, { isVerified, verificationNotes: notes }),
+    onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
+  });
+
+  const impersonateUser = useMutation({
+    mutationFn: (input: ImpersonateUserInput) => provider.impersonateUser(input),
+  });
+
+  const exportMonthlyAudit = useMutation({
+    mutationFn: (input: ExportMonthlyAuditInput) => provider.exportMonthlyAudit(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.auditMonths() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const resolveIncident = useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      provider.resolvePlatformIncident(id, { resolutionNote: note }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.incidents() });
+      qc.invalidateQueries({ queryKey: platformKeys.livePulse() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const createTestIncident = useMutation({
+    mutationFn: (input: CreateTestIncidentInput) => provider.createTestPlatformIncident(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.incidents() });
+      qc.invalidateQueries({ queryKey: platformKeys.livePulse() });
+    },
+  });
+
+  const createAnnouncement = useMutation({
+    mutationFn: (input: CreateAnnouncementInput) => provider.createPlatformAnnouncement(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.announcements() });
+      qc.invalidateQueries({ queryKey: keys.activeAnnouncements() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const updateAnnouncement = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAnnouncementInput }) =>
+      provider.updatePlatformAnnouncement(id, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.announcements() });
+      qc.invalidateQueries({ queryKey: keys.activeAnnouncements() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const deleteAnnouncement = useMutation({
+    mutationFn: (id: string) => provider.deletePlatformAnnouncement(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.announcements() });
+      qc.invalidateQueries({ queryKey: keys.activeAnnouncements() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const exportOrganizationData = useMutation({
+    mutationFn: (orgId: string) => provider.exportPlatformOrganizationData(orgId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const purgeOrganizationTestData = useMutation({
+    mutationFn: ({ orgId, confirmationCode }: { orgId: string; confirmationCode: string }) =>
+      provider.purgePlatformOrganizationTestData(orgId, confirmationCode),
+    onSuccess: (_data, { orgId }) => {
+      invalidateOrg(orgId);
+      qc.invalidateQueries({ queryKey: platformKeys.livePulse() });
+      qc.invalidateQueries({ queryKey: platformKeys.liveActivity() });
+    },
+  });
+
+  return {
+    updateSubscription,
+    updateUserStatus,
+    verifyDoctor,
+    impersonateUser,
+    exportMonthlyAudit,
+    resolveIncident,
+    createTestIncident,
+    createAnnouncement,
+    updateAnnouncement,
+    deleteAnnouncement,
+    exportOrganizationData,
+    purgeOrganizationTestData,
+  };
 }
+
 
