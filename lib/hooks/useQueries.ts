@@ -381,11 +381,10 @@ export function useAppOptionMutations() {
 export function useSettings() {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
-  const { hasPermission, isSuperAdmin } = usePermissions();
   return useQuery({
     queryKey: keys.settings(),
     queryFn: () => provider.getSettings(),
-    enabled: isAuthenticated && !!token && (isSuperAdmin || hasPermission('SETTINGS', 'canRead')),
+    enabled: isAuthenticated && !!token,
   });
 }
 
