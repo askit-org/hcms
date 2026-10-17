@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useAuthMutations, useSubscription } from '@/lib/hooks/useQueries';
-import { FileText, Trash2, AlertTriangle, User, Edit2, Save, X, CreditCard, Sparkles, ShieldCheck, Clock, RefreshCw } from 'lucide-react';
+import { useAuthMutations, useSubscription, useSettings, useSettingsMutations } from '@/lib/hooks/useQueries';
+import { FileText, Trash2, AlertTriangle, User, Edit2, Save, X, CreditCard, Sparkles, ShieldCheck, Clock, RefreshCw, Receipt, QrCode, Banknote } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
@@ -83,6 +83,38 @@ export default function SettingsPage() {
     clearAppLocalStorage({ keepAuth: true });
     toast('Data on this device cleared. Reloading…', 'info');
     setTimeout(() => window.location.reload(), 1200);
+  };
+
+  const { data: clinicSettings } = useSettings();
+  const { update: updateSettings } = useSettingsMutations();
+  const [billingForm, setBillingForm] = useState({
+    consultationFee: 500,
+    upiId: '',
+  });
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+
+  useEffect(() => {
+    if (clinicSettings) {
+      setBillingForm({
+        consultationFee: clinicSettings.consultationFee !== undefined ? Number(clinicSettings.consultationFee) : 500,
+        upiId: clinicSettings.upiId || '',
+      });
+    }
+  }, [clinicSettings]);
+
+  const handleSaveBillingSettings = async () => {
+    setIsSavingBilling(true);
+    try {
+      await updateSettings.mutateAsync({
+        consultationFee: Number(billingForm.consultationFee) || 0,
+        upiId: billingForm.upiId.trim() || undefined,
+      });
+      toast('Billing & UPI settings saved successfully!', 'success');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to update billing settings'), 'error');
+    } finally {
+      setIsSavingBilling(false);
+    }
   };
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -354,6 +386,62 @@ export default function SettingsPage() {
               {user.address && <div>{user.address}</div>}
               {user.phone && <div>📞 {user.phone}</div>}
               {user.regNo && <div>Reg: {user.regNo}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Billing & UPI Payment Settings */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Receipt size={16} /> OPD Billing & UPI Settings
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleSaveBillingSettings}
+            disabled={isSavingBilling}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Save size={14} /> {isSavingBilling ? 'Saving…' : 'Save Billing Settings'}
+          </button>
+        </div>
+
+        <div className="form-grid form-grid-2">
+          <div>
+            <label className="form-label" style={{ fontWeight: 600 }}>Default Consultation Fee (₹)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>₹</span>
+              <input
+                type="number"
+                min="0"
+                step="50"
+                className="form-input"
+                placeholder="500"
+                value={billingForm.consultationFee}
+                onChange={e => setBillingForm(b => ({ ...b, consultationFee: Math.max(0, parseFloat(e.target.value) || 0) }))}
+              />
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              This fee auto-populates on every OPD bill generated during visits.
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label" style={{ fontWeight: 600 }}>Clinic UPI ID (for QR Code Payments)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <QrCode size={16} style={{ color: 'var(--accent)' }} />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. clinic@okhdfcbank or doctor@upi"
+                value={billingForm.upiId}
+                onChange={e => setBillingForm(b => ({ ...b, upiId: e.target.value }))}
+              />
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              Patients can scan and pay via Google Pay, PhonePe, Paytm, or any UPI app.
             </div>
           </div>
         </div>

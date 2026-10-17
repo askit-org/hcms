@@ -63,6 +63,7 @@ export interface Visit {
   medicines?: PrescribedMedicine[];
   followUpDate?: string;
   followUpAttended?: boolean;
+  billingStatus?: 'UNBILLED' | 'BILLED';
   createdAt: string;
   /** Joined patient record (included by GET /visits). */
   patient?: Patient;

@@ -588,7 +588,7 @@ export default function ChiefComplaintsPicker({
                           <span style={{
                             fontSize: '0.82rem',
                             fontWeight: isSelected ? 700 : 500,
-                            color: isSelected ? 'var(--accent)' : 'var(--text)',
+                            color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',

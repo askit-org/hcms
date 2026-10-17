@@ -15,6 +15,10 @@ import type {
   ClinicSettings,
   CreateAppOptionInput,
   AppOption,
+  Bill,
+  CreateBillInput,
+  RecordPaymentInput,
+  PendingDuesResponse,
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
@@ -374,6 +378,23 @@ export const ApiDataProvider: DataProvider = {
   },
   async reorderQueue(orderedIds: string[], chamberNo?: string): Promise<QueueEntry[]> {
     return api.post('/queue/reorder', { orderedIds, chamberNo }).then((r) => extractArray<QueueEntry>(r, 'queue'));
+  },
+
+  // ── Billing ─────────────────────────────────────────────────────
+  async createBill(input: CreateBillInput): Promise<Bill> {
+    return api.post<Bill>('/billing', input).then((r) => extract<Bill>(r));
+  },
+  async getBillForVisit(visitId: string): Promise<Bill | null> {
+    return api.get<Bill | null>(`/billing/visit/${encodeURIComponent(visitId)}`).then((r) => extract<Bill | null>(r));
+  },
+  async getBillById(id: string): Promise<Bill> {
+    return api.get<Bill>(`/billing/${encodeURIComponent(id)}`).then((r) => extract<Bill>(r));
+  },
+  async getPendingDues(): Promise<PendingDuesResponse> {
+    return api.get<PendingDuesResponse>('/billing/pending-dues').then((r) => extract<PendingDuesResponse>(r));
+  },
+  async recordBillPayment(billId: string, input: RecordPaymentInput): Promise<Bill> {
+    return api.post<Bill>(`/billing/${encodeURIComponent(billId)}/payments`, input).then((r) => extract<Bill>(r));
   },
 
   // ── Platform operator (AMAN) ───────────────────────────────────

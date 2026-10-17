@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse, Receipt
 } from 'lucide-react';
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
 import type { Visit, Patient } from '@/lib/providers/types';
@@ -19,6 +19,7 @@ import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
 import { DoseDisplay } from '@/components/DoseSelector';
 import ConfirmModal from '@/components/ConfirmModal';
+import CreateBillModal from '@/components/CreateBillModal';
 
 const COMMON_CONDITIONS = [
   'Hypertension (BP)',
@@ -40,6 +41,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
   const { update: updateVisit, remove: removeVisit } = useVisitMutations();
 
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
+  const [billingVisit, setBillingVisit] = useState<Visit | null>(null);
   const [tab, setTab] = useState<'overview' | 'visits'>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -533,6 +535,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                     <span className="badge badge-purple">{v.category || 'OPD'}</span>
+                    <span className={`badge ${v.billingStatus === 'BILLED' ? 'badge-green' : 'badge-amber'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <Receipt size={11} /> {v.billingStatus === 'BILLED' ? 'Billed' : 'Unbilled'}
+                    </span>
                     {v.diagnosis && <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Dx: {v.diagnosis}</span>}
                     {v.followUpDate && (
                       <span className={`badge ${v.followUpAttended ? 'badge-green' : 'badge-amber'}`}>
@@ -590,6 +595,17 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBillingVisit(v);
+                      }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Receipt size={14} /> {v.billingStatus === 'BILLED' ? 'Billing Details' : 'Generate Bill'}
+                    </button>
                     <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print / Share Rx</Link>
                     <Link href={`/visits/${v.id}/edit`} className="btn btn-primary btn-sm"><Edit2 size={14} /> Edit Visit</Link>
                     <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={(e) => { e.stopPropagation(); handleDeleteVisit(v); }}>
@@ -618,6 +634,25 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
         {...confirmModalState}
         onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
       />
+
+      {billingVisit && patient && (
+        <CreateBillModal
+          isOpen={!!billingVisit}
+          onClose={() => setBillingVisit(null)}
+          patientId={patient.patientId}
+          patientName={patient.name}
+          visitId={String(billingVisit.id)}
+          visitDate={billingVisit.date}
+          initialTreatments={
+            billingVisit.treatment?.trim()
+              ? [{ name: billingVisit.treatment.trim(), unitPrice: 100, quantity: 1 }]
+              : []
+          }
+          onSuccess={() => {
+            // refreshed
+          }}
+        />
+      )}
     </PageTransition>
   );
 }
