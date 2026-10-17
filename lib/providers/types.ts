@@ -9,7 +9,7 @@ import type { Patient, Visit, Medicine, Template } from '@/lib/db';
 export type { Patient, Visit, Medicine, Template, PrescribedMedicine } from '@/lib/db';
 
 export interface AppOption {
-  id: number;
+  id: number | string;
   optionType: string;
   value: string;
   createdAt: string;
@@ -699,7 +699,7 @@ export interface DataProvider {
   // ── App Options ────────────────────────────────────────────────
   listOptions(type?: string): Promise<AppOption[]>;
   createOption(input: CreateAppOptionInput): Promise<AppOption>;
-  deleteOption(id: number): Promise<void>;
+  deleteOption(id: number | string): Promise<void>;
 
   // ── OPD Queue ──────────────────────────────────────────────────
   getQueue(): Promise<QueueEntry[]>;

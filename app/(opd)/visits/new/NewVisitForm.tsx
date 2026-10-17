@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import VoiceInputButton from '@/components/VoiceInputButton';
 import InstructionPicker from '@/components/InstructionPicker';
 import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
+import ChiefComplaintsPicker from '@/components/ChiefComplaintsPicker';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
 
@@ -526,38 +527,22 @@ export default function NewVisitForm() {
         </div>
 
         {/* Chief Complaints */}
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>Chief Complaints <span className="required">*</span></div>
-            <VoiceInputButton
-              title="Dictate Chief Complaints"
-              onTranscript={(text) => {
-                syncComplaints(text);
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-            {activeComplaints.map(c => (
-              <button key={c} type="button" className={`quick-btn ${selectedComplaints.includes(c) ? 'selected' : ''}`}
-                onClick={() => toggleComplaint(c)}>{c}</button>
-            ))}
-          </div>
-          <textarea
-            data-field="chiefComplaints"
-            className={`form-textarea ${errors.chiefComplaints ? 'has-error' : ''}`}
-            style={{
-              minHeight: 80,
-              ...(errors.chiefComplaints ? { border: '2px solid var(--red)' } : {})
-            }}
-            placeholder="Describe chief complaints in detail…"
-            value={form.chiefComplaints}
-            onChange={e => {
-              syncComplaints(e.target.value);
-              if (errors.chiefComplaints) { setErrors(err => { const c = { ...err }; delete c.chiefComplaints; return c; }); }
-            }}
-          />
-          {errors.chiefComplaints && <span style={{ color: 'var(--red)', fontSize: '0.75rem', marginTop: 4, display: 'block' }}>{errors.chiefComplaints}</span>}
-        </div>
+        <ChiefComplaintsPicker
+          value={form.chiefComplaints}
+          onChange={val => {
+            set('chiefComplaints', val);
+            if (errors.chiefComplaints) {
+              setErrors(err => { const c = { ...err }; delete c.chiefComplaints; return c; });
+            }
+          }}
+          error={errors.chiefComplaints}
+          onClearError={() => {
+            if (errors.chiefComplaints) {
+              setErrors(err => { const c = { ...err }; delete c.chiefComplaints; return c; });
+            }
+          }}
+          required
+        />
 
         {/* Diagnosis & Treatment */}
         <div className="card" style={{ marginBottom: 16 }}>
