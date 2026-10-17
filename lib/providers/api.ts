@@ -49,7 +49,7 @@ import type {
 // The baseUrl can be configured via environment variables
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
-  timeout: 5000, // 5s timeout to prevent hanging browser network sockets
+  timeout: 15000, // 15s timeout to allow headroom for remote cloud database latency
 });
 
 import { toast } from '@/components/Toast';
