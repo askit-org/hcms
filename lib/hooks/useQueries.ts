@@ -351,11 +351,10 @@ export function useTemplateMutations() {
 export function useAppOptions(type?: string) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
-  const { hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.options(), type],
     queryFn: () => provider.listOptions(type),
-    enabled: isAuthenticated && !!token && hasPermission('OPTIONS', 'canRead'),
+    enabled: isAuthenticated && !!token,
   });
 }
 
@@ -369,7 +368,7 @@ export function useAppOptionMutations() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: number) => provider.deleteOption(id),
+    mutationFn: (id: number | string) => provider.deleteOption(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.options() }),
   });
 

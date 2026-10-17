@@ -352,7 +352,7 @@ export const ApiDataProvider: DataProvider = {
   async createOption(input: CreateAppOptionInput): Promise<AppOption> {
     return api.post<AppOption>('/options', input).then((r) => extract<AppOption>(r));
   },
-  async deleteOption(id: number): Promise<void> {
+  async deleteOption(id: number | string): Promise<void> {
     return api.delete(`/options/${id}`).then(() => undefined);
   },
 
