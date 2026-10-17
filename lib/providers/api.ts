@@ -92,8 +92,8 @@ declare module 'axios' {
 }
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 5000, // 5s timeout to prevent hanging browser network sockets
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
+  timeout: 15000, // 15s timeout to allow headroom for remote cloud database latency
 });
 
 import { toast } from '@/components/Toast';
