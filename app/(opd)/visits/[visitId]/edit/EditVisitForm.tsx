@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse, Receipt } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
 import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations, useVisit } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
@@ -18,6 +18,7 @@ import ChiefComplaintsPicker from '@/components/ChiefComplaintsPicker';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
 import ConfirmModal from '@/components/ConfirmModal';
+import CreateBillModal from '@/components/CreateBillModal';
 
 
 const QUICK_COMPLAINTS = [
@@ -43,6 +44,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
   const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showBillModal, setShowBillModal] = useState(false);
 
   const [form, setForm] = useState({
     category: '', chiefComplaints: '', diagnosis: '', bp: '', pulse: '', temp: '', spo2: '',
@@ -389,14 +391,24 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           <div className="page-title">Edit OPD Visit</div>
           <div className="page-subtitle">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
         </div>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={() => setShowDeleteModal(true)}
-          style={{ color: 'var(--red, #ef4444)', borderColor: 'rgba(239, 68, 68, 0.25)', gap: 6 }}
-        >
-          <Trash2 size={15} /> Delete Visit
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowBillModal(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Receipt size={15} /> Billing & Settlement
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowDeleteModal(true)}
+            style={{ color: 'var(--red, #ef4444)', borderColor: 'rgba(239, 68, 68, 0.25)', gap: 6 }}
+          >
+            <Trash2 size={15} /> Delete Visit
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -889,6 +901,26 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
         variant="danger"
         isLoading={deleting}
       />
+
+      {/* Billing Modal */}
+      {visitData && (
+        <CreateBillModal
+          isOpen={showBillModal}
+          onClose={() => setShowBillModal(false)}
+          patientId={selectedPatient?.patientId || visitData.patientId}
+          patientName={selectedPatient?.name || 'Patient'}
+          visitId={String(visitId)}
+          visitDate={visitData.date}
+          initialTreatments={
+            form.treatment.trim()
+              ? [{ name: form.treatment.trim(), unitPrice: 100, quantity: 1 }]
+              : []
+          }
+          onSuccess={() => {
+            // Updated bill
+          }}
+        />
+      )}
     </PageTransition>
   );
 }

@@ -93,9 +93,9 @@ export default function ConfirmModal({
             width: "100%",
             padding: "24px",
             borderRadius: "16px",
-            background: "var(--surface-card, #121929)",
-            border: "1px solid var(--border, rgba(255, 255, 255, 0.1))",
-            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5)",
+            background: "var(--surface-solid)",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--modal-shadow), 0 20px 50px rgba(0, 0, 0, 0.4)",
             position: "relative",
             zIndex: 1000060,
           }}
@@ -112,15 +112,15 @@ export default function ConfirmModal({
               position: "absolute",
               top: 16,
               right: 16,
-              background: "var(--surface-3, rgba(255, 255, 255, 0.05))",
-              border: "1px solid var(--border, rgba(255, 255, 255, 0.1))",
+              background: "var(--surface-3)",
+              border: "1px solid var(--border)",
               borderRadius: "50%",
               width: 32,
               height: 32,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "var(--text-secondary, #94a3b8)",
+              color: "var(--text-secondary)",
               cursor: "pointer",
             }}
           >
@@ -160,7 +160,7 @@ export default function ConfirmModal({
                   fontSize: "1.15rem",
                   fontWeight: 700,
                   margin: "0 0 6px 0",
-                  color: "var(--text-primary, #f8fafc)",
+                  color: "var(--text-primary)",
                   lineHeight: 1.3,
                 }}
               >
@@ -169,7 +169,7 @@ export default function ConfirmModal({
               <p
                 style={{
                   fontSize: "0.86rem",
-                  color: "var(--text-secondary, #94a3b8)",
+                  color: "var(--text-secondary)",
                   margin: 0,
                   lineHeight: 1.5,
                 }}

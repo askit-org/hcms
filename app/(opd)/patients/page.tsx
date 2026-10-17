@@ -311,7 +311,7 @@ export default function PatientsPage() {
             <AlertTriangle size={16} />
             <span>Invalid Date Range: <strong>From Date</strong> ({fromDate}) cannot be after <strong>To Date</strong> ({toDate}).</span>
           </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={swapDates} style={{ background: '#ffffff', color: 'var(--red)', border: '1px solid var(--red)' }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={swapDates} style={{ background: 'var(--surface-solid)', color: 'var(--red)', border: '1px solid var(--red)' }}>
             <ArrowLeftRight size={13} /> Swap Dates
           </button>
         </div>

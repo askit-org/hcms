@@ -17,6 +17,8 @@ import DoseSelector, { DurationSelect } from '@/components/DoseSelector';
 import ChiefComplaintsPicker from '@/components/ChiefComplaintsPicker';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
+import ConfirmModal from '@/components/ConfirmModal';
+import CreateBillModal from '@/components/CreateBillModal';
 
 
 const QUICK_COMPLAINTS = [
@@ -42,6 +44,9 @@ export default function NewVisitForm() {
   const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [savedVisitInfo, setSavedVisitInfo] = useState<{ id: string; date: string } | null>(null);
+  const [showBillingPrompt, setShowBillingPrompt] = useState(false);
+  const [showBillModal, setShowBillModal] = useState(false);
 
   const todayISO = new Date().toISOString().slice(0, 10);
   const [visitDate, setVisitDate] = useState<string>(todayISO);
@@ -324,7 +329,9 @@ export default function NewVisitForm() {
 
       (window as any).__hcms_has_unsaved_visit = false;
       toast('OPD Visit saved successfully!', 'success');
-      router.push(`/patients/${selectedPatient!.patientId}`);
+      setSavedVisitInfo({ id: String(savedVisit.id), date: visitDateTime });
+      setShowBillingPrompt(true);
+      setSaving(false);
       return true;
     } catch (err: any) {
       toast(getErrorMessage(err, 'Failed to save visit.'), 'error');
@@ -855,6 +862,51 @@ export default function NewVisitForm() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Move to Billing Prompt */}
+      <ConfirmModal
+        isOpen={showBillingPrompt}
+        onClose={() => {
+          setShowBillingPrompt(false);
+          router.push(`/patients/${selectedPatient?.patientId}`);
+        }}
+        onConfirm={() => {
+          setShowBillingPrompt(false);
+          setShowBillModal(true);
+        }}
+        title="Visit Saved! Move to Billing?"
+        description="This OPD visit is recorded as Unbilled. Would you like to proceed to billing now to add treatments performed (injections, salines, dressing) and settle the fees?"
+        confirmText="Move to Billing"
+        cancelText="Skip / Bill Later"
+        variant="info"
+      />
+
+      {/* Create Bill Modal */}
+      {savedVisitInfo && (
+        <CreateBillModal
+          isOpen={showBillModal}
+          onClose={() => {
+            setShowBillModal(false);
+            router.push(`/patients/${selectedPatient?.patientId}`);
+          }}
+          patientId={selectedPatient?.patientId || ''}
+          patientName={selectedPatient?.name || 'Patient'}
+          visitId={savedVisitInfo.id}
+          visitDate={savedVisitInfo.date}
+          initialTreatments={
+            form.treatment.trim()
+              ? [{ name: form.treatment.trim(), unitPrice: 100, quantity: 1 }]
+              : []
+          }
+          onSuccess={() => {
+            // Keep open so user can print or share via WhatsApp, or close on Done
+          }}
+          onSkip={() => {
+            setShowBillModal(false);
+            router.push(`/patients/${selectedPatient?.patientId}`);
+          }}
+        />
+      )}
     </PageTransition>
   );
 }

@@ -42,6 +42,8 @@ export type ClinicSettings = {
   phone: string;
   regNo: string;
   city: string;
+  consultationFee?: number;
+  upiId?: string;
 };
 
 export type AuthLoginInput = { email: string; password?: string };
@@ -251,6 +253,106 @@ export interface DashboardStats {
   upcomingFollowUps: number;
   recentVisits: Array<{ visit: Visit; patient: Patient | undefined }>;
   todayFollowUpList: FollowUpItem[];
+}
+
+// ─── Billing Module Types ─────────────────────────────────────────
+
+export interface BillItem {
+  id?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface BillPayment {
+  id?: string;
+  amount: number;
+  paymentMethod: 'CASH' | 'UPI';
+  notes?: string;
+  paidAt: string;
+}
+
+export interface Bill {
+  id: string;
+  billNumber: string;
+  organizationId: string;
+  userId: string;
+  patientId: string;
+  visitId?: string;
+  date: string;
+  consultationFee: number;
+  subtotal: number;
+  discount: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceDue: number;
+  paymentStatus: 'PAID' | 'PARTIAL' | 'UNPAID';
+  paymentMethod: 'CASH' | 'UPI';
+  notes?: string;
+  items: BillItem[];
+  payments: BillPayment[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateBillItemInput {
+  name: string;
+  quantity?: number;
+  unitPrice: number;
+}
+
+export interface CreateBillInput {
+  patientId: string;
+  visitId?: string;
+  consultationFee?: number;
+  discount?: number;
+  paidAmount?: number;
+  paymentMethod?: 'CASH' | 'UPI';
+  notes?: string;
+  items?: CreateBillItemInput[];
+}
+
+export interface RecordPaymentInput {
+  amount: number;
+  paymentMethod?: 'CASH' | 'UPI';
+  notes?: string;
+}
+
+export interface PendingDueVisit {
+  id: string;
+  billNumber: string;
+  visitId?: string;
+  date: string;
+  visitDate: string;
+  treatment?: string;
+  chiefComplaints?: string;
+  consultationFee: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceDue: number;
+  paymentStatus: 'PARTIAL' | 'UNPAID';
+  paymentMethod: 'CASH' | 'UPI';
+  items: BillItem[];
+}
+
+export interface PatientPendingDues {
+  patientId: string;
+  patientName: string;
+  mobile: string;
+  gender?: string;
+  age?: number | string;
+  totalPendingAmount: number;
+  bills: PendingDueVisit[];
+}
+
+export interface PendingDuesResponse {
+  summary: {
+    totalDuesToCollect: number;
+    totalPatientsWithDues: number;
+    totalUnpaidVisits: number;
+  };
+  patients: PatientPendingDues[];
 }
 
 // ─── OPD Queue ────────────────────────────────────────────────────
@@ -709,6 +811,13 @@ export interface DataProvider {
   removeFromQueue(id: string): Promise<void>;
   /** Saves the order of today's WAITING items; returns the queue in the new order. */
   reorderQueue(orderedIds: string[], chamberNo?: string): Promise<QueueEntry[]>;
+
+  // ── Billing ─────────────────────────────────────────────────────
+  createBill(input: CreateBillInput): Promise<Bill>;
+  getBillForVisit(visitId: string): Promise<Bill | null>;
+  getBillById(id: string): Promise<Bill>;
+  getPendingDues(): Promise<PendingDuesResponse>;
+  recordBillPayment(billId: string, input: RecordPaymentInput): Promise<Bill>;
 
   // ── Platform operator (AMAN only; backend returns 403 otherwise) ──
   getPlatformStats(): Promise<PlatformStats>;

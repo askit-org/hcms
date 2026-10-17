@@ -43,6 +43,10 @@ import type {
   CreateTestIncidentInput,
   CreateAnnouncementInput,
   UpdateAnnouncementInput,
+  CreateBillInput,
+  RecordPaymentInput,
+  Bill,
+  PendingDuesResponse,
 } from '../providers/types';
 
 // Query Keys
@@ -64,6 +68,10 @@ export const keys = {
   roles: () => [...keys.all, 'roles'] as const,
   queue: () => [...keys.all, 'queue'] as const,
   activeAnnouncements: () => [...keys.all, 'activeAnnouncements'] as const,
+  bills: () => [...keys.all, 'bills'] as const,
+  billForVisit: (visitId: string) => [...keys.bills(), 'visit', visitId] as const,
+  bill: (id: string) => [...keys.bills(), id] as const,
+  pendingDues: () => [...keys.bills(), 'pending-dues'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
@@ -243,6 +251,74 @@ export function useVisitMutations() {
   });
 
   return { create, update, remove, markFollowUp };
+}
+
+// ── Billing ──────────────────────────────────────────────────────
+
+export function useBillForVisit(visitId: string | undefined | null) {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: keys.billForVisit(visitId || ''),
+    queryFn: () => provider.getBillForVisit(visitId!),
+    enabled: isAuthenticated && !!token && !!visitId,
+  });
+}
+
+export function useBill(id: string | undefined | null) {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: keys.bill(id || ''),
+    queryFn: () => provider.getBillById(id!),
+    enabled: isAuthenticated && !!token && !!id,
+  });
+}
+
+export function usePendingDues() {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: keys.pendingDues(),
+    queryFn: () => provider.getPendingDues(),
+    enabled: isAuthenticated && !!token,
+  });
+}
+
+export function useBillingMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore(s => s.provider);
+
+  const createBill = useMutation({
+    mutationFn: (input: CreateBillInput) => provider.createBill(input),
+    onSuccess: (data, input) => {
+      if (input.visitId) {
+        qc.invalidateQueries({ queryKey: keys.billForVisit(input.visitId) });
+        qc.invalidateQueries({ queryKey: keys.visit(input.visitId) });
+      }
+      qc.invalidateQueries({ queryKey: keys.bills() });
+      qc.invalidateQueries({ queryKey: keys.pendingDues() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  const recordPayment = useMutation({
+    mutationFn: ({ billId, input }: { billId: string; input: RecordPaymentInput }) =>
+      provider.recordBillPayment(billId, input),
+    onSuccess: (data, { billId }) => {
+      qc.invalidateQueries({ queryKey: keys.bill(billId) });
+      if (data.visitId) {
+        qc.invalidateQueries({ queryKey: keys.billForVisit(data.visitId) });
+        qc.invalidateQueries({ queryKey: keys.visit(data.visitId) });
+      }
+      qc.invalidateQueries({ queryKey: keys.bills() });
+      qc.invalidateQueries({ queryKey: keys.pendingDues() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  return { createBill, recordPayment };
 }
 
 // ── Dashboard ──────────────────────────────────────────────────
