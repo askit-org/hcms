@@ -13,12 +13,12 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
   const { data: settings, isLoading: settingsLoading } = useSettings();
 
   const clinic = {
-    doctorName: settings?.doctorName || 'Dr. Name',
-    clinicName: settings?.clinicName || 'Clinic Name',
-    degree: settings?.degree || '',
-    address: settings?.address || '',
-    phone: settings?.phone || '',
-    regNo: settings?.regNo || ''
+    doctorName: (visit as any)?.adminDoctor?.name || settings?.doctorName || 'Dr. Administrator',
+    clinicName: (visit as any)?.adminHospital?.name || settings?.clinicName || (visit as any)?.organization?.name || 'Hospital Clinic',
+    degree: (visit as any)?.adminDoctor?.degree || settings?.degree || '',
+    address: (visit as any)?.adminHospital?.address || settings?.address || (visit as any)?.organization?.address || '',
+    phone: (visit as any)?.adminHospital?.phone || settings?.phone || (visit as any)?.organization?.phone || '',
+    regNo: (visit as any)?.adminDoctor?.regNo || settings?.regNo || ''
   };
 
   // Print prescription when user clicks Print button, not automatically on load
@@ -31,7 +31,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
   return (
     <div>
       <div className="no-print" style={{ padding: '16px 24px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-        <button className="btn btn-primary" onClick={() => window.print()}><Printer size={15} /> Print Prescription</button>
+        <button className="btn btn-primary" onClick={() => window.print()}><Printer size={15} /> Print Bill / Prescription</button>
         <button 
           className="btn" 
           style={{ background: '#25D366', color: '#fff', border: 'none' }}
@@ -116,17 +116,29 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
       <div style={{ padding: '20px', background: '#f1f5f9', minHeight: '100vh' }}>
         <div className="prescription-sheet" id="prescription">
           {/* Header */}
-          <div className="rx-header">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h2>{clinic.doctorName}</h2>
-                <p>{clinic.degree}</p>
-                <p style={{ marginTop: 4 }}>{clinic.clinicName}</p>
+          <div className="rx-header" style={{
+            background: '#ffffff',
+            borderBottom: '2.5px solid #0d9488',
+            padding: '24px 28px',
+            color: '#0f172a'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 3 }}>
+                  Official OPD Bill & Prescription
+                </div>
+                <h1 style={{ margin: 0, fontSize: '1.55rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+                  {clinic.clinicName}
+                </h1>
+                <h2 style={{ margin: '6px 0 0', fontSize: '1.08rem', fontWeight: 700, color: '#0d9488' }}>
+                  {clinic.doctorName}
+                </h2>
+                {clinic.degree && <div style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#475569', fontWeight: 600 }}>{clinic.degree}</div>}
+                {clinic.regNo && <div style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#64748b' }}>Reg. No: <strong style={{ color: '#334155' }}>{clinic.regNo}</strong></div>}
               </div>
-              <div style={{ textAlign: 'right', opacity: 0.85, fontSize: '0.8rem' }}>
-                {clinic.address && <p>{clinic.address}</p>}
-                {clinic.phone && <p>📞 {clinic.phone}</p>}
-                {clinic.regNo && <p>Reg. No: {clinic.regNo}</p>}
+              <div style={{ textAlign: 'right', fontSize: '0.82rem', lineHeight: 1.6, color: '#334155', maxWidth: '300px' }}>
+                {clinic.address && <div>📍 {clinic.address}</div>}
+                {clinic.phone && <div style={{ marginTop: 2 }}>📞 Contact: <strong style={{ color: '#0f172a' }}>{clinic.phone}</strong></div>}
               </div>
             </div>
           </div>
@@ -253,31 +265,45 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
             )}
 
             {/* Footer / Digital Signature */}
-            <div className="rx-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                <div><strong>Prescription Date:</strong> {new Date(visit.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                <div style={{ marginTop: 2 }}><strong>Generated:</strong> {new Date(visit.date).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+            <div className="rx-footer" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 14 }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', lineHeight: 1.6 }}>
+                <div><strong>Visit / Bill Date:</strong> {new Date(visit.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at {new Date(visit.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div style={{ marginTop: 2 }}><strong>Printed / Issued:</strong> {new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: 4 }}>
+                  Official OPD document issued exclusively by <strong>{clinic.clinicName}</strong>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ 
                   display: 'inline-block', 
                   border: '1.5px solid #0d9488', 
                   borderRadius: 8, 
-                  padding: '6px 12px', 
+                  padding: '10px 16px', 
                   background: 'rgba(13, 148, 136, 0.04)',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  minWidth: '240px'
                 }}>
-                  <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0d9488', fontWeight: 700 }}>
+                  <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.6px', color: '#0d9488', fontWeight: 800 }}>
                     Digitally Signed & Verified
                   </div>
-                  <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem', marginTop: 2 }}>
+                  <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.96rem', marginTop: 3 }}>
                     {clinic.doctorName}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: 1 }}>
-                    {clinic.degree ? `${clinic.degree} ` : ''}{clinic.regNo ? `| Reg: ${clinic.regNo}` : ''}
+                  <div style={{ fontSize: '0.75rem', color: '#0d9488', fontWeight: 600, marginTop: 1 }}>
+                    {clinic.clinicName}
                   </div>
-                  <div style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600, marginTop: 2 }}>
-                    🕒 {new Date(visit.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                  {(clinic.degree || clinic.regNo) && (
+                    <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: 2 }}>
+                      {clinic.degree ? `${clinic.degree} ` : ''}{clinic.regNo ? `| Reg: ${clinic.regNo}` : ''}
+                    </div>
+                  )}
+                  {clinic.phone && (
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 2 }}>
+                      📞 {clinic.phone}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: 600, marginTop: 5, borderTop: '1px solid rgba(13, 148, 136, 0.15)', paddingTop: 4 }}>
+                    🕒 Record Timestamp: {new Date(visit.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                   </div>
                 </div>
               </div>
