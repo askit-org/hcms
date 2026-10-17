@@ -10,6 +10,8 @@ import PageTransition from '@/components/PageTransition';
 import SettingsTemplates from '@/components/SettingsTemplates';
 import SettingsOptions from '@/components/SettingsOptions';
 import PaymentModal from '@/components/PaymentModal';
+import type { UpdateUserInput } from '@/lib/providers/types';
+import { clearAppLocalStorage, clearCacheStorage, clearLocalDatabase } from '@/lib/auth/session';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -25,6 +27,10 @@ export default function SettingsPage() {
     regNo: '',
     city: ''
   });
+  const [currentPassword, setCurrentPassword] = useState('');
+
+  const emailChanged =
+    !!user && formData.email.trim().toLowerCase() !== (user.email || '').trim().toLowerCase();
 
   useEffect(() => {
     if (user) {
@@ -42,23 +48,41 @@ export default function SettingsPage() {
   }, [user]);
 
   const handleSave = async () => {
+    // The backend requires the current password to change sign-in credentials
+    if (emailChanged && !currentPassword) {
+      toast('Please enter your current password to change your email.', 'error');
+      return;
+    }
+    const { email, ...profile } = formData;
+    const payload: UpdateUserInput = emailChanged
+      ? { ...profile, email: email.trim(), currentPassword }
+      : profile;
     try {
-      await updateUser.mutateAsync(formData);
+      await updateUser.mutateAsync(payload);
       toast('User profile updated successfully!', 'success');
       setIsEditing(false);
+      setCurrentPassword('');
     } catch (err: any) {
       toast(getErrorMessage(err, 'Failed to update user profile'), 'error');
     }
   };
 
-  const clearAllData = async () => {
-    const confirmed = prompt('Type "DELETE ALL DATA" to confirm data deletion:');
-    if (confirmed !== 'DELETE ALL DATA') { toast('Deletion cancelled.', 'info'); return; }
-    const dbs = indexedDB.deleteDatabase('hcms_db');
-    dbs.onsuccess = () => {
-      toast('All data cleared. Reloading…', 'info');
-      setTimeout(() => window.location.reload(), 1500);
-    };
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setCurrentPassword('');
+    if (user) setFormData(f => ({ ...f, email: user.email || '' }));
+  };
+
+  const clearDeviceData = async () => {
+    const confirmed = window.confirm(
+      'Clear data on this device?\n\nThis removes cached pages, offline data and saved preferences from this browser only. ' +
+      'Your clinic and patient records on the server are NOT affected, and you will stay signed in.'
+    );
+    if (!confirmed) return;
+    await Promise.all([clearCacheStorage(), clearLocalDatabase()]);
+    clearAppLocalStorage({ keepAuth: true });
+    toast('Data on this device cleared. Reloading…', 'info');
+    setTimeout(() => window.location.reload(), 1200);
   };
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -214,7 +238,7 @@ export default function SettingsPage() {
               <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={updateUser.isPending}>
                 <Save size={14} /> Save
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setIsEditing(false)}>
+              <button className="btn btn-ghost btn-sm" onClick={cancelEditing}>
                 <X size={14} /> Cancel
               </button>
             </div>
@@ -229,8 +253,21 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="form-label">Email</label>
-              <input className="form-input" value={formData.email} onChange={e => setFormData(f => ({ ...f, email: e.target.value }))} />
+              <input className="form-input" type="email" value={formData.email} onChange={e => setFormData(f => ({ ...f, email: e.target.value }))} />
             </div>
+            {emailChanged && (
+              <div>
+                <label className="form-label">Current Password <span className="required">*</span></label>
+                <input
+                  className="form-input"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Required to change your email"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <label className="form-label">Degree / Specialization</label>
               <select className="form-select" value={formData.degree} onChange={e => setFormData(f => ({ ...f, degree: e.target.value }))}>
@@ -324,6 +361,19 @@ export default function SettingsPage() {
 
       {/* Prescription Templates */}
       <SettingsTemplates />
+
+      {/* Local device data */}
+      <div className="card" style={{ marginTop: 16, marginBottom: 16, border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+        <div className="card-title" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <AlertTriangle size={16} color="var(--red)" /> Data on This Device
+        </div>
+        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 }}>
+          Removes cached pages, offline data and saved preferences stored in this browser. Records stored on the server are not affected.
+        </p>
+        <button className="btn btn-danger btn-sm" onClick={clearDeviceData}>
+          <Trash2 size={14} /> Clear data on this device
+        </button>
+      </div>
 
       <PaymentModal 
         isOpen={showPaymentModal} 

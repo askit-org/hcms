@@ -35,6 +35,12 @@ export const patientSchema = yup.object({
       const digits = val.trim().replace(/\D/g, '');
       return digits.length === 14;
     }),
+  relation: yup.string().optional(),
+  guardianName: yup.string().when('relation', {
+    is: (val: string) => val && val !== 'Self',
+    then: (schema) => schema.required('Guardian name is required when relation is not Self'),
+    otherwise: (schema) => schema.optional(),
+  }),
   address: yup.string().optional(),
   occupation: yup.string().optional(),
 });
@@ -54,7 +60,7 @@ export const signupStep1Schema = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .min(6, 'Password must be at least 6 characters'),
+    .min(8, 'Password must be at least 8 characters'),
   degree: yup.string().optional(),
 });
 
@@ -83,9 +89,9 @@ export const onboardStaffSchema = yup.object({
   password: yup
     .string()
     .optional()
-    .test('is-valid-pwd', 'Password must be at least 6 characters', (val) => {
+    .test('is-valid-pwd', 'Password must be at least 8 characters', (val) => {
       if (!val || val.trim() === '') return true;
-      return val.length >= 6;
+      return val.length >= 8;
     }),
 });
 

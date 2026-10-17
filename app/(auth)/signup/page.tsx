@@ -176,7 +176,7 @@ export default function SignupPage() {
                   type="password"
                   className={`form-input ${errors.password ? 'has-error' : ''}`}
                   style={errors.password ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   value={form.password}
                   onChange={e => set('password', e.target.value)}
                 />

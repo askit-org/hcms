@@ -1,10 +1,11 @@
 // lib/hooks/useQueries.ts
 // React Query wrappers around our DataProvider
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useProviderStore } from '../providers';
 import { useAuth } from './useAuth';
 import { usePermissions } from './usePermissions';
+import { startFreshSession } from '../auth/session';
 import type { 
   PatientListParams, 
   VisitListParams, 
@@ -29,6 +30,19 @@ import type {
   RazorpayOrderRequest,
   OnboardStaffInput,
   CreateRoleInput,
+  EnqueueInput,
+  UpdateQueueStatusInput,
+  QueueEntry,
+  PlatformListParams,
+  AdminUpdateSubscriptionInput,
+  ImpersonateUserInput,
+  PlatformAuditQuery,
+  ExportMonthlyAuditInput,
+  IncidentQuery,
+  ResolveIncidentInput,
+  CreateTestIncidentInput,
+  CreateAnnouncementInput,
+  UpdateAnnouncementInput,
 } from '../providers/types';
 
 // Query Keys
@@ -49,18 +63,21 @@ export const keys = {
   organization: () => [...keys.all, 'organization'] as const,
   roles: () => [...keys.all, 'roles'] as const,
   queue: () => [...keys.all, 'queue'] as const,
+  activeAnnouncements: () => [...keys.all, 'activeAnnouncements'] as const,
 };
 
 // ── Patients ───────────────────────────────────────────────────
 
-export function usePatients(params?: PatientListParams) {
+export function usePatients(params?: PatientListParams, options: { enabled?: boolean } = {}) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
   const { hasPermission } = usePermissions();
   return useQuery({
-    queryKey: [...keys.patients(), params],
+    queryKey: [...keys.patients(), 'list', params],
     queryFn: () => provider.listPatients(params),
-    enabled: isAuthenticated && !!token && hasPermission('PATIENTS', 'canRead'),
+    enabled: isAuthenticated && !!token && hasPermission('PATIENTS', 'canRead') && (options.enabled ?? true),
+    // Keep the current page visible while the next page / search result loads
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -101,11 +118,37 @@ export function usePatientMutations() {
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: keys.patient(id) });
       qc.invalidateQueries({ queryKey: keys.patients() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.followups() });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
 
-  return { create, update, remove };
+  // Restores a soft-deleted patient together with their visits (409 if the mobile is now taken)
+  const restore = useMutation({
+    mutationFn: (id: string) => provider.restorePatient(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: keys.patient(id) });
+      qc.invalidateQueries({ queryKey: keys.patients() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.followups() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  return { create, update, remove, restore };
+}
+
+export function useDeletedPatients(page: number, limit: number, enabled: boolean) {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  const { isSuperAdmin, hasPermission } = usePermissions();
+  return useQuery({
+    queryKey: [...keys.patients(), 'deleted', { page, limit }],
+    queryFn: () => provider.listDeletedPatients({ page, limit }),
+    enabled: enabled && isAuthenticated && !!token && (isSuperAdmin || hasPermission('PATIENTS', 'canDelete')),
+    placeholderData: keepPreviousData,
+  });
 }
 
 // ── Visits ─────────────────────────────────────────────────────
@@ -164,6 +207,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.dashboard() });
       qc.invalidateQueries({ queryKey: keys.followups() });
       qc.invalidateQueries({ queryKey: keys.queue() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
     },
   });
 
@@ -174,6 +218,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.visit(id) });
       qc.invalidateQueries({ queryKey: keys.visits() }); 
       qc.invalidateQueries({ queryKey: keys.dashboard() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
     },
   });
 
@@ -184,6 +229,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.visits() });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
       qc.invalidateQueries({ queryKey: keys.followups() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
     },
   });
 
@@ -219,7 +265,8 @@ export function useReports(startDate: string, endDate: string) {
   const { isSuperAdmin, hasPermission } = usePermissions();
   return useQuery({
     queryKey: [...keys.visits(), 'reports', { startDate, endDate }],
-    queryFn: () => provider.listVisits({ startDate, endDate }),
+    // endDate is inclusive: extend it to the end of that (UTC) day, matching the page's date-part filter
+    queryFn: () => provider.listVisits({ startDate, endDate: `${endDate}T23:59:59.999Z` }),
     enabled: isAuthenticated && !!token && !!startDate && !!endDate && (isSuperAdmin || hasPermission('REPORTS', 'canRead')),
   });
 }
@@ -364,6 +411,7 @@ export function useAuthMutations() {
     mutationFn: (input: AuthLoginInput) => provider.authLogin(input),
     onSuccess: (data) => {
       if (data.success && data.user && data.token) {
+        startFreshSession();
         login({ user: data.user, token: data.token });
       }
     }
@@ -373,6 +421,7 @@ export function useAuthMutations() {
     mutationFn: (input: AuthSignupInput) => provider.authSignup(input),
     onSuccess: (data) => {
       if (data.success && data.user && data.token) {
+        startFreshSession();
         login({ user: data.user, token: data.token });
       }
     }
@@ -534,15 +583,12 @@ export function useRoleMutations() {
 // ── OPD Queue ───────────────────────────────────────────────────
 
 export function useQueue() {
+  const provider = useProviderStore((s) => s.provider);
   const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.queue(),
-    queryFn: async () => {
-      const res = await fetch('/api/queue');
-      if (!res.ok) throw new Error('Failed to fetch queue');
-      return res.json();
-    },
-    enabled: isAuthenticated || !!token,
+    queryFn: () => provider.getQueue(),
+    enabled: isAuthenticated && !!token,
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -550,79 +596,369 @@ export function useQueue() {
 
 export function useQueueMutations() {
   const qc = useQueryClient();
+  const provider = useProviderStore((s) => s.provider);
+  const invalidate = () => qc.invalidateQueries({ queryKey: keys.queue() });
 
   const enqueue = useMutation({
-    mutationFn: async (payload: any) => {
-      const res = await fetch('/api/queue/enqueue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('Failed to enqueue patient');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: (payload: EnqueueInput) => provider.enqueue(payload),
+    onSuccess: invalidate,
   });
 
   const callNext = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/queue/call-next', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!res.ok) throw new Error('Failed to call next patient');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: () => provider.callNextInQueue(),
+    onSuccess: invalidate,
   });
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, inRoomSince }: { id: string; status: string; inRoomSince?: string }) => {
-      const res = await fetch(`/api/queue/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, inRoomSince }),
-      });
-      if (!res.ok) throw new Error('Failed to update queue status');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: (input: UpdateQueueStatusInput) => provider.updateQueueStatus(input),
+    onSuccess: invalidate,
   });
 
   const removeFromQueue = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/queue/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to remove from queue');
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
-    },
+    mutationFn: (id: string) => provider.removeFromQueue(id),
+    onSuccess: invalidate,
   });
 
+  // Persists the order of WAITING items (POST /queue/reorder). The cache is updated optimistically,
+  // rolled back on error (callers show the error toast) and replaced by the server's order on success.
   const reorderQueue = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      const res = await fetch('/api/queue/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderedIds }),
-      });
-      if (!res.ok) throw new Error('Failed to reorder queue');
-      return res.json();
+    mutationFn: (orderedIds: string[]) => provider.reorderQueue(orderedIds),
+    onMutate: async (orderedIds) => {
+      await qc.cancelQueries({ queryKey: keys.queue() });
+      const previous = qc.getQueryData<QueueEntry[]>(keys.queue());
+      if (Array.isArray(previous)) {
+        const byId = new Map(previous.map((item) => [item.id, item]));
+        const ordered = orderedIds.map((id) => byId.get(id)).filter((item): item is QueueEntry => !!item);
+        const orderedSet = new Set(orderedIds);
+        const notWaiting = previous.filter((item) => !orderedSet.has(item.id) && item.status !== 'WAITING');
+        const otherWaiting = previous.filter((item) => !orderedSet.has(item.id) && item.status === 'WAITING');
+        qc.setQueryData<QueueEntry[]>(keys.queue(), [...notWaiting, ...ordered, ...otherWaiting]);
+      }
+      return { previous };
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.queue() });
+    onError: (_err, _orderedIds, context) => {
+      if (context?.previous) {
+        qc.setQueryData(keys.queue(), context.previous);
+      }
+      invalidate();
+    },
+    onSuccess: (queue) => {
+      qc.setQueryData(keys.queue(), queue);
     },
   });
 
   return { enqueue, callNext, updateStatus, removeFromQueue, reorderQueue };
 }
+
+// ── Platform operator (AMAN) ────────────────────────────────────
+
+export const platformKeys = {
+  all: [...keys.all, 'platform'] as const,
+  stats: () => [...platformKeys.all, 'stats'] as const,
+  livePulse: () => [...platformKeys.all, 'livePulse'] as const,
+  liveActivity: () => [...platformKeys.all, 'liveActivity'] as const,
+  incidents: () => [...platformKeys.all, 'incidents'] as const,
+  incidentList: (params?: IncidentQuery) => [...platformKeys.incidents(), 'list', params] as const,
+  organizations: () => [...platformKeys.all, 'organizations'] as const,
+  organizationList: (params: PlatformListParams) => [...platformKeys.organizations(), 'list', params] as const,
+  organization: (id: string) => [...platformKeys.organizations(), 'detail', id] as const,
+  onboarding: (id: string) => [...platformKeys.organizations(), 'onboarding', id] as const,
+  transactions: (params: PlatformListParams) => [...platformKeys.all, 'transactions', params] as const,
+  auditLogs: (params?: PlatformAuditQuery) => [...platformKeys.all, 'auditLogs', params] as const,
+  auditMonths: () => [...platformKeys.all, 'auditMonths'] as const,
+  analytics: () => [...platformKeys.all, 'analytics'] as const,
+  announcements: () => [...platformKeys.all, 'announcements'] as const,
+};
+
+function usePlatformEnabled() {
+  const { isAuthenticated, token, user } = useAuth();
+  return isAuthenticated && !!token && user?.platformRole === 'AMAN';
+}
+
+export function usePlatformStats() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.stats(),
+    queryFn: () => provider.getPlatformStats(),
+    enabled,
+    staleTime: 1000 * 60,
+  });
+}
+
+export function usePlatformOrganizations(params: PlatformListParams) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.organizationList(params),
+    queryFn: () => provider.listPlatformOrganizations(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformOrganization(orgId: string) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.organization(orgId),
+    queryFn: () => provider.getPlatformOrganization(orgId),
+    enabled: enabled && !!orgId,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformOnboarding(orgId: string) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.onboarding(orgId),
+    queryFn: () => provider.getPlatformOrganizationOnboarding(orgId),
+    enabled: enabled && !!orgId,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformTransactions(params: PlatformListParams) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.transactions(params),
+    queryFn: () => provider.listPlatformTransactions(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 30,
+  });
+}
+
+export function usePlatformAuditLogs(params?: PlatformAuditQuery) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.auditLogs(params),
+    queryFn: () => provider.listPlatformAuditLogs(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 15,
+  });
+}
+
+export function usePlatformAuditMonths() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.auditMonths(),
+    queryFn: () => provider.getPlatformAuditMonths(),
+    enabled,
+    staleTime: 1000 * 60,
+  });
+}
+
+export function usePlatformLivePulse() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.livePulse(),
+    queryFn: () => provider.getPlatformLivePulse(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformLiveActivity() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.liveActivity(),
+    queryFn: () => provider.getPlatformLiveActivity(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformIncidents(params?: IncidentQuery) {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.incidentList(params),
+    queryFn: () => provider.listPlatformIncidents(params),
+    enabled,
+    placeholderData: keepPreviousData,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformAnalytics() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.analytics(),
+    queryFn: () => provider.getPlatformAnalytics(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function usePlatformAnnouncements() {
+  const provider = useProviderStore((s) => s.provider);
+  const enabled = usePlatformEnabled();
+  return useQuery({
+    queryKey: platformKeys.announcements(),
+    queryFn: () => provider.listPlatformAnnouncements(),
+    enabled,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 1000 * 60 * 30, // On demand only
+  });
+}
+
+export function useActiveAnnouncements() {
+  const provider = useProviderStore((s) => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: keys.activeAnnouncements(),
+    queryFn: () => provider.getActiveAnnouncements(),
+    enabled: isAuthenticated && !!token,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function usePlatformMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore((s) => s.provider);
+
+  const invalidateOrg = (orgId?: string) => {
+    qc.invalidateQueries({ queryKey: platformKeys.stats() });
+    if (orgId) {
+      qc.invalidateQueries({ queryKey: platformKeys.organization(orgId) });
+      qc.invalidateQueries({ queryKey: platformKeys.onboarding(orgId) });
+    }
+    qc.invalidateQueries({ queryKey: [...platformKeys.organizations(), 'list'] });
+    qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+  };
+
+  const updateSubscription = useMutation({
+    mutationFn: ({ orgId, input }: { orgId: string; input: AdminUpdateSubscriptionInput }) =>
+      provider.updatePlatformOrganizationSubscription(orgId, input),
+    onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
+  });
+
+  const updateUserStatus = useMutation({
+    mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean; orgId?: string }) =>
+      provider.updatePlatformUserStatus(userId, isActive),
+    onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
+  });
+
+  const verifyDoctor = useMutation({
+    mutationFn: ({ userId, isVerified, notes, orgId }: { userId: string; isVerified: boolean; notes?: string; orgId?: string }) =>
+      provider.verifyPlatformDoctor(userId, { isVerified, verificationNotes: notes }),
+    onSuccess: (_data, { orgId }) => invalidateOrg(orgId),
+  });
+
+  const impersonateUser = useMutation({
+    mutationFn: (input: ImpersonateUserInput) => provider.impersonateUser(input),
+  });
+
+  const exportMonthlyAudit = useMutation({
+    mutationFn: (input: ExportMonthlyAuditInput) => provider.exportMonthlyAudit(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.auditMonths() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const resolveIncident = useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      provider.resolvePlatformIncident(id, { resolutionNote: note }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.incidents() });
+      qc.invalidateQueries({ queryKey: platformKeys.livePulse() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const createTestIncident = useMutation({
+    mutationFn: (input: CreateTestIncidentInput) => provider.createTestPlatformIncident(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.incidents() });
+      qc.invalidateQueries({ queryKey: platformKeys.livePulse() });
+    },
+  });
+
+  const createAnnouncement = useMutation({
+    mutationFn: (input: CreateAnnouncementInput) => provider.createPlatformAnnouncement(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.announcements() });
+      qc.invalidateQueries({ queryKey: keys.activeAnnouncements() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const updateAnnouncement = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAnnouncementInput }) =>
+      provider.updatePlatformAnnouncement(id, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.announcements() });
+      qc.invalidateQueries({ queryKey: keys.activeAnnouncements() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const deleteAnnouncement = useMutation({
+    mutationFn: (id: string) => provider.deletePlatformAnnouncement(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: platformKeys.announcements() });
+      qc.invalidateQueries({ queryKey: keys.activeAnnouncements() });
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const exportOrganizationData = useMutation({
+    mutationFn: (orgId: string) => provider.exportPlatformOrganizationData(orgId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...platformKeys.all, 'auditLogs'] });
+    },
+  });
+
+  const purgeOrganizationTestData = useMutation({
+    mutationFn: ({ orgId, confirmationCode }: { orgId: string; confirmationCode: string }) =>
+      provider.purgePlatformOrganizationTestData(orgId, confirmationCode),
+    onSuccess: (_data, { orgId }) => {
+      invalidateOrg(orgId);
+      qc.invalidateQueries({ queryKey: platformKeys.livePulse() });
+      qc.invalidateQueries({ queryKey: platformKeys.liveActivity() });
+    },
+  });
+
+  return {
+    updateSubscription,
+    updateUserStatus,
+    verifyDoctor,
+    impersonateUser,
+    exportMonthlyAudit,
+    resolveIncident,
+    createTestIncident,
+    createAnnouncement,
+    updateAnnouncement,
+    deleteAnnouncement,
+    exportOrganizationData,
+    purgeOrganizationTestData,
+  };
+}
+
 

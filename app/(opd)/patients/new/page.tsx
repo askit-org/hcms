@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, ChevronLeft, AlertCircle } from 'lucide-react';
+import { UserPlus, ChevronLeft, AlertCircle, HeartPulse, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePatientMutations } from '@/lib/hooks/useQueries';
 import { toast } from '@/components/Toast';
@@ -10,6 +10,7 @@ import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 
 import { patientSchema, validateForm } from '@/lib/validations/schemas';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const COMMON_CONDITIONS = [
   'Hypertension (BP)',
@@ -33,12 +34,33 @@ export default function NewPatientPage() {
     dob: '',
     gender: 'Male',
     mobile: '',
+    relation: 'Self',
+    guardianName: '',
     address: '',
     occupation: '',
     abhaNumber: '',
   });
 
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [customCondition, setCustomCondition] = useState('');
+  const [createdPatient, setCreatedPatient] = useState<{
+    patientId: string;
+    name: string;
+    mobile: string;
+    gender: string;
+    age?: number;
+    permanentConditions?: string[];
+  } | null>(null);
+  const [showStartVisitModal, setShowStartVisitModal] = useState(false);
+
+  const addCustomCondition = () => {
+    const trimmed = customCondition.trim();
+    if (!trimmed) return;
+    if (!selectedConditions.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setSelectedConditions(prev => [...prev, trimmed]);
+    }
+    setCustomCondition('');
+  };
 
   const set = (k: string, v: string) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -111,12 +133,14 @@ export default function NewPatientPage() {
 
     setSaving(true);
     try {
-      await create.mutateAsync({
+      const created = await create.mutateAsync({
         name: form.name.trim(),
         age: form.age ? Math.abs(parseInt(form.age, 10)) : undefined,
         dob: form.dob || undefined,
         gender: form.gender,
         mobile: form.mobile.trim(),
+        relation: form.relation,
+        guardianName: form.relation !== 'Self' ? form.guardianName.trim() : undefined,
         address: form.address.trim() || undefined,
         occupation: form.occupation.trim() || undefined,
         abhaNumber: form.abhaNumber.trim() || undefined,
@@ -125,7 +149,9 @@ export default function NewPatientPage() {
       } as any);
 
       toast('Patient registered successfully!', 'success');
-      router.push('/patients');
+      setSaving(false);
+      setCreatedPatient(created as any);
+      setShowStartVisitModal(true);
     } catch (err: any) {
       toast(getErrorMessage(err, 'Failed to register patient.'), 'error');
       setSaving(false);
@@ -242,6 +268,45 @@ export default function NewPatientPage() {
             </div>
 
             <div className="form-group">
+              <label className="form-label">Relation (Mobile Owner) <span className="required">*</span></label>
+              <select
+                data-field="relation"
+                className={`form-select ${errors.relation ? 'has-error' : ''}`}
+                style={errors.relation ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
+                value={form.relation}
+                onChange={e => {
+                  set('relation', e.target.value);
+                  if (e.target.value === 'Self') set('guardianName', '');
+                }}
+              >
+                <option value="Self">Self (Patient's own number)</option>
+                <option value="Parent">Parent</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Child">Child</option>
+                <option value="Other">Other Guardian</option>
+              </select>
+            </div>
+
+            {form.relation !== 'Self' && (
+              <div className="form-group">
+                <label className="form-label">Guardian Name <span className="required">*</span></label>
+                <input
+                  data-field="guardianName"
+                  className={`form-input ${errors.guardianName ? 'has-error' : ''}`}
+                  style={errors.guardianName ? { border: '2px solid var(--red)', boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)' } : {}}
+                  placeholder="Enter guardian's name"
+                  value={form.guardianName}
+                  onChange={e => set('guardianName', e.target.value)}
+                />
+                {errors.guardianName && (
+                  <div style={{ color: 'var(--red)', fontSize: '0.78rem', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                    <AlertCircle size={14} color="var(--red)" /> {errors.guardianName}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="form-group">
               <label className="form-label">ABHA Number <span style={{ color: 'var(--text-muted)' }}>(14 digits)</span></label>
               <input
                 data-field="abhaNumber"
@@ -265,7 +330,10 @@ export default function NewPatientPage() {
             </div>
 
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label className="form-label">Permanent Medical Conditions & Chronic Diseases</label>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <HeartPulse size={15} style={{ color: 'var(--amber)' }} />
+                Permanent Medical Conditions & Chronic Diseases
+              </label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                 {COMMON_CONDITIONS.map(cond => {
                   const active = selectedConditions.includes(cond);
@@ -290,6 +358,71 @@ export default function NewPatientPage() {
                     </button>
                   );
                 })}
+
+                {/* Custom conditions not in COMMON_CONDITIONS */}
+                {selectedConditions
+                  .filter(c => !COMMON_CONDITIONS.includes(c))
+                  .map(cond => (
+                    <span
+                      key={cond}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        borderRadius: 20,
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        border: '1px solid var(--accent)',
+                        background: 'var(--accent-glow)',
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      ✓ {cond}
+                      <button
+                        type="button"
+                        onClick={() => toggleCondition(cond)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          color: 'var(--accent)',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+
+              {/* Inline input to add custom condition */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, maxWidth: 440 }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ fontSize: '0.82rem', padding: '6px 12px' }}
+                  placeholder="Add custom condition (e.g. Epilepsy, Penicillin Allergy)…"
+                  value={customCondition}
+                  onChange={e => setCustomCondition(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomCondition();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={addCustomCondition}
+                  disabled={!customCondition.trim()}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  <Plus size={14} /> Add
+                </button>
               </div>
             </div>
 
@@ -307,6 +440,60 @@ export default function NewPatientPage() {
           </div>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={showStartVisitModal}
+        variant="success"
+        title="Start OPD Visit Now?"
+        description={`Patient "${createdPatient?.name}" was registered successfully! Would you like to start an OPD consultation visit immediately?`}
+        confirmText="Yes, Start Visit"
+        cancelText="No, View Patient Profile"
+        onConfirm={() => {
+          if (createdPatient?.patientId) {
+            router.push(`/visits/new?patientId=${createdPatient.patientId}`);
+          } else {
+            router.push('/visits/new');
+          }
+        }}
+        onClose={() => {
+          setShowStartVisitModal(false);
+          if (createdPatient?.patientId) {
+            router.push(`/patients/${createdPatient.patientId}`);
+          } else {
+            router.push('/patients');
+          }
+        }}
+      >
+        {createdPatient && (
+          <div style={{
+            marginTop: 12,
+            padding: '12px 14px',
+            borderRadius: 10,
+            background: 'var(--surface-1)',
+            border: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{createdPatient.name}</span>
+              <span className="badge badge-blue">{createdPatient.gender}{createdPatient.age ? ` · ${createdPatient.age}y` : ''}</span>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Phone: {createdPatient.mobile} · ID: {createdPatient.patientId}
+            </div>
+            {createdPatient.permanentConditions && createdPatient.permanentConditions.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 4 }}>
+                {createdPatient.permanentConditions.map(c => (
+                  <span key={c} className="badge badge-amber" style={{ fontSize: '0.72rem' }}>
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </ConfirmModal>
     </PageTransition>
   );
 }

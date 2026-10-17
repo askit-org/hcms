@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X, LogOut, AlertOctagon } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { useSubscriptionMutations } from '@/lib/hooks/useQueries';
+import { useSubscriptionMutations, useAuthMutations } from '@/lib/hooks/useQueries';
+import Link from 'next/link';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PaymentModal from '@/components/PaymentModal';
-import { useRouter } from 'next/navigation';
+import { logout } from '@/lib/auth/session';
 
 interface OnboardingPlansModalProps {
   isOpen: boolean;
@@ -18,11 +19,14 @@ interface OnboardingPlansModalProps {
 }
 
 export default function OnboardingPlansModal({ isOpen, onClose, isLockout = false, lockReason = null }: OnboardingPlansModalProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
-  const router = useRouter();
   const { selectPlan } = useSubscriptionMutations();
   const [loadingTrial, setLoadingTrial] = useState(false);
+  // Inline trial error: 400 = clinic phone missing, 409 = trial already used (phone / registration no.)
+  const [trialError, setTrialError] = useState<{ message: string; needsPhone: boolean } | null>(null);
+  const [clinicPhone, setClinicPhone] = useState('');
+  const { updateUser } = useAuthMutations();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -45,28 +49,44 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
 
   const handleSelectTrial = async () => {
     setLoadingTrial(true);
+    setTrialError(null);
     try {
       await selectPlan.mutateAsync({ planType: 'trial' });
       toast('15-Day Free Trial activated! Welcome to HCMS.', 'success');
       onClose();
-    } catch (err: any) {
-      toast(getErrorMessage(err, 'Failed to activate trial'), 'error');
+    } catch (err: unknown) {
+      // The API client also toasts the backend message; keep it visible inline next to the plan
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const message = getErrorMessage(err, 'Failed to activate trial');
+      setTrialError({ message, needsPhone: status === 400 && /phone/i.test(message) });
     } finally {
       setLoadingTrial(false);
     }
   };
 
+  // Saves the clinic phone on the owner's profile, then retries the trial
+  const handleSavePhoneAndRetry = async () => {
+    const digits = clinicPhone.replace(/\D/g, '');
+    if (digits.length !== 10) {
+      toast('Please enter a valid 10-digit phone number.', 'error');
+      return;
+    }
+    try {
+      await updateUser.mutateAsync({ phone: digits });
+    } catch {
+      return; // error already shown by the API client
+    }
+    await handleSelectTrial();
+  };
+
   const handleDismiss = () => {
     if (isLockout) return; // Non-dismissable when locked out
-    if (user && user.subscription) {
-      useAuth.getState().updateSubscription({ ...user.subscription, hasSelectedPlan: true });
-    }
+    // Only close the modal — plan state is owned by the backend and never flipped client-side
     onClose();
   };
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
   };
 
   if (!mounted || !isOpen) return null;
@@ -135,8 +155,8 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
               </button>
             )}
 
-            {/* Non-Super-Admin Lockout View */}
-            {isLockout && !isSuperAdmin ? (
+            {/* Non-Super-Admin View: only the clinic owner can select/pay for plans */}
+            {!isSuperAdmin ? (
               <div style={{ textAlign: 'center', padding: '16px 12px' }}>
                 <div
                   style={{
@@ -322,6 +342,52 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                 >
                   {loadingTrial ? 'Activating Trial…' : 'Start 15-Day Free Trial'}
                 </button>
+
+                {trialError && (
+                  <div
+                    role="alert"
+                    style={{
+                      marginTop: 12,
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: 'var(--red)',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.45,
+                      textAlign: 'left',
+                    }}
+                  >
+                    {trialError.message}
+                    {trialError.needsPhone && (
+                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <input
+                          className="form-input"
+                          type="tel"
+                          inputMode="numeric"
+                          placeholder="10-digit clinic phone"
+                          value={clinicPhone}
+                          onChange={(e) => setClinicPhone(e.target.value)}
+                          style={{ fontSize: '0.85rem' }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={handleSavePhoneAndRetry}
+                          disabled={loadingTrial || updateUser.isPending}
+                          style={{ justifyContent: 'center' }}
+                        >
+                          {updateUser.isPending ? 'Saving…' : 'Save phone & start trial'}
+                        </button>
+                        {!isLockout && (
+                          <Link href="/settings" onClick={onClose} style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 600 }}>
+                            Or open Settings to edit your clinic profile
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Option 2: Premium Plan */}

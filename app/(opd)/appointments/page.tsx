@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Clock, Users, UserPlus, Stethoscope, Search,
   X, Volume2, Trash2, GripVertical, Plus, AlertCircle,
-  ChevronUp, ChevronDown, History
+  ChevronUp, ChevronDown, History, HeartPulse
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { usePatients, usePatientMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
@@ -15,6 +15,11 @@ import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
 import { patientSchema, validateForm } from '@/lib/validations/schemas';
+import type { Patient } from '@/lib/providers/types';
+
+const PATIENT_SEARCH_MIN_CHARS = 2;
+const PATIENT_SEARCH_LIMIT = 20;
+const PATIENT_SEARCH_DEBOUNCE_MS = 300;
 
 export interface QueueItem {
   id: string;
@@ -375,8 +380,6 @@ export default function AppointmentsPage() {
   // Registration is allowed if user can create patients and is not in doctor-only view
   const canRegister = !isDoctorOrSuperAdmin && hasPermission('PATIENTS', 'canCreate');
 
-  // Real API hooks for fetching and creating patients
-  const { data: dbPatients = [], refetch: refetchPatients } = usePatients();
   const { create: createPatientMut } = usePatientMutations();
 
   // Real API hooks for Live OPD Queue persistence
@@ -442,23 +445,37 @@ export default function AppointmentsPage() {
     category: 'Consultation' as 'Consultation' | 'Follow-up' | 'Emergency' | 'Walk-in',
   });
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [customCondition, setCustomCondition] = useState('');
+
+  const addCustomCondition = () => {
+    const trimmed = customCondition.trim();
+    if (!trimmed) return;
+    if (!selectedConditions.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setSelectedConditions(prev => [...prev, trimmed]);
+    }
+    setCustomCondition('');
+  };
 
   // Derived queue state
   const nowServing = useMemo(() => queue.find((q) => q.status === 'NOW_SERVING'), [queue]);
   const waitingList = useMemo(() => queue.filter((q) => q.status === 'NEXT_IN_LINE' || q.status === 'WAITING'), [queue]);
   const maxTokenNo = useMemo(() => (queue.length === 0 ? 0 : Math.max(...queue.map((q) => q.tokenNo))), [queue]);
 
-  // Real API Search results
+  // Server-side patient search (name / UHID / mobile): debounced, only once 2+ characters are typed
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), PATIENT_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  const patientSearchTerm = debouncedSearch.length >= PATIENT_SEARCH_MIN_CHARS ? debouncedSearch : '';
+  const { data: patientSearchPage } = usePatients(
+    { search: patientSearchTerm, limit: PATIENT_SEARCH_LIMIT },
+    { enabled: !!patientSearchTerm }
+  );
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return dbPatients.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.patientId.toLowerCase().includes(q) ||
-        p.mobile.includes(q)
-    ).slice(0, 8);
-  }, [searchQuery, dbPatients]);
+    if (searchQuery.trim().length < PATIENT_SEARCH_MIN_CHARS || !patientSearchTerm) return [];
+    return patientSearchPage?.data ?? [];
+  }, [searchQuery, patientSearchTerm, patientSearchPage]);
 
   // DOB Change Auto-calculates Age
   const handleDobChange = (dobValue: string) => {
@@ -493,7 +510,7 @@ export default function AppointmentsPage() {
   };
 
   // Select patient from API search and place on Canvas Board
-  const handleSelectPatientFromSearch = (p: (typeof dbPatients)[0]) => {
+  const handleSelectPatientFromSearch = (p: Patient) => {
     const existingInCanvas = canvasPatients.find((c) => c.patientId === p.patientId);
     if (existingInCanvas) {
       toast(`${p.name} is already selected!`, 'info');
@@ -572,6 +589,7 @@ export default function AppointmentsPage() {
         category: 'Consultation',
       });
       setSelectedConditions([]);
+      setCustomCondition('');
       setFormErrors({});
       toast(`Registered ${newCanvasItem.name}! Card added to Canvas Board.`, 'success');
     } catch (err: any) {
@@ -588,12 +606,9 @@ export default function AppointmentsPage() {
     const isFirstInQueue = waitingList.length === 0 && !nowServing;
 
     try {
+      // Name/age/gender/mobile are taken from the patient record server-side
       await enqueueMut.mutateAsync({
         patientId: patient.patientId,
-        patientName: patient.name,
-        age: patient.age,
-        gender: patient.gender,
-        mobile: patient.mobile,
         reason: patient.reason,
         category: patient.category,
       });
@@ -682,7 +697,6 @@ export default function AppointmentsPage() {
     try {
       await updateStatusMut.mutateAsync({ id, status: 'COMPLETED' });
       await removeMut.mutateAsync(id);
-      await refetchPatients();
       await refetchQueue();
     } catch (_) {
       setLocalQueue((prev) => prev.filter((q) => q.id !== id));
@@ -1492,7 +1506,10 @@ export default function AppointmentsPage() {
 
                   {/* Permanent Medical Conditions */}
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Permanent Medical Conditions & Chronic Diseases</label>
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <HeartPulse size={15} style={{ color: 'var(--amber)' }} />
+                      Permanent Medical Conditions & Chronic Diseases
+                    </label>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                       {COMMON_CONDITIONS.map((cond) => {
                         const active = selectedConditions.includes(cond);
@@ -1517,6 +1534,71 @@ export default function AppointmentsPage() {
                           </button>
                         );
                       })}
+
+                      {/* Custom conditions not in COMMON_CONDITIONS */}
+                      {selectedConditions
+                        .filter(c => !COMMON_CONDITIONS.includes(c))
+                        .map(cond => (
+                          <span
+                            key={cond}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 12px',
+                              borderRadius: 20,
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              border: '1px solid var(--accent)',
+                              background: 'var(--accent-glow)',
+                              color: 'var(--accent)',
+                            }}
+                          >
+                            ✓ {cond}
+                            <button
+                              type="button"
+                              onClick={() => toggleCondition(cond)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                                color: 'var(--accent)',
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+
+                    {/* Inline input to add custom condition */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+                        placeholder="Add other condition or allergy…"
+                        value={customCondition}
+                        onChange={e => setCustomCondition(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addCustomCondition();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={addCustomCondition}
+                        disabled={!customCondition.trim()}
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        <Plus size={13} /> Add
+                      </button>
                     </div>
                   </div>
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
 import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
@@ -133,7 +133,7 @@ export default function NewVisitForm() {
   useEffect(() => {
     if (!patientQuery.trim()) { setPatientResults([]); return; }
     const t = setTimeout(async () => {
-      const r = await provider.listPatients({ search: patientQuery });
+      const { data: r } = await provider.listPatients({ search: patientQuery, limit: 6 });
       setPatientResults(r.slice(0, 6));
     }, 200);
     return () => clearTimeout(t);
@@ -355,6 +355,18 @@ export default function NewVisitForm() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
+                {selectedPatient.permanentConditions && selectedPatient.permanentConditions.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <HeartPulse size={12} /> Conditions:
+                    </span>
+                    {selectedPatient.permanentConditions.map(cond => (
+                      <span key={cond} className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                        {cond}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
             </div>

@@ -46,7 +46,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
 
             const phone = patient.mobile.replace(/\D/g, '');
             const targetPhone = phone.length === 10 ? `91${phone}` : phone;
-            window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`, '_blank');
+            window.open(`https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
           }}
         >
           <MessageCircle size={15} /> Send via WhatsApp
@@ -159,6 +159,14 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                 <div className="rx-info-label">BP / Pulse</div>
                 <div className="rx-info-value">{visit.bp} / {visit.pulse}</div>
               </div>}
+              {patient.permanentConditions && patient.permanentConditions.length > 0 && (
+                <div className="rx-info-item" style={{ gridColumn: '1 / -1' }}>
+                  <div className="rx-info-label">Known Chronic Conditions / Alerts</div>
+                  <div className="rx-info-value" style={{ color: '#b45309', fontWeight: 600 }}>
+                    {patient.permanentConditions.join(', ')}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Diagnosis & Treatment */}

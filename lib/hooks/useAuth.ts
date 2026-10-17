@@ -24,6 +24,14 @@ export interface AuthUser {
   permissions?: import('../providers/types').ModelPermission[];
   subscription?: UserSubscription;
   tokenVersion?: number;
+  /** 'AMAN' for the platform operator (no organization, role or clinic subscription); otherwise null. */
+  platformRole?: import('../providers/types').PlatformRole | null;
+  /** Present when an AMAN operator is currently in an audited support/impersonation session. */
+  isSupportSession?: boolean;
+  supportSessionBy?: { id: string; email: string; name: string } | null;
+  supportReason?: string | null;
+  isVerifiedDoctor?: boolean;
+  verificationStatus?: string;
 }
 
 interface AuthState {
@@ -76,19 +84,8 @@ export const useAuth = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       login: (data) => {
+        // Subscription state comes only from the backend — never fabricate one client-side.
         const user = { ...data.user };
-        if (!user.subscription) {
-          const now = new Date();
-          const trialEndDate = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString();
-          user.subscription = {
-            planType: 'trial',
-            subscriptionStatus: 'trialing',
-            trialStartDate: now.toISOString(),
-            trialEndDate,
-            hasSelectedPlan: true,
-            activatedAt: now.toISOString(),
-          };
-        }
         set({ user, token: data.token, isAuthenticated: true });
       },
       logout: () => {

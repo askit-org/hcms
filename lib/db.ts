@@ -8,11 +8,27 @@ export interface Patient {
   dob?: string;
   gender: string;
   mobile: string;
+  relation?: string;
+  guardianName?: string;
   address?: string;
   occupation?: string;
   abhaNumber?: string;
   permanentConditions?: string[];
   createdAt: string;
+  updatedAt?: string;
+  lastVisitDate?: string | null;
+  visitsCount?: number;
+  lastActivityAt?: string;
+  lastVisit?: {
+    id: string;
+    date: string;
+    category: string;
+    diagnosis?: string;
+    chiefComplaints?: string;
+    doctorName?: string | null;
+  } | null;
+  /** Set when the patient is soft-deleted (restorable from "Recently deleted"). */
+  deletedAt?: string | null;
 }
 
 export interface PrescribedMedicine {
@@ -48,6 +64,8 @@ export interface Visit {
   followUpDate?: string;
   followUpAttended?: boolean;
   createdAt: string;
+  /** Joined patient record (included by GET /visits). */
+  patient?: Patient;
 }
 
 export interface Medicine {

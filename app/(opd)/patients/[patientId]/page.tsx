@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse
 } from 'lucide-react';
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
 import type { Visit, Patient } from '@/lib/providers/types';
@@ -19,6 +19,15 @@ import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
 import { DoseDisplay } from '@/components/DoseSelector';
 import ConfirmModal from '@/components/ConfirmModal';
+
+const COMMON_CONDITIONS = [
+  'Hypertension (BP)',
+  'Diabetes (Sugar)',
+  'Asthma',
+  'Thyroid',
+  'Heart Disease',
+  'Allergies',
+];
 
 export default function PatientDetailPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = use(params);
@@ -39,10 +48,23 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     dob: '',
     gender: 'Male',
     mobile: '',
+    relation: 'Self',
+    guardianName: '',
     address: '',
     occupation: '',
     abhaNumber: ''
   });
+  const [editConditions, setEditConditions] = useState<string[]>([]);
+  const [customCondition, setCustomCondition] = useState('');
+
+  const addCustomCondition = () => {
+    const trimmed = customCondition.trim();
+    if (!trimmed) return;
+    if (!editConditions.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setEditConditions(prev => [...prev, trimmed]);
+    }
+    setCustomCondition('');
+  };
 
   const [confirmModalState, setConfirmModalState] = useState<{
     isOpen: boolean;
@@ -68,10 +90,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
         dob: patient.dob || '',
         gender: patient.gender || 'Male',
         mobile: patient.mobile || '',
+        relation: patient.relation || 'Self',
+        guardianName: patient.guardianName || '',
         address: patient.address || '',
         occupation: patient.occupation || '',
         abhaNumber: patient.abhaNumber || ''
       });
+      setEditConditions(patient.permanentConditions || []);
     }
   }, [patient]);
 
@@ -99,9 +124,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           dob: editForm.dob || undefined,
           gender: editForm.gender,
           mobile: editForm.mobile.trim(),
+          relation: editForm.relation,
+          guardianName: editForm.relation !== 'Self' ? editForm.guardianName.trim() : undefined,
           address: editForm.address.trim() || undefined,
           occupation: editForm.occupation.trim() || undefined,
           abhaNumber: editForm.abhaNumber.trim() || undefined,
+          permanentConditions: editConditions,
         }
       });
       toast('Patient details updated successfully!', 'success');
@@ -116,13 +144,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     setConfirmModalState({
       isOpen: true,
       title: "Delete Patient",
-      description: `Are you sure you want to delete patient ${patient.name}? This will permanently remove all their visits, prescriptions, and medical records.`,
+      description: `Are you sure you want to delete patient ${patient.name}? The patient and their visits will be hidden, and can be restored later from "Recently deleted" on the Patients page.`,
       confirmText: "Delete Patient",
       variant: "danger",
       onConfirm: async () => {
         setConfirmModalState((prev) => ({ ...prev, isOpen: false }));
         await removePatient.mutateAsync(patient.patientId);
-        toast('Patient deleted.', 'info');
+        toast('Patient moved to Recently deleted.', 'info');
         router.push('/patients');
       },
     });
@@ -194,15 +222,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               {age && <span className="badge">{age} yrs</span>}
               {lastVisit && <span className="text-muted text-sm">Last visit: {new Date(lastVisit.date).toLocaleDateString('en-IN')}</span>}
             </div>
-            {patient.permanentConditions && patient.permanentConditions.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                {patient.permanentConditions.map(cond => (
-                  <span key={cond} className="badge badge-amber" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                    {cond}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
         <div className="flex-wrap-header-actions">
@@ -258,6 +277,27 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   <label className="form-label">Mobile Number <span className="required">*</span></label>
                   <input className="form-input" type="tel" maxLength={10} placeholder="10-digit mobile number" value={editForm.mobile} onChange={e => setEditForm(f => ({ ...f, mobile: e.target.value }))} />
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label className="form-label">Relation</label>
+                    <select className="form-select" value={editForm.relation} onChange={e => {
+                      setEditForm(f => ({ ...f, relation: e.target.value }));
+                      if (e.target.value === 'Self') setEditForm(f => ({ ...f, guardianName: '' }));
+                    }}>
+                      <option value="Self">Self</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Child">Child</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {editForm.relation !== 'Self' && (
+                    <div>
+                      <label className="form-label">Guardian Name <span className="required">*</span></label>
+                      <input className="form-input" placeholder="Guardian's name" value={editForm.guardianName} onChange={e => setEditForm(f => ({ ...f, guardianName: e.target.value }))} />
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="form-label">ABHA Number</label>
                   <input className="form-input" placeholder="14-digit ABHA number" maxLength={14} value={editForm.abhaNumber} onChange={e => setEditForm(f => ({ ...f, abhaNumber: e.target.value.replace(/\D/g, '') }))} />
@@ -270,11 +310,112 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   <label className="form-label">Occupation</label>
                   <input className="form-input" value={editForm.occupation} onChange={e => setEditForm(f => ({ ...f, occupation: e.target.value }))} />
                 </div>
+                <div style={{ marginTop: 4 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <HeartPulse size={15} style={{ color: 'var(--amber)' }} />
+                    Permanent Medical Conditions & Chronic Diseases
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                    {COMMON_CONDITIONS.map(cond => {
+                      const active = editConditions.includes(cond);
+                      return (
+                        <button
+                          key={cond}
+                          type="button"
+                          onClick={() => {
+                            setEditConditions(prev =>
+                              prev.includes(cond) ? prev.filter(c => c !== cond) : [...prev, cond]
+                            );
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: 20,
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                            background: active ? 'var(--accent-glow)' : 'var(--surface-1)',
+                            color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {active ? '✓ ' : '+ '}{cond}
+                        </button>
+                      );
+                    })}
+
+                    {/* Any custom conditions already in editConditions */}
+                    {editConditions
+                      .filter(c => !COMMON_CONDITIONS.includes(c))
+                      .map(cond => (
+                        <span
+                          key={cond}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '6px 12px',
+                            borderRadius: 20,
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            border: '1px solid var(--accent)',
+                            background: 'var(--accent-glow)',
+                            color: 'var(--accent)',
+                          }}
+                        >
+                          ✓ {cond}
+                          <button
+                            type="button"
+                            onClick={() => setEditConditions(prev => prev.filter(c => c !== cond))}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: 0,
+                              color: 'var(--accent)',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </span>
+                      ))}
+                  </div>
+
+                  {/* Add custom condition input */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, maxWidth: 440 }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ fontSize: '0.82rem', padding: '6px 12px' }}
+                      placeholder="Add other condition or allergy…"
+                      value={customCondition}
+                      onChange={e => setCustomCondition(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addCustomCondition();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={addCustomCondition}
+                      disabled={!customCondition.trim()}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      <Plus size={14} /> Add
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                 {[
-                  { icon: <Phone size={15} />, label: 'Mobile', value: patient.mobile },
+                  { icon: <Phone size={15} />, label: 'Mobile', value: `${patient.mobile} ${patient.relation !== 'Self' ? `(${patient.relation})` : ''}` },
+                  ...(patient.relation !== 'Self' && patient.guardianName ? [{ icon: <UserPlus size={15} />, label: 'Guardian', value: patient.guardianName }] : []),
                   { icon: <ClipboardList size={15} />, label: 'ABHA No.', value: patient.abhaNumber || '—' },
                   { icon: <MapPin size={15} />, label: 'Address', value: patient.address || '—' },
                   { icon: <Briefcase size={15} />, label: 'Occupation', value: patient.occupation || '—' },
@@ -287,6 +428,66 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                     <span style={{ fontWeight: 500 }}>{item.value}</span>
                   </div>
                 ))}
+
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <div style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: 'var(--text-muted)',
+                    marginBottom: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}>
+                    <HeartPulse size={16} style={{ color: 'var(--amber)' }} />
+                    Permanent Medical Conditions & Chronic Diseases
+                  </div>
+                  {patient.permanentConditions && patient.permanentConditions.length > 0 ? (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {patient.permanentConditions.map(cond => (
+                        <span
+                          key={cond}
+                          className="badge badge-amber"
+                          style={{
+                            fontSize: '0.82rem',
+                            padding: '5px 12px',
+                            fontWeight: 600,
+                            borderRadius: 16,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5
+                          }}
+                        >
+                          <Activity size={13} /> {cond}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--surface-1)',
+                      border: '1px dashed var(--border)',
+                      borderRadius: 8,
+                      padding: '10px 14px',
+                    }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                        No permanent medical conditions or chronic diseases recorded
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.78rem', color: 'var(--accent)' }}
+                        onClick={() => setIsEditing(true)}
+                      >
+                        + Add Conditions
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

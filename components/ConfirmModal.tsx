@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, X, ShieldAlert, Trash2, UserX } from "lucide-react";
+import { AlertTriangle, X, ShieldAlert, Trash2, UserX, CheckCircle2 } from "lucide-react";
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -13,8 +13,9 @@ export interface ConfirmModalProps {
   description: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: "danger" | "warning" | "info";
+  variant?: "danger" | "warning" | "info" | "success";
   isLoading?: boolean;
+  children?: React.ReactNode;
 }
 
 export default function ConfirmModal({
@@ -27,6 +28,7 @@ export default function ConfirmModal({
   cancelText = "Cancel",
   variant = "danger",
   isLoading = false,
+  children,
 }: ConfirmModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -52,6 +54,8 @@ export default function ConfirmModal({
       ? "rgba(239, 68, 68, 0.15)"
       : variant === "warning"
       ? "rgba(245, 158, 11, 0.15)"
+      : variant === "success"
+      ? "rgba(16, 185, 129, 0.15)"
       : "rgba(13, 148, 136, 0.15)";
 
   const iconColor =
@@ -59,6 +63,8 @@ export default function ConfirmModal({
       ? "var(--red, #ef4444)"
       : variant === "warning"
       ? "var(--amber, #f59e0b)"
+      : variant === "success"
+      ? "var(--emerald, #10b981)"
       : "var(--accent, #0d9488)";
 
   const btnBg =
@@ -141,6 +147,8 @@ export default function ConfirmModal({
                 <Trash2 size={24} />
               ) : variant === "warning" ? (
                 <UserX size={24} />
+              ) : variant === "success" ? (
+                <CheckCircle2 size={24} />
               ) : (
                 <AlertTriangle size={24} />
               )}
@@ -168,6 +176,7 @@ export default function ConfirmModal({
               >
                 {description}
               </p>
+              {children && <div style={{ marginTop: 12 }}>{children}</div>}
             </div>
           </div>
 
