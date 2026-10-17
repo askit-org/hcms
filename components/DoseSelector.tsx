@@ -107,58 +107,94 @@ export function DurationSelect({
   );
 }
 
-const UNIT_OPTIONS = [
-  { label: 'Tablet / Cap', value: '' },
-  { label: '1 drop', value: '1 drop' },
-  { label: '2 drops', value: '2 drops' },
-  { label: '5 ml', value: '5 ml' },
-  { label: '10 ml', value: '10 ml' },
-  { label: '15 ml', value: '15 ml' },
-  { label: '20 ml', value: '20 ml' },
-  { label: '1 sachet', value: '1 sachet' },
+const COMMON_DOSAGE_TYPES = [
+  'drops',
+  'ml',
+  'sachet',
+  'tablet',
+  'capsule',
+  'puff',
+  'tsp',
+  'mg',
+  'L',
 ];
 
-function extractUnitAndPattern(val: string) {
-  if (!val || !val.trim()) return { unit: '', pattern: '0-0-0', isSpecial: false };
+function splitAmountAndType(str: string): { amount: string; dosageType: string } {
+  if (!str) return { amount: '', dosageType: '' };
+  const trimmed = str.trim();
+  const match = trimmed.match(/^([\d./]+)\s*(.*)$/);
+  if (match) {
+    return {
+      amount: match[1].trim(),
+      dosageType: match[2].trim(),
+    };
+  }
+  return {
+    amount: '',
+    dosageType: trimmed,
+  };
+}
+
+function extractDosageComponents(val: string) {
+  if (!val || !val.trim()) {
+    return { amount: '', dosageType: '', pattern: '0-0-0', isSpecial: false };
+  }
 
   const trimmed = val.trim();
-
-  // Known unit directly (e.g. "2 drops", "5 ml", "1 sachet")
-  const knownUnit = UNIT_OPTIONS.find(u => u.value && u.value === trimmed);
-  if (knownUnit) {
-    return { unit: knownUnit.value, pattern: '0-0-0', isSpecial: false };
-  }
 
   // Pattern like "2 drops (1-0-1)" or "5 ml (1-1-1)"
   const bracketMatch = trimmed.match(/^(.*?)\s*\(([0-1\/2.]+\-[0-1\/2.]+\-[0-1\/2.]+)\)$/);
   if (bracketMatch) {
-    return { unit: bracketMatch[1].trim(), pattern: bracketMatch[2].trim(), isSpecial: false };
+    const { amount, dosageType } = splitAmountAndType(bracketMatch[1]);
+    return { amount, dosageType, pattern: bracketMatch[2].trim(), isSpecial: false };
   }
 
   // Pure slot pattern like "1-0-1"
-  const isPureSlot = /^[0-1\/2.]+\-[0-1\/2.]+\-[0-1\/2.]+$/.test(trimmed);
-  if (isPureSlot) {
-    return { unit: '', pattern: trimmed, isSpecial: false };
+  if (/^[0-1\/2.]+\-[0-1\/2.]+\-[0-1\/2.]+$/.test(trimmed)) {
+    return { amount: '', dosageType: '', pattern: trimmed, isSpecial: false };
   }
 
-  // Check if unit prefixed without brackets e.g. "2 drops 1-0-1"
+  // Without brackets e.g. "2 drops 1-0-1"
   const spaceMatch = trimmed.match(/^(.*?)\s+([0-1\/2.]+\-[0-1\/2.]+\-[0-1\/2.]+)$/);
   if (spaceMatch) {
-    return { unit: spaceMatch[1].trim(), pattern: spaceMatch[2].trim(), isSpecial: false };
+    const { amount, dosageType } = splitAmountAndType(spaceMatch[1]);
+    return { amount, dosageType, pattern: spaceMatch[2].trim(), isSpecial: false };
   }
 
-  // Special free text dosage (e.g., "As needed (SOS)", "Apply 2x daily")
-  return { unit: trimmed, pattern: '0-0-0', isSpecial: true };
+  // Check known special presets
+  const isSpecialPreset = [
+    'as needed',
+    'sos',
+    'apply 2x daily',
+    '1 per week',
+    '2 per week',
+    '1 per month',
+    'stat',
+  ].some((p) => trimmed.toLowerCase().includes(p));
+
+  if (isSpecialPreset) {
+    return { amount: '', dosageType: '', pattern: '0-0-0', isSpecial: true };
+  }
+
+  // Just amount/unit e.g. "2 drops" or "5 ml"
+  const { amount, dosageType } = splitAmountAndType(trimmed);
+  return { amount, dosageType, pattern: '0-0-0', isSpecial: false };
 }
 
-function combineUnitAndPattern(unit: string, pattern: string): string {
-  if (!pattern || pattern === '0-0-0') {
-    return unit;
+function buildDosageString(amount: string, dosageType: string, pattern: string): string {
+  const parts = [amount.trim(), dosageType.trim()].filter(Boolean);
+  const unit = parts.join(' ');
+
+  const hasPattern = Boolean(pattern && pattern !== '0-0-0' && pattern !== '0');
+
+  if (hasPattern) {
+    if (unit) {
+      return `${unit} (${pattern})`;
+    }
+    return pattern;
   }
-  if (unit) {
-    return `${unit} (${pattern})`;
-  }
-  return pattern;
+
+  return unit;
 }
 
 export default function DoseSelector({
@@ -169,11 +205,17 @@ export default function DoseSelector({
   style,
 }: DoseSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [customText, setCustomText] = useState('');
-  const [isEditingCustom, setIsEditingCustom] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { unit: currentUnit, pattern: currentPattern, isSpecial } = extractUnitAndPattern(value);
+  const { amount: parsedAmount, dosageType: parsedType, pattern: currentPattern, isSpecial } = extractDosageComponents(value);
+
+  const [amount, setAmount] = useState(parsedAmount);
+  const [dosageType, setDosageType] = useState(parsedType);
+
+  useEffect(() => {
+    setAmount(parsedAmount);
+    setDosageType(parsedType);
+  }, [parsedAmount, parsedType]);
 
   const parts = currentPattern && currentPattern.includes('-') ? currentPattern.split('-') : ['0', '0', '0'];
   const morningVal = parts[0] || '0';
@@ -190,7 +232,6 @@ export default function DoseSelector({
         !containerRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
-        setIsEditingCustom(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -203,8 +244,22 @@ export default function DoseSelector({
     return CYCLE_VALUES[(idx + 1) % CYCLE_VALUES.length];
   };
 
-  const handleSelectUnit = (unitVal: string) => {
-    const nextVal = combineUnitAndPattern(unitVal, currentPattern);
+  const handleAmountChange = (newAmount: string) => {
+    setAmount(newAmount);
+    const nextVal = buildDosageString(newAmount, dosageType, currentPattern);
+    onChange(nextVal);
+  };
+
+  const handleTypeChange = (newType: string) => {
+    setDosageType(newType);
+    const nextVal = buildDosageString(amount, newType, currentPattern);
+    onChange(nextVal);
+  };
+
+  const handleSelectQuickType = (selectedType: string) => {
+    // If already selected, clicking it again can keep or toggle; setting it is standard
+    setDosageType(selectedType);
+    const nextVal = buildDosageString(amount, selectedType, currentPattern);
     onChange(nextVal);
   };
 
@@ -214,12 +269,20 @@ export default function DoseSelector({
     const current = p[slotIndex] || '0';
     p[slotIndex] = cycleValue(current);
     const newPattern = p.join('-');
-    const nextVal = combineUnitAndPattern(currentUnit, newPattern);
+    const nextVal = buildDosageString(amount, dosageType, newPattern);
     onChange(nextVal);
   };
 
   const handleApplySpecialPreset = (val: string) => {
+    setAmount('');
+    setDosageType('');
     onChange(val);
+  };
+
+  const handleClear = () => {
+    setAmount('');
+    setDosageType('');
+    onChange('');
   };
 
   const getSlotBadgeText = (val: string) => {
@@ -238,6 +301,8 @@ export default function DoseSelector({
     { label: '1 per month (Monthly)', value: '1 per month', icon: <Calendar size={14} />, badge: 'Monthly' },
     { label: 'STAT (Immediately)', value: 'STAT', icon: <Zap size={14} />, badge: 'Urgent' },
   ];
+
+  const hasDosageUnit = Boolean(amount || dosageType);
 
   return (
     <div
@@ -278,7 +343,7 @@ export default function DoseSelector({
             overflow: 'hidden',
           }}
         >
-          {currentUnit ? (
+          {hasDosageUnit ? (
             <Droplets size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
           ) : isSpecial ? (
             <Zap size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
@@ -331,51 +396,12 @@ export default function DoseSelector({
             WebkitBackdropFilter: 'blur(24px)',
           }}
         >
-          {/* SECTION 1: Dosage Form / Unit Chips */}
-          <div>
-            <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
-              1. Select Form / Quantity
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {UNIT_OPTIONS.map((u) => {
-                const isSelected = (currentUnit === u.value) || (!currentUnit && u.value === '' && !isSpecial);
-                return (
-                  <button
-                    key={u.value}
-                    type="button"
-                    onClick={() => handleSelectUnit(u.value)}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.72rem',
-                      fontWeight: isSelected ? 700 : 500,
-                      border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      background: isSelected ? 'var(--accent)' : 'var(--surface-2)',
-                      color: isSelected ? '#ffffff' : 'var(--text-primary)',
-                      cursor: 'pointer',
-                      transition: 'all 0.12s ease',
-                    }}
-                  >
-                    {u.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{ height: 1, background: 'var(--border)' }} />
-
-          {/* SECTION 2: Daily Slot Frequency Grid */}
+          {/* SECTION 1 (TOP): Daily Slots Frequency Grid */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                2. Daily Slots Frequency
+                1. Daily Slots Frequency
               </div>
-              {currentUnit && (
-                <span style={{ fontSize: '0.68rem', color: 'var(--accent-light)', fontWeight: 600 }}>
-                  Unit: {currentUnit}
-                </span>
-              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -427,7 +453,7 @@ export default function DoseSelector({
             </div>
           </div>
 
-          {/* SECTION 3: SOS & Special Types */}
+          {/* SOS & Special Types */}
           <div>
             <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
               SOS & Special Types
@@ -470,49 +496,110 @@ export default function DoseSelector({
 
           <div style={{ height: 1, background: 'var(--border)' }} />
 
-          {/* SECTION 5: Live Result Preview & Action Footer */}
-          <div
-            style={{
-              background: 'var(--surface-2)',
-              borderRadius: '10px',
-              padding: '8px 10px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              border: '1px solid var(--border)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Selected Dosage:
-              </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--accent-light)', fontWeight: 700 }}>
-                {value || 'None (Off)'}
-              </span>
+          {/* SECTION 2: Dosage Measure & Type Inputs */}
+          <div>
+            <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+              2. Dosage Measure & Type
             </div>
-            {displayText && displayText !== value && (
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                "{displayText}"
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 8, marginBottom: 8 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                  Amount
+                </label>
+                <input
+                  type="text"
+                  value={amount}
+                  onChange={(e) => handleAmountChange(e.target.value)}
+                  placeholder="e.g. 2, 5, 1"
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    height: '32px',
+                  }}
+                />
               </div>
-            )}
-            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs"
-                style={{ flex: 1, fontSize: '0.72rem' }}
-                onClick={() => onChange('')}
-              >
-                <RotateCcw size={12} /> Clear / Reset
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-xs"
-                style={{ flex: 2, fontSize: '0.72rem' }}
-                onClick={() => setOpen(false)}
-              >
-                <Check size={12} /> Done
-              </button>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                  Type of dosage
+                </label>
+                <input
+                  type="text"
+                  value={dosageType}
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                  placeholder="e.g. drops, mL, sachet"
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    height: '32px',
+                  }}
+                />
+              </div>
             </div>
+
+            {/* Quick unit suggestion chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {COMMON_DOSAGE_TYPES.map((t) => {
+                const isSelected = dosageType.toLowerCase() === t.toLowerCase();
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleSelectQuickType(t)}
+                    style={{
+                      padding: '3px 7px',
+                      borderRadius: '5px',
+                      fontSize: '0.68rem',
+                      fontWeight: isSelected ? 700 : 500,
+                      border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: isSelected ? 'var(--accent)' : 'var(--surface-2)',
+                      color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)' }} />
+
+          {/* Action Footer (Selected Dosage preview removed) */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              style={{ flex: 1, fontSize: '0.72rem' }}
+              onClick={handleClear}
+            >
+              <RotateCcw size={12} /> Clear / Reset
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-xs"
+              style={{ flex: 2, fontSize: '0.72rem' }}
+              onClick={() => setOpen(false)}
+            >
+              <Check size={12} /> Done
+            </button>
           </div>
         </div>
       )}
