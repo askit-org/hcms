@@ -90,7 +90,7 @@ export default function NewVisitForm() {
   };
 
   const hasFormChanges = Boolean(
-    selectedPatient || form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0
+    !savedVisitInfo && (selectedPatient || form.chiefComplaints || form.diagnosis || form.treatment || form.prescriptionNotes || rxMeds.length > 0)
   );
 
   const handleSubmitRef = useRef<any>(null);
@@ -864,49 +864,63 @@ export default function NewVisitForm() {
       </AnimatePresence>
 
       {/* Move to Billing Prompt */}
-      <ConfirmModal
-        isOpen={showBillingPrompt}
-        onClose={() => {
-          setShowBillingPrompt(false);
-          router.push(`/patients/${selectedPatient?.patientId}`);
-        }}
-        onConfirm={() => {
-          setShowBillingPrompt(false);
-          setShowBillModal(true);
-        }}
-        title="Visit Saved! Move to Billing?"
-        description="This OPD visit is recorded as Unbilled. Would you like to proceed to billing now to add treatments performed (injections, salines, dressing) and settle the fees?"
-        confirmText="Move to Billing"
-        cancelText="Skip / Bill Later"
-        variant="info"
-      />
-
-      {/* Create Bill Modal */}
-      {savedVisitInfo && (
-        <CreateBillModal
-          isOpen={showBillModal}
-          onClose={() => {
-            setShowBillModal(false);
-            router.push(`/patients/${selectedPatient?.patientId}`);
-          }}
-          patientId={selectedPatient?.patientId || ''}
-          patientName={selectedPatient?.name || 'Patient'}
-          visitId={savedVisitInfo.id}
-          visitDate={savedVisitInfo.date}
-          initialTreatments={
-            form.treatment.trim()
-              ? [{ name: form.treatment.trim(), unitPrice: 100, quantity: 1 }]
-              : []
+      {(() => {
+        const navigateToPatient = () => {
+          if (selectedPatient?.patientId) {
+            router.push(`/patients/${selectedPatient.patientId}`);
+          } else {
+            router.push('/patients');
           }
-          onSuccess={() => {
-            // Keep open so user can print or share via WhatsApp, or close on Done
-          }}
-          onSkip={() => {
-            setShowBillModal(false);
-            router.push(`/patients/${selectedPatient?.patientId}`);
-          }}
-        />
-      )}
+        };
+
+        return (
+          <>
+            <ConfirmModal
+              isOpen={showBillingPrompt}
+              onClose={() => {
+                setShowBillingPrompt(false);
+                navigateToPatient();
+              }}
+              onConfirm={() => {
+                setShowBillingPrompt(false);
+                setShowBillModal(true);
+              }}
+              title="Visit Saved! Move to Billing?"
+              description="This OPD visit is recorded as Unbilled. Would you like to proceed to billing now to add treatments performed (injections, salines, dressing) and settle the fees?"
+              confirmText="Move to Billing"
+              cancelText="Skip / Bill Later"
+              variant="info"
+            />
+
+            {/* Create Bill Modal */}
+            {savedVisitInfo && (
+              <CreateBillModal
+                isOpen={showBillModal}
+                onClose={() => {
+                  setShowBillModal(false);
+                  navigateToPatient();
+                }}
+                patientId={selectedPatient?.patientId || ''}
+                patientName={selectedPatient?.name || 'Patient'}
+                visitId={savedVisitInfo.id}
+                visitDate={savedVisitInfo.date}
+                initialTreatments={
+                  form.treatment.trim()
+                    ? [{ name: form.treatment.trim(), unitPrice: 100, quantity: 1 }]
+                    : []
+                }
+                onSuccess={() => {
+                  // Keep open so user can print or share via WhatsApp, or close on Done
+                }}
+                onSkip={() => {
+                  setShowBillModal(false);
+                  navigateToPatient();
+                }}
+              />
+            )}
+          </>
+        );
+      })()}
     </PageTransition>
   );
 }
