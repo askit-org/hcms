@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse, Receipt
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse, Receipt, CheckCircle2
 } from 'lucide-react';
 import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
 import type { Visit, Patient } from '@/lib/providers/types';
@@ -35,7 +35,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
   const router = useRouter();
   
   const { data: patient, isLoading: patientLoading } = usePatient(patientId);
-  const { data: visits = [], isLoading: visitsLoading } = usePatientVisits(patientId);
+  const { data: visits = [], isLoading: visitsLoading, refetch: refetchVisits } = usePatientVisits(patientId);
   const { data: settings } = useSettings();
   const { remove: removePatient, update: updatePatientMut } = usePatientMutations();
   const { update: updateVisit, remove: removeVisit } = useVisitMutations();
@@ -535,9 +535,25 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                     <span className="badge badge-purple">{v.category || 'OPD'}</span>
-                    <span className={`badge ${v.billingStatus === 'BILLED' ? 'badge-green' : 'badge-amber'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                      <Receipt size={11} /> {v.billingStatus === 'BILLED' ? 'Billed' : 'Unbilled'}
-                    </span>
+                    {v.bill ? (
+                      v.bill.paymentStatus === 'PAID' || Number(v.bill.balanceDue) === 0 ? (
+                        <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <CheckCircle2 size={11} /> Paid (₹{v.bill.totalAmount})
+                        </span>
+                      ) : Number(v.bill.paidAmount) > 0 ? (
+                        <span className="badge badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <Receipt size={11} /> Paid ₹{v.bill.paidAmount} · Due ₹{v.bill.balanceDue}
+                        </span>
+                      ) : (
+                        <span className="badge badge-red" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <Receipt size={11} /> Due ₹{v.bill.balanceDue}
+                        </span>
+                      )
+                    ) : (
+                      <span className={`badge ${v.billingStatus === 'BILLED' ? 'badge-green' : 'badge-amber'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <Receipt size={11} /> {v.billingStatus === 'BILLED' ? 'Billed' : 'Unbilled'}
+                      </span>
+                    )}
                     {v.diagnosis && <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Dx: {v.diagnosis}</span>}
                     {v.followUpDate && (
                       <span className={`badge ${v.followUpAttended ? 'badge-green' : 'badge-amber'}`}>
@@ -597,14 +613,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className={v.bill && Number(v.bill.balanceDue) > 0 ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
                       onClick={(e) => {
                         e.stopPropagation();
                         setBillingVisit(v);
                       }}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      <Receipt size={14} /> {v.billingStatus === 'BILLED' ? 'Billing Details' : 'Generate Bill'}
+                      <Receipt size={14} /> {v.bill && Number(v.bill.balanceDue) > 0 ? `Update Payment / Settle (₹${v.bill.balanceDue} Due)` : v.billingStatus === 'BILLED' || v.bill ? 'Billing Details' : 'Generate Bill'}
                     </button>
                     <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print / Share Rx</Link>
                     <Link href={`/visits/${v.id}/edit`} className="btn btn-primary btn-sm"><Edit2 size={14} /> Edit Visit</Link>
@@ -649,7 +665,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               : []
           }
           onSuccess={() => {
-            // refreshed
+            refetchVisits();
           }}
         />
       )}

@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { useSettings, useBillingMutations, useSettingsMutations } from "@/lib/hooks/useQueries";
+import { useSettings, useBillingMutations, useSettingsMutations, useBillForVisit } from "@/lib/hooks/useQueries";
 import { toast } from "./Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 import UpiQrCode from "./UpiQrCode";
@@ -66,8 +66,9 @@ export default function CreateBillModal({
 }: CreateBillModalProps) {
   const { user } = useAuth();
   const { data: settings } = useSettings();
-  const { createBill } = useBillingMutations();
+  const { createBill, updateBill } = useBillingMutations();
   const { update: updateSettings } = useSettingsMutations();
+  const { data: existingBill, isLoading: billLoading } = useBillForVisit(isOpen && visitId ? visitId : undefined);
 
   const [mounted, setMounted] = useState(false);
   const [consultationFee, setConsultationFee] = useState<number>(500);
@@ -90,27 +91,67 @@ export default function CreateBillModal({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
-      const defaultFee = settings?.consultationFee !== undefined ? Number(settings.consultationFee) : 500;
-      setConsultationFee(defaultFee);
-      setDiscount(0);
-      setPaymentMethod("CASH");
-      setSettlementType("FULL");
-      setCustomPaidAmount("");
-      setNotes("");
       setCreatedBill(null);
 
-      // Populate initial items
-      if (initialTreatments && initialTreatments.length > 0) {
-        setItems(
-          initialTreatments.map((t, idx) => ({
-            id: `init-${idx}`,
-            name: t.name,
-            quantity: t.quantity || 1,
-            unitPrice: Number(t.unitPrice) || 0,
-          }))
-        );
+      if (existingBill) {
+        setConsultationFee(Number(existingBill.consultationFee));
+        setDiscount(Number(existingBill.discount || 0));
+        setPaymentMethod((existingBill.paymentMethod as "CASH" | "UPI") || "CASH");
+        setNotes(existingBill.notes || "");
+
+        if (existingBill.items && existingBill.items.length > 0) {
+          setItems(
+            existingBill.items.map((t, idx) => ({
+              id: t.id || `item-${idx}`,
+              name: t.name,
+              quantity: Number(t.quantity) || 1,
+              unitPrice: Number(t.unitPrice) || 0,
+            }))
+          );
+        } else if (initialTreatments && initialTreatments.length > 0) {
+          setItems(
+            initialTreatments.map((t, idx) => ({
+              id: `init-${idx}`,
+              name: t.name,
+              quantity: t.quantity || 1,
+              unitPrice: Number(t.unitPrice) || 0,
+            }))
+          );
+        } else {
+          setItems([]);
+        }
+
+        if (Number(existingBill.balanceDue) === 0) {
+          setSettlementType("FULL");
+          setCustomPaidAmount("");
+        } else if (Number(existingBill.paidAmount) > 0) {
+          setSettlementType("PARTIAL");
+          setCustomPaidAmount(String(existingBill.paidAmount));
+        } else {
+          setSettlementType("UNPAID");
+          setCustomPaidAmount("");
+        }
       } else {
-        setItems([]);
+        const defaultFee = settings?.consultationFee !== undefined ? Number(settings.consultationFee) : 500;
+        setConsultationFee(defaultFee);
+        setDiscount(0);
+        setPaymentMethod("CASH");
+        setSettlementType("FULL");
+        setCustomPaidAmount("");
+        setNotes("");
+
+        if (initialTreatments && initialTreatments.length > 0) {
+          setItems(
+            initialTreatments.map((t, idx) => ({
+              id: `init-${idx}`,
+              name: t.name,
+              quantity: t.quantity || 1,
+              unitPrice: Number(t.unitPrice) || 0,
+            }))
+          );
+        } else {
+          setItems([]);
+        }
       }
     } else {
       document.body.style.overflow = "";
@@ -118,7 +159,7 @@ export default function CreateBillModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, settings, initialTreatments]);
+  }, [isOpen, existingBill, settings, initialTreatments]);
 
   // Totals calculations
   const itemsTotal = useMemo(() => {
@@ -220,12 +261,18 @@ export default function CreateBillModal({
         })),
       };
 
-      const result = await createBill.mutateAsync(billPayload);
-      toast("Bill generated successfully!", "success");
+      let result: Bill;
+      if (existingBill) {
+        result = await updateBill.mutateAsync({ id: existingBill.id, input: billPayload });
+        toast("Payment & bill updated successfully!", "success");
+      } else {
+        result = await createBill.mutateAsync(billPayload);
+        toast("Bill generated successfully!", "success");
+      }
       setCreatedBill(result);
       onSuccess?.(result);
     } catch (err) {
-      toast(getErrorMessage(err, "Failed to create bill"), "error");
+      toast(getErrorMessage(err, "Failed to save bill & payment"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -318,9 +365,16 @@ export default function CreateBillModal({
                 <Receipt size={22} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
-                  OPD Billing & Settlement
-                </h3>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>
+                    {existingBill ? "Update Bill & Payment" : "OPD Billing & Settlement"}
+                  </h3>
+                  {existingBill && (
+                    <span className="badge badge-purple" style={{ fontSize: "0.74rem" }}>
+                      {existingBill.billNumber}
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 2 }}>
                   Patient: <strong style={{ color: "var(--text-primary)" }}>{patientName}</strong>
                   {visitDate && ` • Visit: ${new Date(visitDate).toLocaleDateString("en-IN")}`}
@@ -846,11 +900,44 @@ export default function CreateBillModal({
                   </div>
                 )}
 
+                {/* Existing Payments Summary if already billed */}
+                {existingBill && existingBill.payments && existingBill.payments.length > 0 && (
+                  <div
+                    style={{
+                      background: "var(--surface-2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: "10px 14px",
+                      fontSize: "0.82rem",
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 6, display: "flex", justifyContent: "space-between" }}>
+                      <span>Payment History ({existingBill.payments.length} installment{existingBill.payments.length > 1 ? "s" : ""})</span>
+                      <span style={{ color: "var(--accent)" }}>Paid So Far: ₹{existingBill.paidAmount}</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {existingBill.payments.map((p, idx) => (
+                        <div key={p.id || idx} style={{ display: "flex", justifyContent: "space-between", color: "var(--text-secondary)", fontSize: "0.78rem" }}>
+                          <span>• {new Date(p.paidAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} via {p.paymentMethod} {p.notes ? `(${p.notes})` : ""}</span>
+                          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>₹{p.amount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 6. Settlement Mode (Full / Half / Unpaid) */}
                 <div>
-                  <label className="form-label" style={{ fontWeight: 600, marginBottom: 8, display: "block" }}>
-                    Payment Settlement
-                  </label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
+                      Payment Settlement
+                    </label>
+                    {existingBill && Number(existingBill.balanceDue) > 0 && (
+                      <span style={{ fontSize: "0.8rem", color: "#ef4444", fontWeight: 600 }}>
+                        Current Due: ₹{existingBill.balanceDue}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
                     <button
                       type="button"
@@ -1032,9 +1119,15 @@ export default function CreateBillModal({
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Payable Amount</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    {existingBill && paidAmount > Number(existingBill.paidAmount || 0)
+                      ? "Collecting Now"
+                      : "Total Paid Amount"}
+                  </div>
                   <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "var(--accent)" }}>
-                    ₹{paidAmount}
+                    ₹{existingBill && paidAmount > Number(existingBill.paidAmount || 0)
+                      ? paidAmount - Number(existingBill.paidAmount || 0)
+                      : paidAmount}
                   </div>
                 </div>
                 <button
@@ -1048,7 +1141,7 @@ export default function CreateBillModal({
                     "Processing..."
                   ) : (
                     <>
-                      <span>Save & Complete</span>
+                      <span>{existingBill ? "Update Payment & Bill" : "Save & Complete"}</span>
                       <ChevronRight size={16} />
                     </>
                   )}

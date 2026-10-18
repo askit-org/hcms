@@ -814,6 +814,7 @@ export interface DataProvider {
 
   // ── Billing ─────────────────────────────────────────────────────
   createBill(input: CreateBillInput): Promise<Bill>;
+  updateBill(id: string, input: Partial<CreateBillInput>): Promise<Bill>;
   getBillForVisit(visitId: string): Promise<Bill | null>;
   getBillById(id: string): Promise<Bill>;
   getPendingDues(): Promise<PendingDuesResponse>;

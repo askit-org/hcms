@@ -384,6 +384,9 @@ export const ApiDataProvider: DataProvider = {
   async createBill(input: CreateBillInput): Promise<Bill> {
     return api.post<Bill>('/billing', input).then((r) => extract<Bill>(r));
   },
+  async updateBill(id: string, input: Partial<CreateBillInput>): Promise<Bill> {
+    return api.put<Bill>(`/billing/${encodeURIComponent(id)}`, input).then((r) => extract<Bill>(r));
+  },
   async getBillForVisit(visitId: string): Promise<Bill | null> {
     return api.get<Bill | null>(`/billing/visit/${encodeURIComponent(visitId)}`).then((r) => extract<Bill | null>(r));
   },
