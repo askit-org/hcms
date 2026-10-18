@@ -254,11 +254,13 @@ export default function CreateBillModal({
         paidAmount,
         paymentMethod,
         notes: notes.trim() || undefined,
-        items: items.map((i) => ({
-          name: i.name,
-          quantity: i.quantity || 1,
-          unitPrice: i.unitPrice || 0,
-        })),
+        items: items
+          .filter((i) => i.name && i.name.trim())
+          .map((i) => ({
+            name: i.name.trim(),
+            quantity: Number(i.quantity) || 1,
+            unitPrice: Number(i.unitPrice) || 0,
+          })),
       };
 
       let result: Bill;
