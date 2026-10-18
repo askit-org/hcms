@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -83,83 +83,113 @@ export default function CreateBillModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdBill, setCreatedBill] = useState<Bill | null>(null);
 
+  const prevIsOpenRef = useRef(false);
+  const populatedVisitBillIdRef = useRef<string | null>(null);
+  const hasCreatedBillRef = useRef(false);
+
   // Set default consultation fee from settings if available
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
+    if (!isOpen) {
+      document.body.style.overflow = "";
       setCreatedBill(null);
+      hasCreatedBillRef.current = false;
+      populatedVisitBillIdRef.current = null;
+      prevIsOpenRef.current = false;
+      return;
+    }
 
-      if (existingBill) {
-        setConsultationFee(Number(existingBill.consultationFee));
-        setDiscount(Number(existingBill.discount || 0));
-        setPaymentMethod((existingBill.paymentMethod as "CASH" | "UPI") || "CASH");
-        setNotes(existingBill.notes || "");
+    document.body.style.overflow = "hidden";
 
-        if (existingBill.items && existingBill.items.length > 0) {
-          setItems(
-            existingBill.items.map((t, idx) => ({
-              id: t.id || `item-${idx}`,
-              name: t.name,
-              quantity: Number(t.quantity) || 1,
-              unitPrice: Number(t.unitPrice) || 0,
-            }))
-          );
-        } else if (initialTreatments && initialTreatments.length > 0) {
-          setItems(
-            initialTreatments.map((t, idx) => ({
-              id: `init-${idx}`,
-              name: t.name,
-              quantity: t.quantity || 1,
-              unitPrice: Number(t.unitPrice) || 0,
-            }))
-          );
-        } else {
-          setItems([]);
-        }
+    const justOpened = !prevIsOpenRef.current;
+    if (justOpened) {
+      prevIsOpenRef.current = true;
+      setCreatedBill(null);
+      hasCreatedBillRef.current = false;
+      populatedVisitBillIdRef.current = null;
+    }
 
-        if (Number(existingBill.balanceDue) === 0) {
-          setSettlementType("FULL");
-          setCustomPaidAmount("");
-        } else if (Number(existingBill.paidAmount) > 0) {
-          setSettlementType("PARTIAL");
-          setCustomPaidAmount(String(existingBill.paidAmount));
-        } else {
-          setSettlementType("UNPAID");
-          setCustomPaidAmount("");
-        }
+    // If a bill was just created in this active modal session, do not wipe success view or re-populate
+    if (hasCreatedBillRef.current) {
+      return;
+    }
+
+    // Wait until existingBill query completes before initializing values
+    if (visitId && billLoading && existingBill === undefined) {
+      return;
+    }
+
+    // Track unique bill session so we don't overwrite user edits on unrelated re-renders
+    const billKey = existingBill ? `bill-${existingBill.id}` : `new-${visitId || patientId}`;
+    if (populatedVisitBillIdRef.current === billKey) {
+      return;
+    }
+    populatedVisitBillIdRef.current = billKey;
+
+    if (existingBill) {
+      setConsultationFee(Number(existingBill.consultationFee));
+      setDiscount(Number(existingBill.discount || 0));
+      setPaymentMethod((existingBill.paymentMethod as "CASH" | "UPI") || "CASH");
+      setNotes(existingBill.notes || "");
+
+      if (existingBill.items && existingBill.items.length > 0) {
+        setItems(
+          existingBill.items.map((t, idx) => ({
+            id: t.id || `item-${idx}`,
+            name: t.name,
+            quantity: Number(t.quantity) || 1,
+            unitPrice: Number(t.unitPrice) || 0,
+          }))
+        );
+      } else if (initialTreatments && initialTreatments.length > 0) {
+        setItems(
+          initialTreatments.map((t, idx) => ({
+            id: `init-${idx}`,
+            name: t.name,
+            quantity: t.quantity || 1,
+            unitPrice: Number(t.unitPrice) || 0,
+          }))
+        );
       } else {
-        const defaultFee = settings?.consultationFee !== undefined ? Number(settings.consultationFee) : 500;
-        setConsultationFee(defaultFee);
-        setDiscount(0);
-        setPaymentMethod("CASH");
+        setItems([]);
+      }
+
+      if (Number(existingBill.balanceDue) === 0) {
         setSettlementType("FULL");
         setCustomPaidAmount("");
-        setNotes("");
-
-        if (initialTreatments && initialTreatments.length > 0) {
-          setItems(
-            initialTreatments.map((t, idx) => ({
-              id: `init-${idx}`,
-              name: t.name,
-              quantity: t.quantity || 1,
-              unitPrice: Number(t.unitPrice) || 0,
-            }))
-          );
-        } else {
-          setItems([]);
-        }
+      } else if (Number(existingBill.paidAmount) > 0) {
+        setSettlementType("PARTIAL");
+        setCustomPaidAmount(String(existingBill.paidAmount));
+      } else {
+        setSettlementType("UNPAID");
+        setCustomPaidAmount("");
       }
     } else {
-      document.body.style.overflow = "";
+      const defaultFee = settings?.consultationFee !== undefined ? Number(settings.consultationFee) : 500;
+      setConsultationFee(defaultFee);
+      setDiscount(0);
+      setPaymentMethod("CASH");
+      setSettlementType("FULL");
+      setCustomPaidAmount("");
+      setNotes("");
+
+      if (initialTreatments && initialTreatments.length > 0) {
+        setItems(
+          initialTreatments.map((t, idx) => ({
+            id: `init-${idx}`,
+            name: t.name,
+            quantity: t.quantity || 1,
+            unitPrice: Number(t.unitPrice) || 0,
+          }))
+        );
+      } else {
+        setItems([]);
+      }
     }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen, existingBill, settings, initialTreatments]);
+  }, [isOpen, existingBill, billLoading, visitId, patientId, settings, initialTreatments]);
 
   // Totals calculations
   const itemsTotal = useMemo(() => {
@@ -267,12 +297,16 @@ export default function CreateBillModal({
       if (existingBill) {
         result = await updateBill.mutateAsync({ id: existingBill.id, input: billPayload });
         toast("Payment & bill updated successfully!", "success");
+        onSuccess?.(result);
+        onClose();
+        return;
       } else {
+        hasCreatedBillRef.current = true;
         result = await createBill.mutateAsync(billPayload);
         toast("Bill generated successfully!", "success");
+        setCreatedBill(result);
+        onSuccess?.(result);
       }
-      setCreatedBill(result);
-      onSuccess?.(result);
     } catch (err) {
       toast(getErrorMessage(err, "Failed to save bill & payment"), "error");
     } finally {
@@ -281,8 +315,9 @@ export default function CreateBillModal({
   };
 
   const handlePrint = () => {
-    if (visitId) {
-      window.open(`/visits/${visitId}/print?bill=true`, "_blank");
+    const targetVisitId = visitId || createdBill?.visitId;
+    if (targetVisitId) {
+      window.open(`/visits/${targetVisitId}/print?bill=true`, "_blank");
     }
   };
 
@@ -503,9 +538,17 @@ export default function CreateBillModal({
                     onClick={onClose}
                     style={{ display: "flex", alignItems: "center", gap: 6 }}
                   >
-                    Done
+                    <span>Done &amp; Proceed</span>
+                    <ChevronRight size={16} />
                   </button>
                 </div>
+              </div>
+            ) : (visitId && billLoading && existingBill === undefined) ? (
+              <div style={{ padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                  <Clock size={32} style={{ color: "var(--accent)" }} />
+                </motion.div>
+                <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>Loading billing details...</div>
               </div>
             ) : (
               /* Bill Creation Form */
@@ -1136,11 +1179,13 @@ export default function CreateBillModal({
                   type="button"
                   className="btn btn-primary"
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (!!visitId && billLoading && existingBill === undefined)}
                   style={{ minWidth: 160, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                 >
                   {isSubmitting ? (
                     "Processing..."
+                  ) : (!!visitId && billLoading && existingBill === undefined) ? (
+                    "Loading..."
                   ) : (
                     <>
                       <span>{existingBill ? "Update Payment & Bill" : "Save & Complete"}</span>
