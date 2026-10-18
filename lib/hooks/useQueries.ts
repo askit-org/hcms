@@ -303,6 +303,23 @@ export function useBillingMutations() {
     },
   });
 
+  const updateBill = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<CreateBillInput> }) =>
+      provider.updateBill(id, input),
+    onSuccess: (data, { id, input }) => {
+      qc.invalidateQueries({ queryKey: keys.bill(id) });
+      const targetVisitId = data.visitId || input.visitId;
+      if (targetVisitId) {
+        qc.invalidateQueries({ queryKey: keys.billForVisit(targetVisitId) });
+        qc.invalidateQueries({ queryKey: keys.visit(targetVisitId) });
+      }
+      qc.invalidateQueries({ queryKey: keys.bills() });
+      qc.invalidateQueries({ queryKey: keys.pendingDues() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
   const recordPayment = useMutation({
     mutationFn: ({ billId, input }: { billId: string; input: RecordPaymentInput }) =>
       provider.recordBillPayment(billId, input),
@@ -318,7 +335,7 @@ export function useBillingMutations() {
     },
   });
 
-  return { createBill, recordPayment };
+  return { createBill, updateBill, recordPayment };
 }
 
 // ── Dashboard ──────────────────────────────────────────────────

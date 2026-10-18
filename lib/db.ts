@@ -45,6 +45,8 @@ export interface PrescribedMedicine {
   instructionLangs?: ('en' | 'hi' | 'mr')[];
 }
 
+import type { Bill } from './providers/types';
+
 export interface Visit {
   id?: string | number;
   patientId: string;
@@ -67,6 +69,8 @@ export interface Visit {
   createdAt: string;
   /** Joined patient record (included by GET /visits). */
   patient?: Patient;
+  /** Joined bill record (included by GET /visits). */
+  bill?: Bill;
 }
 
 export interface Medicine {

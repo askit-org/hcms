@@ -53,7 +53,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const provider = useProviderStore((s) => s.provider);
-  const { data: visitData, isLoading: visitLoading } = useVisit(visitId);
+  const { data: visitData, isLoading: visitLoading, refetch: refetchVisit } = useVisit(visitId);
   const { update: updateVisit, remove: removeVisit } = useVisitMutations();
   const { create: createOption } = useAppOptionMutations();
   const { data: medicinesData = [] } = useMedicines();
@@ -917,7 +917,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
               : []
           }
           onSuccess={() => {
-            // Updated bill
+            refetchVisit();
           }}
         />
       )}
