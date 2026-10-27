@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X, LogOut, AlertOctagon } from 'lucide-react';
@@ -19,6 +20,7 @@ interface OnboardingPlansModalProps {
 }
 
 export default function OnboardingPlansModal({ isOpen, onClose, isLockout = false, lockReason = null }: OnboardingPlansModalProps) {
+  const router = useRouter();
   const { user } = useAuth();
   const { isSuperAdmin } = usePermissions();
   const { selectPlan } = useSubscriptionMutations();
@@ -521,6 +523,8 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
         onSuccess={() => {
           setShowPaymentModal(false);
           onClose();
+          router.replace('/dashboard');
+          router.refresh();
         }}
       />
     </>,

@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sparkles, Clock, ShieldCheck, ArrowUpRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useSubscription } from '@/lib/hooks/useQueries';
 import PaymentModal from '@/components/PaymentModal';
 
 export default function SubscriptionBanner() {
+  const router = useRouter();
   const { user } = useAuth();
   useSubscription(); // Sync status from API / provider on mount
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -130,6 +132,11 @@ export default function SubscriptionBanner() {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
+        onSuccess={() => {
+          setShowPaymentModal(false);
+          router.replace('/dashboard');
+          router.refresh();
+        }}
       />
     </>
   );

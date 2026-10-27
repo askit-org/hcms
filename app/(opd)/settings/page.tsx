@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthMutations, useSubscription, useSettings, useSettingsMutations } from '@/lib/hooks/useQueries';
 import { FileText, Trash2, AlertTriangle, User, Edit2, Save, X, CreditCard, Sparkles, ShieldCheck, Clock, RefreshCw, Receipt, QrCode, Banknote, Plus } from 'lucide-react';
@@ -15,6 +16,7 @@ import type { UpdateUserInput } from '@/lib/providers/types';
 import { clearAppLocalStorage, clearCacheStorage, clearLocalDatabase } from '@/lib/auth/session';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { updateUser } = useAuthMutations();
   const [isEditing, setIsEditing] = useState(false);
@@ -704,6 +706,11 @@ export default function SettingsPage() {
       <PaymentModal 
         isOpen={showPaymentModal} 
         onClose={() => setShowPaymentModal(false)} 
+        onSuccess={() => {
+          setShowPaymentModal(false);
+          router.replace('/dashboard');
+          router.refresh();
+        }}
       />
     </PageTransition>
   );
