@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse, History, Copy, Layers, ChevronDown, ChevronUp, Clock, FileText, Check, CalendarCheck } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
-import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
+import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, usePatientVisits, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
@@ -72,6 +72,87 @@ export default function NewVisitForm() {
   const activeDiseases = diseaseOptions.map(o => o.value);
   const [showExitModal, setShowExitModal] = useState(false);
   const [hideTreatmentInRx, setHideTreatmentInRx] = useState(false);
+
+  // Requirement 1: Previous visit clinical history
+  const { data: pastVisits = [] } = usePatientVisits(selectedPatient?.patientId || '');
+  const lastVisit = pastVisits && pastVisits.length > 0 ? pastVisits[0] : null;
+  const [showHistoryPanel, setShowHistoryPanel] = useState(true);
+
+  // Requirement 8: Multi-day OPD Treatment logs state
+  const [dayWiseTreatments, setDayWiseTreatments] = useState<Array<{
+    dayNumber: number;
+    date: string;
+    notes?: string;
+    treatment?: string;
+    procedures: Array<{ name: string; quantity: number; unitPrice: number; totalPrice: number }>;
+    charges: number;
+  }>>([]);
+  const [showMultiDaySection, setShowMultiDaySection] = useState(false);
+  const [newDayNotes, setNewDayNotes] = useState('');
+  const [newDayTreatment, setNewDayTreatment] = useState('');
+  const [newDayCharge, setNewDayCharge] = useState('');
+
+  const handleCopyLastPrescriptions = () => {
+    if (!lastVisit?.medicines || lastVisit.medicines.length === 0) {
+      toast('No previous medicines found on last visit.', 'info');
+      return;
+    }
+    const newMeds: PrescribedMedicine[] = lastVisit.medicines.map(m => ({
+      name: m.name,
+      dose: m.dose || '1-0-1',
+      duration: m.duration || '5 days',
+      instructions: m.instructions || '',
+      category: m.category || 'Other',
+      strength: m.strength,
+      unit: m.unit,
+    }));
+    setRxMeds(prev => [...prev, ...newMeds]);
+    toast(`Copied ${newMeds.length} medicines from visit dated ${new Date(lastVisit.date).toLocaleDateString('en-IN')}`, 'success');
+  };
+
+  const handleCopyLastVitals = () => {
+    if (!lastVisit) return;
+    setForm(f => ({
+      ...f,
+      bp: lastVisit.bp || f.bp,
+      pulse: lastVisit.pulse || f.pulse,
+      temp: lastVisit.temp || f.temp,
+      spo2: lastVisit.spo2 || f.spo2,
+      weight: lastVisit.weight || f.weight,
+    }));
+    toast('Copied previous vitals', 'success');
+  };
+
+  const handleCopyLastDiagnosis = () => {
+    if (!lastVisit?.diagnosis) return;
+    setForm(f => ({
+      ...f,
+      diagnosis: f.diagnosis ? `${f.diagnosis}, ${lastVisit.diagnosis}` : lastVisit.diagnosis,
+    }));
+    toast('Copied last diagnosis', 'success');
+  };
+
+  const handleAddDayTreatment = () => {
+    const charge = parseFloat(newDayCharge) || 0;
+    const nextDayNum = dayWiseTreatments.length + 1;
+    const newEntry = {
+      dayNumber: nextDayNum,
+      date: new Date().toISOString().slice(0, 10),
+      notes: newDayNotes.trim() || undefined,
+      treatment: newDayTreatment.trim() || undefined,
+      procedures: newDayTreatment.trim() ? [{ name: newDayTreatment.trim(), quantity: 1, unitPrice: charge, totalPrice: charge }] : [],
+      charges: charge,
+    };
+    setDayWiseTreatments(prev => [...prev, newEntry]);
+    setNewDayNotes('');
+    setNewDayTreatment('');
+    setNewDayCharge('');
+    toast(`Added Day ${nextDayNum} treatment entry`, 'success');
+  };
+
+  const handleRemoveDayTreatment = (idx: number) => {
+    setDayWiseTreatments(prev => prev.filter((_, i) => i !== idx).map((item, i) => ({ ...item, dayNumber: i + 1 })));
+  };
 
   useEffect(() => {
     try {
@@ -303,6 +384,8 @@ export default function NewVisitForm() {
         medicines: rxMeds,
         followUpDate: form.followUpDate || undefined,
         followUpAttended: false,
+        followUpStatus: 'PENDING',
+        dayWiseTreatments: dayWiseTreatments.length > 0 ? dayWiseTreatments : undefined,
       });
 
       if (savedVisit?.id) {
@@ -358,25 +441,112 @@ export default function NewVisitForm() {
         <div className="card" style={{ marginBottom: 16, position: 'relative', zIndex: 50 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>Patient</div>
           {selectedPatient ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface-1)', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--border)' }}>
-              <div className="followup-avatar">{selectedPatient.name.charAt(0)}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
-                {selectedPatient.permanentConditions && selectedPatient.permanentConditions.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <HeartPulse size={12} /> Conditions:
-                    </span>
-                    {selectedPatient.permanentConditions.map(cond => (
-                      <span key={cond} className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
-                        {cond}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface-1)', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--border)' }}>
+                <div className="followup-avatar">{selectedPatient.name.charAt(0)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700 }}>{selectedPatient.name}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{selectedPatient.mobile} · {selectedPatient.gender}, {selectedPatient.age}y</div>
+                  {selectedPatient.permanentConditions && selectedPatient.permanentConditions.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <HeartPulse size={12} /> Conditions:
                       </span>
-                    ))}
-                  </div>
-                )}
+                      {selectedPatient.permanentConditions.map(cond => (
+                        <span key={cond} className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                          {cond}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
               </div>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedPatient(null)}>Change</button>
+
+              {lastVisit && (
+                <div style={{ marginTop: 12, background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 10, padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.85rem', color: '#1d4ed8' }}>
+                      <Clock size={16} /> Previous Visit: {new Date(lastVisit.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {lastVisit.diagnosis && <span className="badge badge-blue" style={{ fontSize: '0.72rem' }}>{lastVisit.diagnosis}</span>}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                      style={{ fontSize: '0.75rem' }}
+                    >
+                      {showHistoryPanel ? 'Hide History' : 'View History & Copy'}
+                    </button>
+                  </div>
+
+                  {showHistoryPanel && (
+                    <div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, fontSize: '0.8rem', marginBottom: 10 }}>
+                        {lastVisit.chiefComplaints && (
+                          <div>
+                            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem' }}>Complaints:</span>
+                            <span style={{ fontWeight: 500 }}>{lastVisit.chiefComplaints}</span>
+                          </div>
+                        )}
+                        {(lastVisit.bp || lastVisit.pulse || lastVisit.temp || lastVisit.weight) && (
+                          <div>
+                            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem' }}>Vitals:</span>
+                            <span>BP: {lastVisit.bp || '-'} · Pulse: {lastVisit.pulse || '-'} · Temp: {lastVisit.temp || '-'} · Wt: {lastVisit.weight || '-'}kg</span>
+                          </div>
+                        )}
+                        {lastVisit.medicines && lastVisit.medicines.length > 0 && (
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', marginBottom: 4 }}>
+                              Last Prescribed Medicines ({lastVisit.medicines.length}):
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {lastVisit.medicines.map((m, idx) => (
+                                <span key={idx} style={{ background: 'var(--surface-0)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem' }}>
+                                  <strong>{m.name}</strong> {m.dose} ({m.duration})
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(59, 130, 246, 0.15)', paddingTop: 8 }}>
+                        {lastVisit.medicines && lastVisit.medicines.length > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={handleCopyLastPrescriptions}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <Copy size={13} /> Copy All Prescriptions
+                          </button>
+                        )}
+                        {(lastVisit.bp || lastVisit.pulse || lastVisit.temp) && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={handleCopyLastVitals}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <Copy size={13} /> Copy Vitals
+                          </button>
+                        )}
+                        {lastVisit.diagnosis && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={handleCopyLastDiagnosis}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <Copy size={13} /> Copy Diagnosis
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ position: 'relative', zIndex: 100 }}>
@@ -619,6 +789,112 @@ export default function NewVisitForm() {
                 />
               </div>
               <textarea className="form-textarea" placeholder="Procedures, injections, etc." value={form.treatment} onChange={e => set('treatment', e.target.value)} style={{ minHeight: 100 }} />
+
+              {/* Multi-Day Treatment Protocol (OPD) */}
+              <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Multi-Day Treatment Protocol (OPD)</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 8 }}>
+                      Log Day 1, Day 2, Day 3... treatment procedures & charges
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => setShowMultiDaySection(!showMultiDaySection)}
+                  >
+                    {showMultiDaySection ? 'Hide Protocol' : `View / Add (${dayWiseTreatments.length} days)`}
+                  </button>
+                </div>
+
+                {showMultiDaySection && (
+                  <div style={{ background: 'var(--surface-1)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
+                    {dayWiseTreatments.length > 0 ? (
+                      <div style={{ marginBottom: 12 }}>
+                        <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                              <th style={{ padding: '6px 8px' }}>Day</th>
+                              <th style={{ padding: '6px 8px' }}>Date</th>
+                              <th style={{ padding: '6px 8px' }}>Procedure / Treatment</th>
+                              <th style={{ padding: '6px 8px' }}>Notes</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Charges (₹)</th>
+                              <th style={{ padding: '6px 8px', width: 40 }}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dayWiseTreatments.map((entry, idx) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '6px 8px', fontWeight: 600 }}>Day {entry.dayNumber}</td>
+                                <td style={{ padding: '6px 8px' }}>{entry.date}</td>
+                                <td style={{ padding: '6px 8px' }}>{entry.treatment || '-'}</td>
+                                <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{entry.notes || '-'}</td>
+                                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>₹{entry.charges}</td>
+                                <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-icon"
+                                    onClick={() => handleRemoveDayTreatment(idx)}
+                                    style={{ color: 'var(--danger)', padding: 2 }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                            <tr>
+                              <td colSpan={4} style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>Total Multi-Day Charges:</td>
+                              <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: 'var(--primary)' }}>
+                                ₹{dayWiseTreatments.reduce((sum, item) => sum + item.charges, 0)}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 12, textAlign: 'center' }}>
+                        No multi-day treatment logged yet. Add Day 1 treatment below if this visit spans multiple days.
+                      </div>
+                    )}
+
+                    {/* Add new day input */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr auto', gap: 8, alignItems: 'center' }}>
+                      <input
+                        className="form-input"
+                        placeholder={`Day ${dayWiseTreatments.length + 1} Treatment / Procedure (e.g. IV Ceftriaxone + Dressing)`}
+                        value={newDayTreatment}
+                        onChange={e => setNewDayTreatment(e.target.value)}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                      <input
+                        className="form-input"
+                        placeholder="Clinical Notes / Observation"
+                        value={newDayNotes}
+                        onChange={e => setNewDayNotes(e.target.value)}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                      <input
+                        className="form-input"
+                        type="number"
+                        placeholder="Charges (₹)"
+                        value={newDayCharge}
+                        onChange={e => setNewDayCharge(e.target.value)}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleAddDayTreatment}
+                        disabled={!newDayTreatment.trim() && !newDayCharge}
+                      >
+                        <Plus size={14} /> Add Day {dayWiseTreatments.length + 1}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -905,7 +1181,13 @@ export default function NewVisitForm() {
                 visitId={savedVisitInfo.id}
                 visitDate={savedVisitInfo.date}
                 initialTreatments={
-                  form.treatment.trim()
+                  dayWiseTreatments.length > 0
+                    ? dayWiseTreatments.map(d => ({
+                        name: `Day ${d.dayNumber}: ${d.treatment || 'Treatment Protocol'}`,
+                        unitPrice: d.charges || 0,
+                        quantity: 1,
+                      }))
+                    : form.treatment.trim()
                     ? [{ name: form.treatment.trim(), unitPrice: 100, quantity: 1 }]
                     : []
                 }

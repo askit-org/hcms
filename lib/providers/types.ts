@@ -34,6 +34,21 @@ export type UpdateTemplateInput = Partial<CreateTemplateInput>;
 
 export type CreateAppOptionInput = Omit<AppOption, 'id' | 'createdAt'>;
 
+export interface IpdBed {
+  id: string;
+  bedNumber: string;
+  label?: string;
+}
+
+export interface IpdRoom {
+  id: string;
+  name: string;
+  roomCode?: string;
+  type?: string;
+  dailyRate?: number;
+  beds: IpdBed[];
+}
+
 export type ClinicSettings = {
   doctorName: string;
   degree: string;
@@ -43,7 +58,11 @@ export type ClinicSettings = {
   regNo: string;
   city: string;
   consultationFee?: number;
+  followUpFee?: number;
   upiId?: string;
+  serviceRates?: Record<string, number>;
+  customServices?: Array<{ id: string; name: string; defaultPrice: number; category?: string }>;
+  ipdRooms?: IpdRoom[];
 };
 
 export type AuthLoginInput = { email: string; password?: string };
@@ -252,7 +271,87 @@ export interface DashboardStats {
   followUpsToday: number;
   upcomingFollowUps: number;
   recentVisits: Array<{ visit: Visit; patient: Patient | undefined }>;
+  todayVisits?: Array<{ visit: Visit; patient: Patient | undefined }>;
   todayFollowUpList: FollowUpItem[];
+  financialSummary?: {
+    todayBilled: number;
+    todayCollected: number;
+    totalPendingDues: number;
+    patientsWithDuesCount: number;
+  };
+}
+
+// ─── IPD Module Types ─────────────────────────────────────────────
+
+export interface IpdProcedureItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface IpdDayLog {
+  dayNumber: number;
+  date: string;
+  doctorNotes?: string;
+  nursingNotes?: string;
+  medicinesAdministered?: string;
+  procedures?: IpdProcedureItem[];
+  dailyCharges: number;
+}
+
+export interface IpdAdmission {
+  id: string;
+  admissionNumber: string;
+  organizationId: string;
+  userId: string;
+  patientId: string;
+  patient?: Patient;
+  admissionDate: string;
+  dischargeDate?: string | null;
+  bedOrRoom: string;
+  diagnosis: string;
+  attendingDoctor?: string | null;
+  status: 'ADMITTED' | 'DISCHARGED';
+  dayWiseLogs: IpdDayLog[];
+  cumulativeCharges: number;
+  advancePaid: number;
+  discount: number;
+  totalPaid: number;
+  balanceDue: number;
+  dischargeSummary?: string | null;
+  dischargeMedications?: string | null;
+  dischargeNotes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateIpdAdmissionInput {
+  patientId: string;
+  bedOrRoom: string;
+  diagnosis: string;
+  attendingDoctor?: string;
+  admissionDate?: string;
+  advancePaid?: number;
+}
+
+export interface AddIpdDayLogInput {
+  date?: string;
+  doctorNotes?: string;
+  nursingNotes?: string;
+  medicinesAdministered?: string;
+  procedures?: Array<{ name: string; quantity?: number; unitPrice?: number; totalPrice?: number }>;
+  dailyCharges?: number;
+}
+
+export interface DischargeIpdInput {
+  dischargeDate?: string;
+  dischargeSummary?: string;
+  dischargeMedications?: string;
+  dischargeNotes?: string;
+  discount?: number;
+  finalPayment?: number;
+  paymentMethod?: string;
 }
 
 // ─── Billing Module Types ─────────────────────────────────────────
@@ -776,6 +875,7 @@ export interface DataProvider {
   getTodayFollowUps(): Promise<FollowUpItem[]>;
   getUpcomingFollowUps(days?: number): Promise<FollowUpItem[]>;
   markFollowUpAttended(visitId: string | number): Promise<Visit>;
+  updateFollowUpStatus(visitId: string | number, status: 'ATTENDED' | 'NOT_ATTENDED' | 'RESCHEDULED', newDate?: string): Promise<Visit>;
 
   // ── Medicines ──────────────────────────────────────────────────
   listMedicines(params?: MedicineListParams): Promise<Medicine[]>;
@@ -819,6 +919,15 @@ export interface DataProvider {
   getBillById(id: string): Promise<Bill>;
   getPendingDues(): Promise<PendingDuesResponse>;
   recordBillPayment(billId: string, input: RecordPaymentInput): Promise<Bill>;
+
+  // ── IPD (Inpatient Department) ──────────────────────────────────
+  createIpdAdmission(input: CreateIpdAdmissionInput): Promise<IpdAdmission>;
+  listIpdAdmissions(params?: { status?: string; patientId?: string; search?: string }): Promise<IpdAdmission[]>;
+  getIpdAdmission(id: string): Promise<IpdAdmission>;
+  addIpdDayLog(id: string, input: AddIpdDayLogInput): Promise<IpdAdmission>;
+  recordIpdPayment(id: string, amount: number): Promise<IpdAdmission>;
+  dischargeIpd(id: string, input: DischargeIpdInput): Promise<IpdAdmission>;
+  deleteIpdAdmission(id: string): Promise<void>;
 
   // ── Platform operator (AMAN only; backend returns 403 otherwise) ──
   getPlatformStats(): Promise<PlatformStats>;

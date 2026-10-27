@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Stethoscope, Pill, Calendar,
-  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package, ShieldCheck
+  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package, ShieldCheck, Bed
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProviderStore } from '@/lib/providers';
@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { href: '/visits/new', label: 'New OPD Visit', icon: Stethoscope, group: 'main', model: 'VISITS' },
   { href: '/prescription', label: 'Prescription', icon: Pill, group: 'clinical', model: 'VISITS' },
   { href: '/followup', label: 'Follow-Up', icon: Calendar, group: 'clinical', model: 'FOLLOWUPS' },
+  { href: '/ipd', label: 'Inpatient (IPD)', icon: Bed, group: 'clinical', model: 'VISITS' },
   { href: '/staff', label: 'Manage Staff', icon: ShieldCheck, group: 'organization', model: 'STAFF' },
   { href: '/reports', label: 'Reports', icon: BarChart3, group: 'records', model: 'REPORTS' },
   { href: '/medicines', label: 'Medicines', icon: Package, group: 'records', model: 'MEDICINES' },

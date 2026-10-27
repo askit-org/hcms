@@ -20,6 +20,8 @@ import ErrorState from '@/components/ErrorState';
 import { DoseDisplay } from '@/components/DoseSelector';
 import ConfirmModal from '@/components/ConfirmModal';
 import CreateBillModal from '@/components/CreateBillModal';
+import MultiDayBillModal from '@/components/MultiDayBillModal';
+import RecordPaymentModal from '@/components/RecordPaymentModal';
 
 const COMMON_CONDITIONS = [
   'Hypertension (BP)',
@@ -42,6 +44,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
 
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
   const [billingVisit, setBillingVisit] = useState<Visit | null>(null);
+  const [showMultiDayBill, setShowMultiDayBill] = useState(false);
+  const [activePaymentModal, setActivePaymentModal] = useState<{
+    billId: string;
+    billNumber: string;
+    balanceDue: number;
+    totalAmount?: number;
+    paidAmount?: number;
+  } | null>(null);
   const [tab, setTab] = useState<'overview' | 'visits'>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -227,6 +237,16 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
           </div>
         </div>
         <div className="flex-wrap-header-actions">
+          {visits.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setShowMultiDayBill(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Receipt size={14} /> Multi-Day Bill
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={() => setIsEditing(!isEditing)}>
             {isEditing ? <><X size={14} /> Cancel</> : <><Edit2 size={14} /> Edit Patient</>}
           </button>
@@ -611,16 +631,35 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {v.bill && Number(v.bill.balanceDue) > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivePaymentModal({
+                            billId: v.bill!.id,
+                            billNumber: v.bill!.billNumber,
+                            balanceDue: Number(v.bill!.balanceDue),
+                            totalAmount: Number(v.bill!.totalAmount),
+                            paidAmount: Number(v.bill!.paidAmount),
+                          });
+                        }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Receipt size={14} /> Collect Due (₹{v.bill.balanceDue})
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className={v.bill && Number(v.bill.balanceDue) > 0 ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+                      className="btn btn-secondary btn-sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         setBillingVisit(v);
                       }}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      <Receipt size={14} /> {v.bill && Number(v.bill.balanceDue) > 0 ? `Update Payment / Settle (₹${v.bill.balanceDue} Due)` : v.billingStatus === 'BILLED' || v.bill ? 'Billing Details' : 'Generate Bill'}
+                      <Receipt size={14} /> {v.billingStatus === 'BILLED' || v.bill ? 'Full Bill / Edit' : 'Generate Bill'}
                     </button>
                     <Link href={`/visits/${v.id}/print`} className="btn btn-secondary btn-sm"><Printer size={14} /> Print / Share Rx</Link>
                     <Link href={`/visits/${v.id}/edit`} className="btn btn-primary btn-sm"><Edit2 size={14} /> Edit Visit</Link>
@@ -664,6 +703,31 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               ? [{ name: billingVisit.treatment.trim(), unitPrice: 100, quantity: 1 }]
               : []
           }
+          onSuccess={() => {
+            refetchVisits();
+          }}
+        />
+      )}
+
+      {showMultiDayBill && patient && (
+        <MultiDayBillModal
+          isOpen={showMultiDayBill}
+          onClose={() => setShowMultiDayBill(false)}
+          patient={patient}
+          visits={visits}
+        />
+      )}
+
+      {activePaymentModal && patient && (
+        <RecordPaymentModal
+          isOpen={!!activePaymentModal}
+          onClose={() => setActivePaymentModal(null)}
+          billId={activePaymentModal.billId}
+          billNumber={activePaymentModal.billNumber}
+          patientName={patient.name}
+          balanceDue={activePaymentModal.balanceDue}
+          totalAmount={activePaymentModal.totalAmount}
+          paidAmount={activePaymentModal.paidAmount}
           onSuccess={() => {
             refetchVisits();
           }}

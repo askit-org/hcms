@@ -20,6 +20,7 @@ import {
   Banknote,
   QrCode,
   ArrowRight,
+  X,
 } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
 import { useFollowUps, useVisitMutations, usePendingDues } from '@/lib/hooks/useQueries';
@@ -38,7 +39,7 @@ type FollowUpItem = { visit: Visit; patient: Patient | undefined };
 
 export default function FollowUpPage() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'today' | 'upcoming' | 'all' | 'payments'>('today');
+  const [tab, setTab] = useState<'today' | 'upcoming' | 'missed' | 'all' | 'payments'>('today');
   const [attendedIds, setAttendedIds] = useState<Set<string | number>>(new Set());
   const [expandedPatientIds, setExpandedPatientIds] = useState<Set<string>>(new Set());
   const [paymentSearch, setPaymentSearch] = useState('');
@@ -46,10 +47,16 @@ export default function FollowUpPage() {
     bill: PendingDueVisit;
     patientName: string;
   } | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<{
+    visitId: string;
+    patientName: string;
+    currentDate?: string;
+  } | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<string>('');
 
   const provider = useProviderStore((s) => s.provider);
   const { today, upcoming } = useFollowUps();
-  const { markFollowUp } = useVisitMutations();
+  const { markFollowUp, updateFollowUpStatus } = useVisitMutations();
   const { data: pendingDuesData, isLoading: duesLoading, refetch: refetchDues } = usePendingDues();
 
   // Custom query for all pending followups (beyond 30 days)
@@ -58,14 +65,17 @@ export default function FollowUpPage() {
     queryFn: () => provider.getUpcomingFollowUps(9999),
   });
 
+  const missedFU = (allFU || []).filter(
+    (item) => item.visit?.id && item.visit.followUpStatus === 'NOT_ATTENDED'
+  );
   const todayFU = (today.data || []).filter(
-    (item) => item.visit?.id && !attendedIds.has(item.visit.id) && !item.visit.followUpAttended
+    (item) => item.visit?.id && !attendedIds.has(item.visit.id) && item.visit.followUpStatus !== 'ATTENDED' && item.visit.followUpStatus !== 'NOT_ATTENDED'
   );
   const upcomingFU = (upcoming.data || []).filter(
-    (item) => item.visit?.id && !attendedIds.has(item.visit.id) && !item.visit.followUpAttended
+    (item) => item.visit?.id && !attendedIds.has(item.visit.id) && item.visit.followUpStatus !== 'ATTENDED' && item.visit.followUpStatus !== 'NOT_ATTENDED'
   );
   const allFUClean = (allFU || []).filter(
-    (item) => item.visit?.id && !attendedIds.has(item.visit.id) && !item.visit.followUpAttended
+    (item) => item.visit?.id && !attendedIds.has(item.visit.id) && item.visit.followUpStatus !== 'ATTENDED'
   );
 
   const loading =
@@ -81,22 +91,44 @@ export default function FollowUpPage() {
     toast('Data refreshed', 'info');
   };
 
-  const markAttended = async (v: Visit) => {
-    if (!v.id) return;
-    const vid = v.id;
-    setAttendedIds((prev) => new Set(prev).add(vid));
-    try {
-      await markFollowUp.mutateAsync(vid);
-      await load();
-      toast(`Marked as attended!`, 'success');
-    } catch (err) {
-      setAttendedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(vid);
-        return next;
-      });
-      toast(getErrorMessage(err, 'Failed to mark follow-up as attended.'), 'error');
+  const handleStatusChange = async (visit: Visit, status: 'ATTENDED' | 'NOT_ATTENDED' | 'RESCHEDULED', newDate?: string) => {
+    if (!visit.id) return;
+    const vid = visit.id;
+    if (status === 'ATTENDED') {
+      setAttendedIds((prev) => new Set(prev).add(vid));
     }
+    try {
+      await updateFollowUpStatus.mutateAsync({
+        id: vid,
+        status,
+        newDate,
+      });
+      await load();
+      if (status === 'ATTENDED') toast('Marked as attended!', 'success');
+      else if (status === 'NOT_ATTENDED') toast('Marked as Did Not Come', 'info');
+      else if (status === 'RESCHEDULED') toast(`Rescheduled follow-up to ${newDate}`, 'success');
+    } catch (err) {
+      if (status === 'ATTENDED') {
+        setAttendedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(vid);
+          return next;
+        });
+      }
+      toast(getErrorMessage(err, 'Failed to update follow-up status.'), 'error');
+    }
+  };
+
+  const openRescheduleModal = (visit: Visit, patientName: string) => {
+    const defaultNext = new Date();
+    defaultNext.setDate(defaultNext.getDate() + 7);
+    const dateStr = defaultNext.toISOString().slice(0, 10);
+    setRescheduleTarget({
+      visitId: String(visit.id || ''),
+      patientName,
+      currentDate: visit.followUpDate,
+    });
+    setRescheduleDate(dateStr);
   };
 
   const toggleExpandPatient = (patientId: string) => {
@@ -139,7 +171,7 @@ export default function FollowUpPage() {
     });
   }, [pendingDuesData, paymentSearch]);
 
-  const items = tab === 'today' ? todayFU : tab === 'upcoming' ? upcomingFU : allFUClean;
+  const items = tab === 'today' ? todayFU : tab === 'upcoming' ? upcomingFU : tab === 'missed' ? missedFU : allFUClean;
 
   const getDaysLabel = (dateStr: string) => {
     const today = new Date();
@@ -204,8 +236,11 @@ export default function FollowUpPage() {
         <button className={`tab-btn ${tab === 'upcoming' ? 'active' : ''}`} onClick={() => setTab('upcoming')}>
           Next 30 Days ({upcomingFU.length})
         </button>
+        <button className={`tab-btn ${tab === 'missed' ? 'active' : ''}`} onClick={() => setTab('missed')}>
+          Did Not Come ({missedFU.length})
+        </button>
         <button className={`tab-btn ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
-          All Pending ({allFU.length})
+          All ({allFU.length})
         </button>
         <button
           className={`tab-btn ${tab === 'payments' ? 'active' : ''}`}
@@ -746,6 +781,15 @@ export default function FollowUpPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700 }}>{patient?.name || 'Patient'}</span>
                       {visit.followUpDate && getDaysLabel(visit.followUpDate)}
+                      {visit.followUpStatus === 'NOT_ATTENDED' && (
+                        <span className="badge badge-amber" style={{ fontSize: '0.72rem' }}>Did Not Come</span>
+                      )}
+                      {visit.followUpStatus === 'RESCHEDULED' && (
+                        <span className="badge badge-blue" style={{ fontSize: '0.72rem' }}>Rescheduled</span>
+                      )}
+                      {visit.followUpStatus === 'ATTENDED' && (
+                        <span className="badge badge-green" style={{ fontSize: '0.72rem' }}>Attended</span>
+                      )}
                     </div>
                     <div
                       style={{
@@ -775,21 +819,147 @@ export default function FollowUpPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="followup-actions">
-                  <Link href={`/patients/${visit.patientId}`} className="btn btn-ghost btn-sm">
+                <div className="followup-actions" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Link href={`/patients/${visit.patientId}`} className="btn btn-ghost btn-xs">
                     View Patient
                   </Link>
-                  <Link href={`/visits/new?patientId=${visit.patientId}`} className="btn btn-secondary btn-sm">
-                    <Stethoscope size={14} /> New Visit
+                  <Link href={`/visits/new?patientId=${visit.patientId}`} className="btn btn-secondary btn-xs">
+                    <Stethoscope size={13} /> New Visit
                   </Link>
-                  <button className="btn btn-success btn-sm" onClick={() => markAttended(visit)}>
-                    <CheckCircle2 size={14} /> Attended
+                  <button
+                    type="button"
+                    className="btn btn-success btn-xs"
+                    onClick={() => handleStatusChange(visit, 'ATTENDED')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    title="Mark as Attended"
+                  >
+                    <CheckCircle2 size={13} /> Attended
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => handleStatusChange(visit, 'NOT_ATTENDED')}
+                    style={{ color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    title="Patient Did Not Come"
+                  >
+                    <X size={13} /> Did Not Come
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => openRescheduleModal(visit, patient?.name || 'Patient')}
+                    style={{ color: 'var(--primary)', border: '1px solid rgba(13, 148, 136, 0.3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    title="Reschedule Follow-up"
+                  >
+                    <Calendar size={13} /> Reschedule
                   </button>
                 </div>
               </motion.div>
             ))}
           </motion.div>
         )
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setRescheduleTarget(null)}
+        >
+          <div
+            style={{
+              background: 'var(--surface-solid)',
+              borderRadius: 14,
+              padding: 20,
+              maxWidth: 420,
+              width: '100%',
+              border: '1px solid var(--border)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Calendar size={18} style={{ color: 'var(--primary)' }} />
+                <span>Reschedule Follow-up</span>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setRescheduleTarget(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Select new follow-up date for <strong>{rescheduleTarget.patientName}</strong>:
+            </div>
+
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[
+                { label: '+3 Days', days: 3 },
+                { label: '+7 Days', days: 7 },
+                { label: '+14 Days', days: 14 },
+                { label: '+1 Month', days: 30 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + preset.days);
+                    setRescheduleDate(d.toISOString().slice(0, 10));
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="date"
+              className="form-input"
+              value={rescheduleDate}
+              onChange={(e) => setRescheduleDate(e.target.value)}
+              style={{ marginBottom: 16, width: '100%' }}
+            />
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setRescheduleTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  if (!rescheduleDate) {
+                    toast('Please select a follow-up date', 'error');
+                    return;
+                  }
+                  handleStatusChange({ id: rescheduleTarget.visitId } as any, 'RESCHEDULED', rescheduleDate);
+                  setRescheduleTarget(null);
+                }}
+              >
+                Confirm Reschedule
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageTransition>
   );

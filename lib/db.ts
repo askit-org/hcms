@@ -65,7 +65,16 @@ export interface Visit {
   medicines?: PrescribedMedicine[];
   followUpDate?: string;
   followUpAttended?: boolean;
+  followUpStatus?: 'PENDING' | 'ATTENDED' | 'NOT_ATTENDED' | 'RESCHEDULED';
   billingStatus?: 'UNBILLED' | 'BILLED';
+  dayWiseTreatments?: Array<{
+    dayNumber: number;
+    date: string;
+    notes?: string;
+    treatment?: string;
+    procedures?: Array<{ name: string; quantity: number; unitPrice: number; totalPrice: number }>;
+    charges?: number;
+  }>;
   createdAt: string;
   /** Joined patient record (included by GET /visits). */
   patient?: Patient;

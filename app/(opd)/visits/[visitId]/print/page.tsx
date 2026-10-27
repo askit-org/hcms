@@ -56,7 +56,9 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
     let billSection = '';
     if (bill && (viewMode === 'both' || viewMode === 'bill')) {
       const itemsList = bill.items.map((it) => `• ${it.name} (Qty: ${it.quantity}): ₹${it.totalPrice}`).join('\n');
-      billSection = `*BILL & PAYMENT RECEIPT*\n*Bill No:* ${bill.billNumber}\n• Consultation Fee: ₹${bill.consultationFee}\n${itemsList ? itemsList + '\n' : ''}*Subtotal:* ₹${bill.subtotal}\n${bill.discount ? `*Discount:* -₹${bill.discount}\n` : ''}*Total Amount:* ₹${bill.totalAmount}\n*Paid:* ₹${bill.paidAmount} (${bill.paymentMethod})\n*Balance Due:* ₹${bill.balanceDue} (${bill.paymentStatus})\n\n`;
+      const discPercent = (bill.subtotal || 0) > 0 ? Math.round(((bill.discount || 0) / bill.subtotal) * 100) : 0;
+      const discountText = bill.discount > 0 ? `• Discount Given: -₹${bill.discount} (${discPercent}% off)\n` : '';
+      billSection = `*BILL & PAYMENT RECEIPT*\n*Bill No:* ${bill.billNumber}\n• Consultation Fee: ₹${bill.consultationFee}\n${itemsList ? itemsList + '\n' : ''}• Subtotal (Before Discount): ₹${bill.subtotal}\n${discountText}*Final Payable Amount:* ₹${bill.totalAmount}\n*Paid:* ₹${bill.paidAmount} (${bill.paymentMethod})\n*Balance Due:* ₹${bill.balanceDue} (${bill.paymentStatus})\n\n`;
     }
 
     const rxSection =
@@ -482,7 +484,7 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
                       {bill.discount > 0 && (
                         <tr style={{ background: '#f8fafc' }}>
                           <td colSpan={4} style={{ padding: '4px 10px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
-                            Discount / Concession:
+                            Discount / Concession ({Math.round(((bill.discount || 0) / (bill.subtotal || 1)) * 100)}% off):
                           </td>
                           <td style={{ padding: '4px 10px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
                             - ₹{bill.discount}
