@@ -124,8 +124,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isPlatformAdmin, isSuperAdmin, hasPermission, canAccessRoute, getFirstAllowedRoute } = usePermissions();
-  const { data: settings } = useSettings();
-  const { today } = useFollowUps();
   const { isAuthenticated, user, token } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -137,6 +135,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const subLock = isPlatformAdmin
     ? { isLocked: false, reason: null, daysRemaining: null }
     : checkSubscriptionLock(user?.subscription);
+
+  // Only run background clinical queries if the clinic subscription is active
+  const { data: settings } = useSettings({ enabled: !subLock.isLocked });
+  const { today } = useFollowUps({ enabled: !subLock.isLocked });
   const hasValidSession = isAuthenticated && !!token && !isTokenExpired(token);
 
   // Token expiry, idle timeout and cross-tab logout

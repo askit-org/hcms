@@ -3,6 +3,9 @@
 
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from '@/components/Toast';
+import { getErrorMessage } from '@/lib/utils/error';
+import { logout } from '@/lib/auth/session';
 import type {
   AuthLoginInput,
   AuthSignupInput,
@@ -104,10 +107,6 @@ export const api = axios.create({
   timeout: 15000, // 15s timeout to allow headroom for remote cloud database latency
 });
 
-import { toast } from '@/components/Toast';
-import { getErrorMessage } from '@/lib/utils/error';
-import { logout } from '@/lib/auth/session';
-
 // Request Interceptor: Attach the current token from useAuth store to every request
 api.interceptors.request.use((config) => {
   // Use useAuth.getState() to pull the token outside of React lifecycle
@@ -143,7 +142,25 @@ api.interceptors.response.use(
 
     if (isSubscriptionExpired) {
       if (isAuthenticated && !error.config?.skipAuthLogout) {
-        logout('subscription_expired');
+        const user = useAuth.getState().user;
+        const roleCode = (user?.roleCode || user?.role || '').toString().toUpperCase();
+        const isSuperAdmin =
+          roleCode === 'SUPER_ADMIN' ||
+          (!user?.role && !user?.roleCode && !user?.platformRole);
+
+        if (!isSuperAdmin) {
+          // Staff member cannot renew: log them out with session expired reason
+          logout('subscription_expired');
+        } else {
+          // Super Admin (Clinic Owner) must stay logged in so they can renew via OnboardingPlansModal
+          const currentSub = user?.subscription;
+          if (currentSub?.subscriptionStatus !== 'expired') {
+            useAuth.getState().updateSubscription({
+              ...(currentSub || { planType: 'none', hasSelectedPlan: true }),
+              subscriptionStatus: 'expired',
+            });
+          }
+        }
       }
       return Promise.reject(error);
     }

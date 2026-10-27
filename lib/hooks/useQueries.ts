@@ -187,22 +187,23 @@ export function useVisit(id: string | number) {
   });
 }
 
-export function useFollowUps() {
+export function useFollowUps(options: { enabled?: boolean } = {}) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
   const { hasPermission } = usePermissions();
   const canReadFollowups = hasPermission('FOLLOWUPS', 'canRead');
+  const isEnabled = isAuthenticated && !!token && canReadFollowups && (options.enabled ?? true);
   
   const today = useQuery({
     queryKey: [...keys.followups(), 'today'],
     queryFn: () => provider.getTodayFollowUps(),
-    enabled: isAuthenticated && !!token && canReadFollowups,
+    enabled: isEnabled,
   });
 
   const upcoming = useQuery({
     queryKey: [...keys.followups(), 'upcoming'],
     queryFn: () => provider.getUpcomingFollowUps(30),
-    enabled: isAuthenticated && !!token && canReadFollowups,
+    enabled: isEnabled,
   });
 
   return { today, upcoming };
@@ -486,13 +487,13 @@ export function useAppOptionMutations() {
 
 // ── Settings ───────────────────────────────────────────────────
 
-export function useSettings() {
+export function useSettings(options: { enabled?: boolean } = {}) {
   const provider = useProviderStore(s => s.provider);
   const { isAuthenticated, token } = useAuth();
   return useQuery({
     queryKey: keys.settings(),
     queryFn: () => provider.getSettings(),
-    enabled: isAuthenticated && !!token,
+    enabled: isAuthenticated && !!token && (options.enabled ?? true),
   });
 }
 

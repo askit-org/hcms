@@ -17,8 +17,34 @@ import { getErrorMessage } from "@/lib/utils/error";
 import { useSubscriptionMutations } from "@/lib/hooks/useQueries";
 import { useAuth, type AuthUser } from "@/lib/hooks/useAuth";
 import { type UserSubscription } from "@/lib/providers/types";
-import { api } from "@/lib/providers/api";
 import { getQueryClient } from "@/lib/queryClient";
+
+/**
+ * Self-contained helper to fetch the latest auth user profile directly from /auth/me.
+ * Avoids any circular dependency on axios/api client instances.
+ */
+async function fetchCurrentMeProfile(): Promise<{ user?: AuthUser; subscription?: UserSubscription } | null> {
+  try {
+    const token = useAuth.getState().token;
+    if (!token) return null;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
+    const res = await fetch(`${baseUrl}/auth/me`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      user: data?.user,
+      subscription: data?.user?.subscription,
+    };
+  } catch {
+    return null;
+  }
+}
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -100,9 +126,9 @@ export default function PaymentModal({
       if (isCompletedRef.current || !isOpenRef.current) return;
 
       try {
-        const res = await api.get<{ success: boolean; user?: AuthUser }>("/auth/me");
-        const latestUser = res.data?.user;
-        const sub = latestUser?.subscription;
+        const meData = await fetchCurrentMeProfile();
+        const latestUser = meData?.user;
+        const sub = latestUser?.subscription || meData?.subscription;
 
         const isActivated =
           sub?.subscriptionStatus === "active" ||
@@ -133,26 +159,24 @@ export default function PaymentModal({
     if (isOpen) {
       document.body.style.overflow = "hidden";
       isCompletedRef.current = false;
+      setStatus("idle");
+      isVerifyingRef.current = false;
 
-      // 1. Check immediately if the DB already says the user is active (e.g. from prior webhook)
-      api
-        .get<{ success: boolean; user?: AuthUser }>("/auth/me")
-        .then((res) => {
-          const latestUser = res.data?.user;
-          const sub = latestUser?.subscription;
+      // Check if the DB already says the user is active (e.g. from prior webhook)
+      fetchCurrentMeProfile()
+        .then((meData) => {
+          const latestUser = meData?.user;
+          const sub = latestUser?.subscription || meData?.subscription;
           if (
             sub &&
             (sub.subscriptionStatus === "active" ||
               sub.subscriptionStatus === "trialing")
           ) {
             handlePaymentSuccess(latestUser, sub);
-            return;
           }
-          // Not active yet, initiate Razorpay checkout
-          handleConfirmPayment();
         })
         .catch(() => {
-          handleConfirmPayment();
+          // ignore, user can click Proceed to Pay manually
         });
     } else {
       document.body.style.overflow = "";
@@ -232,22 +256,18 @@ export default function PaymentModal({
             });
 
             // Re-fetch latest user profile and finish
-            const meRes = await api
-              .get<{ success: boolean; user?: AuthUser }>("/auth/me")
-              .catch(() => null);
-            handlePaymentSuccess(meRes?.data?.user);
+            const meData = await fetchCurrentMeProfile();
+            handlePaymentSuccess(meData?.user, meData?.subscription);
           } catch (err: any) {
             // Check if webhook already activated it in DB
-            const meRes = await api
-              .get<{ success: boolean; user?: AuthUser }>("/auth/me")
-              .catch(() => null);
-            const sub = meRes?.data?.user?.subscription;
+            const meData = await fetchCurrentMeProfile();
+            const sub = meData?.subscription || meData?.user?.subscription;
             if (
               sub &&
               (sub.subscriptionStatus === "active" ||
                 sub.subscriptionStatus === "trialing")
             ) {
-              handlePaymentSuccess(meRes?.data?.user, sub);
+              handlePaymentSuccess(meData?.user, sub);
             }
           }
         },
@@ -597,12 +617,11 @@ export default function PaymentModal({
                 className="payment-grid"
                 style={{ display: "flex", flexDirection: "column", gap: 20 }}
               >
-                {/* Form Box */}
                 <div
                   style={{
                     background: "var(--surface-1)",
-                    padding: 16,
-                    borderRadius: 12,
+                    padding: 18,
+                    borderRadius: 14,
                     border: "1px solid var(--border)",
                   }}
                 >
@@ -610,14 +629,14 @@ export default function PaymentModal({
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      marginBottom: 8,
+                      marginBottom: 10,
                       fontSize: "0.9rem",
                     }}
                   >
                     <span style={{ color: "var(--text-secondary)" }}>
                       Subscription Plan:
                     </span>
-                    <span style={{ fontWeight: 700, color: "var(--green)" }}>
+                    <span style={{ fontWeight: 700, color: "var(--accent)" }}>
                       {planType === "trial" ? "15-Day Trial Access" : "Premium Access"}
                     </span>
                   </div>
@@ -625,6 +644,7 @@ export default function PaymentModal({
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
+                      marginBottom: 12,
                       fontSize: "0.9rem",
                     }}
                   >
@@ -635,6 +655,22 @@ export default function PaymentModal({
                       {planType === "trial" ? "15 Days" : "1 Month / 30 Days"}
                     </span>
                   </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      paddingTop: 12,
+                      borderTop: "1px dashed var(--border)",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
+                      Total Amount:
+                    </span>
+                    <span style={{ fontWeight: 800, color: "var(--green)", fontSize: "1.1rem" }}>
+                      ₹{planType === "trial" ? "22" : "299"}
+                    </span>
+                  </div>
                 </div>
 
                 <button
@@ -643,8 +679,8 @@ export default function PaymentModal({
                   style={{
                     width: "100%",
                     padding: "14px",
-                    borderRadius: 10,
-                    fontWeight: 600,
+                    borderRadius: 12,
+                    fontWeight: 700,
                     fontSize: "1rem",
                     display: "flex",
                     alignItems: "center",
@@ -659,7 +695,7 @@ export default function PaymentModal({
                     minHeight: 50,
                   }}
                 >
-                  <CheckCircle2 size={18} /> Proceed to Pay Securely
+                  <CheckCircle2 size={18} /> Proceed to Pay (₹{planType === "trial" ? "22" : "299"})
                 </button>
 
                 <div
