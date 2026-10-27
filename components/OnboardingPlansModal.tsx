@@ -28,6 +28,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
   const [clinicPhone, setClinicPhone] = useState('');
   const { updateUser } = useAuthMutations();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentPlanType, setPaymentPlanType] = useState<'trial' | 'premium'>('premium');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -64,6 +65,16 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
     }
   };
 
+  const handleStartTrial = () => {
+    setPaymentPlanType('trial');
+    setShowPaymentModal(true);
+  };
+
+  const handleStartPremium = () => {
+    setPaymentPlanType('premium');
+    setShowPaymentModal(true);
+  };
+
   // Saves the clinic phone on the owner's profile, then retries the trial
   const handleSavePhoneAndRetry = async () => {
     const digits = clinicPhone.replace(/\D/g, '');
@@ -76,7 +87,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
     } catch {
       return; // error already shown by the API client
     }
-    await handleSelectTrial();
+    handleStartTrial();
   };
 
   const handleDismiss = () => {
@@ -232,7 +243,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                   <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, maxWidth: 540, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
                     {isLockout
                       ? 'Your subscription or your organization subscription is expired. Please contact your admin.'
-                      : 'To start managing your clinic, prescriptions, and OPD visits, please choose a plan below. You can start with our 15-day free trial or activate Premium.'}
+                      : 'To start managing your clinic, prescriptions, and OPD visits, please choose a plan below. You can start with our 15-day trial (₹22) or activate Premium.'}
                   </p>
                 </div>
 
@@ -296,14 +307,14 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                     >
                       <Clock size={13} /> 15-Day Trial
                     </span>
-                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>No Credit Card</span>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>₹22 • No Auto-Debit</span>
                   </div>
 
                   <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
-                    Free Trial
+                    15-Day Trial
                   </h3>
                   <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
-                    ₹0 <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ 15 days</span>
+                    ₹22 <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ 15 days</span>
                   </div>
 
                   <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 18px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -317,14 +328,13 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                       <Check size={15} color="var(--accent)" /> Medicine Inventory & Templates
                     </li>
                     <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      <Check size={15} color="var(--accent)" /> 15 Days Free Access
+                      <Check size={15} color="var(--accent)" /> 15 Days Complete Access
                     </li>
                   </ul>
                 </div>
 
                 <button
-                  onClick={handleSelectTrial}
-                  disabled={loadingTrial}
+                  onClick={handleStartTrial}
                   className="btn btn-secondary"
                   style={{
                     width: '100%',
@@ -332,7 +342,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                     borderRadius: 12,
                     fontWeight: 600,
                     fontSize: '0.88rem',
-                    cursor: loadingTrial ? 'wait' : 'pointer',
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -340,7 +350,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                     minHeight: 44,
                   }}
                 >
-                  {loadingTrial ? 'Activating Trial…' : 'Start 15-Day Free Trial'}
+                  Start 15-Day Trial (₹22)
                 </button>
 
                 {trialError && (
@@ -467,7 +477,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                 </div>
 
                 <button
-                  onClick={() => setShowPaymentModal(true)}
+                  onClick={handleStartPremium}
                   className="btn btn-primary"
                   style={{
                     width: '100%',
@@ -506,6 +516,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
       {/* UPI QR Payment Modal */}
       <PaymentModal
         isOpen={showPaymentModal}
+        planType={paymentPlanType}
         onClose={() => setShowPaymentModal(false)}
         onSuccess={() => {
           setShowPaymentModal(false);
