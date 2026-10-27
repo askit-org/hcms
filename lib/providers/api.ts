@@ -99,7 +99,7 @@ declare module 'axios' {
   }
 }
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
   timeout: 15000, // 15s timeout to allow headroom for remote cloud database latency
 });
@@ -123,12 +123,27 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const data = error.response?.data;
     const isAuthenticated = useAuth.getState().isAuthenticated;
 
     if (status === 401) {
       // Requests that expect 401 as a normal outcome (e.g. wrong current password) handle it themselves
       if (isAuthenticated && !error.config?.skipAuthLogout) {
         logout('unauthorized');
+      }
+      return Promise.reject(error);
+    }
+
+    // Subscription expired: expire the user's session and log them out instead of showing an error toast
+    const rawError = String(data?.error || data?.message || '');
+    const isSubscriptionExpired =
+      data?.code === 'SUBSCRIPTION_EXPIRED' ||
+      /subscription.*expired/i.test(rawError) ||
+      /organization subscription is expired/i.test(rawError);
+
+    if (isSubscriptionExpired) {
+      if (isAuthenticated && !error.config?.skipAuthLogout) {
+        logout('subscription_expired');
       }
       return Promise.reject(error);
     }

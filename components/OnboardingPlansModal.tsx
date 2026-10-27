@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X, LogOut, AlertOctagon } from 'lucide-react';
+import { Check, Sparkles, Clock, ShieldCheck, ArrowRight, Star, Stethoscope, X, LogOut, AlertOctagon, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useSubscriptionMutations, useAuthMutations } from '@/lib/hooks/useQueries';
@@ -49,6 +49,46 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
   }, [isOpen]);
 
   const doctorName = user?.doctorName || 'Doctor';
+  const sub = user?.subscription;
+  const isPremiumUser = sub?.planType === 'premium' || lockReason === 'premium_expired';
+  const isTrialUser = !isPremiumUser && (sub?.planType === 'trial' || !!sub?.trialStartDate || lockReason === 'trial_expired');
+
+  // Modes:
+  // 1. 'renew_premium': Previously purchased premium, now expired. Only show Renew Plan modal.
+  // 2. 'upgrade_trial': Previously started trial, now trial expired. Only show Get Premium.
+  // 3. 'new_user': Newly signed up doctor without prior plan. Show 2-card onboarding (Trial ₹22 & Premium).
+  const modalMode: 'renew_premium' | 'upgrade_trial' | 'new_user' =
+    isPremiumUser
+      ? 'renew_premium'
+      : isTrialUser
+      ? 'upgrade_trial'
+      : 'new_user';
+
+  let headerIcon = <Stethoscope size={26} />;
+  let headerTitle = isLockout ? 'Choose Your Plan' : `Welcome to HCMS, ${doctorName}!`;
+  let headerSubtitle = 'To start managing your clinic, prescriptions, and OPD visits, please choose a plan below. You can start with our 15-day trial (₹22) or activate Premium.';
+  let iconBg = isLockout ? 'rgba(239, 68, 68, 0.15)' : 'var(--accent-glow)';
+  let iconColor = isLockout ? 'var(--red)' : 'var(--accent)';
+  let iconBorder = isLockout ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(13, 148, 136, 0.25)';
+  let iconShadow = isLockout ? '0 8px 20px rgba(239, 68, 68, 0.2)' : '0 8px 20px var(--accent-glow)';
+
+  if (modalMode === 'renew_premium') {
+    headerIcon = <RefreshCw size={26} />;
+    headerTitle = 'Subscription Expired';
+    headerSubtitle = 'Your Premium subscription has expired. Renew your plan below to restore instant access to all clinic records, OPD visits, and prescription templates.';
+    iconBg = 'rgba(239, 68, 68, 0.15)';
+    iconColor = 'var(--red)';
+    iconBorder = '1px solid rgba(239, 68, 68, 0.3)';
+    iconShadow = '0 8px 20px rgba(239, 68, 68, 0.2)';
+  } else if (modalMode === 'upgrade_trial') {
+    headerIcon = <Sparkles size={26} />;
+    headerTitle = 'Trial Period Ended';
+    headerSubtitle = 'Your 15-day trial has concluded. Upgrade to Premium to keep full uninterrupted access to your clinic, patient records, and OPD visits.';
+    iconBg = 'rgba(245, 158, 11, 0.15)';
+    iconColor = '#fbbf24';
+    iconBorder = '1px solid rgba(245, 158, 11, 0.3)';
+    iconShadow = '0 8px 20px rgba(245, 158, 11, 0.2)';
+  }
 
   const handleSelectTrial = async () => {
     setLoadingTrial(true);
@@ -99,7 +139,7 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
   };
 
   const handleLogout = () => {
-    logout();
+    logout('subscription_expired');
   };
 
   if (!mounted || !isOpen) return null;
@@ -121,7 +161,11 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
         >
           <motion.div
             className="modal subscription-modal"
-            style={{ display: showPaymentModal ? 'none' : 'block', zIndex: 1000000 }}
+            style={{
+              display: showPaymentModal ? 'none' : 'block',
+              zIndex: 1000000,
+              maxWidth: modalMode === 'new_user' ? 740 : 500,
+            }}
             initial={{ opacity: 0, scale: 0.94, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 24 }}
@@ -224,291 +268,515 @@ export default function OnboardingPlansModal({ isOpen, onClose, isLockout = fals
                       width: 50,
                       height: 50,
                       borderRadius: 16,
-                      background: isLockout ? 'rgba(239, 68, 68, 0.15)' : 'var(--accent-glow)',
-                      color: isLockout ? 'var(--red)' : 'var(--accent)',
+                      background: iconBg,
+                      color: iconColor,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       margin: '0 auto 14px',
-                      border: isLockout ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(13, 148, 136, 0.25)',
-                      boxShadow: isLockout ? '0 8px 20px rgba(239, 68, 68, 0.2)' : '0 8px 20px var(--accent-glow)',
+                      border: iconBorder,
+                      boxShadow: iconShadow,
                     }}
                   >
-                    <Stethoscope size={26} />
+                    {headerIcon}
                   </div>
 
                   <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1.25 }}>
-                    {isLockout
-                      ? 'Subscription Expired'
-                      : `Welcome to HCMS, ${doctorName}!`}
+                    {headerTitle}
                   </h1>
                   <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, maxWidth: 540, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
-                    {isLockout
-                      ? 'Your subscription or your organization subscription is expired. Please contact your admin.'
-                      : 'To start managing your clinic, prescriptions, and OPD visits, please choose a plan below. You can start with our 15-day trial (₹22) or activate Premium.'}
+                    {headerSubtitle}
                   </p>
                 </div>
 
-            {/* 30-Day Data Safety Notice */}
-            <div
-              style={{
-                background: 'rgba(13, 148, 136, 0.08)',
-                border: '1px solid rgba(13, 148, 136, 0.25)',
-                borderRadius: 16,
-                padding: '14px 16px',
-                marginBottom: 20,
-                textAlign: 'left',
-                display: 'flex',
-                gap: 12,
-                alignItems: 'flex-start',
-                position: 'relative',
-                zIndex: 1,
-              }}
-            >
-              <ShieldCheck size={24} color="var(--accent)" style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-                  Your Clinic & Patient Data is Safe and Encrypted
-                </div>
-                <div style={{ fontSize: '0.81rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                  All your patient records, OPD visits, medicine inventory, and prescription templates remain <strong>100% secure and encrypted</strong>. To continue managing your clinic, please subscribe to a plan below. Your account data will be preserved safely for <strong>30 days</strong>, after which inactive account records are scheduled for permanent deletion.
-                </div>
-              </div>
-            </div>
-
-            {/* Cards Grid */}
-            <div className="subscription-grid">
-              {/* Option 1: 15-Day Free Trial */}
-              <div
-                style={{
-                  background: 'var(--surface-1)',
-                  borderRadius: 18,
-                  padding: '20px',
-                  border: '1px solid var(--border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.2s ease',
-                  position: 'relative',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 12,
-                        background: 'rgba(59, 130, 246, 0.12)',
-                        color: 'var(--blue)',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <Clock size={13} /> 15-Day Trial
-                    </span>
-                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>₹22 • No Auto-Debit</span>
-                  </div>
-
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
-                    15-Day Trial
-                  </h3>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
-                    ₹22 <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ 15 days</span>
-                  </div>
-
-                  <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 18px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      <Check size={15} color="var(--accent)" /> Full OPD Visit & Rx Generation
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      <Check size={15} color="var(--accent)" /> Patient Records & Medical History
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      <Check size={15} color="var(--accent)" /> Medicine Inventory & Templates
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      <Check size={15} color="var(--accent)" /> 15 Days Complete Access
-                    </li>
-                  </ul>
-                </div>
-
-                <button
-                  onClick={handleStartTrial}
-                  className="btn btn-secondary"
+                {/* 30-Day Data Safety Notice */}
+                <div
                   style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: 12,
-                    fontWeight: 600,
-                    fontSize: '0.88rem',
-                    cursor: 'pointer',
+                    background: 'rgba(13, 148, 136, 0.08)',
+                    border: '1px solid rgba(13, 148, 136, 0.25)',
+                    borderRadius: 16,
+                    padding: '14px 16px',
+                    marginBottom: 20,
+                    textAlign: 'left',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    minHeight: 44,
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    position: 'relative',
+                    zIndex: 1,
                   }}
                 >
-                  Start 15-Day Trial (₹22)
-                </button>
+                  <ShieldCheck size={24} color="var(--accent)" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                      Your Clinic & Patient Data is Safe and Encrypted
+                    </div>
+                    <div style={{ fontSize: '0.81rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                      All your patient records, OPD visits, medicine inventory, and prescription templates remain <strong>100% secure and encrypted</strong>. To continue managing your clinic, please subscribe to a plan below. Your account data will be preserved safely for <strong>30 days</strong>, after which inactive account records are scheduled for permanent deletion.
+                    </div>
+                  </div>
+                </div>
 
-                {trialError && (
+                {/* Content: Mode-specific Plan Cards */}
+                {modalMode === 'renew_premium' ? (
+                  /* ─── OPTION A: RENEW PREMIUM PLAN (Single Focused Card) ─── */
                   <div
-                    role="alert"
                     style={{
-                      marginTop: 12,
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: 'var(--red)',
-                      fontSize: '0.8rem',
-                      lineHeight: 1.45,
-                      textAlign: 'left',
+                      background: 'linear-gradient(145deg, var(--surface-1), var(--surface-2))',
+                      borderRadius: 20,
+                      padding: '24px',
+                      border: '1.5px solid var(--accent)',
+                      position: 'relative',
+                      boxShadow: '0 10px 28px var(--accent-glow)',
+                      marginBottom: 20,
                     }}
                   >
-                    {trialError.message}
-                    {trialError.needsPhone && (
-                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <input
-                          className="form-input"
-                          type="tel"
-                          inputMode="numeric"
-                          placeholder="10-digit clinic phone"
-                          value={clinicPhone}
-                          onChange={(e) => setClinicPhone(e.target.value)}
-                          style={{ fontSize: '0.85rem' }}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={handleSavePhoneAndRetry}
-                          disabled={loadingTrial || updateUser.isPending}
-                          style={{ justifyContent: 'center' }}
-                        >
-                          {updateUser.isPending ? 'Saving…' : 'Save phone & start trial'}
-                        </button>
-                        {!isLockout && (
-                          <Link href="/settings" onClick={onClose} style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 600 }}>
-                            Or open Settings to edit your clinic profile
-                          </Link>
-                        )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 6 }}>
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 12,
+                          background: 'var(--accent-glow)',
+                          color: 'var(--accent)',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Sparkles size={13} /> Full Access
+                      </span>
+
+                      <span
+                        style={{
+                          background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                          color: '#ffffff',
+                          padding: '3px 10px',
+                          borderRadius: 12,
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          letterSpacing: '0.03em',
+                          textTransform: 'uppercase',
+                          boxShadow: '0 4px 12px var(--accent-glow)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Star size={11} fill="white" /> Instant Renewal
+                      </span>
+                    </div>
+
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                      Premium Plan Renewal
+                    </h3>
+                    <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 16 }}>
+                      ₹299 <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ month</span>
+                    </div>
+
+                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 22px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Full OPD Visit & Rx Generation
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Patient Records & Medical History
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Custom Letterhead & PDF Export
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Medicine Inventory & Templates
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Priority Support & Cloud Backup
+                      </li>
+                    </ul>
+
+                    <button
+                      onClick={handleStartPremium}
+                      className="btn btn-primary"
+                      style={{
+                        width: '100%',
+                        padding: '14px',
+                        borderRadius: 14,
+                        fontWeight: 700,
+                        fontSize: '0.95rem',
+                        background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                        border: 'none',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 6px 18px var(--accent-glow)',
+                        minHeight: 48,
+                      }}
+                    >
+                      Renew Premium Plan <ArrowRight size={18} />
+                    </button>
+                  </div>
+                ) : modalMode === 'upgrade_trial' ? (
+                  /* ─── OPTION B: UPGRADE FROM TRIAL (Single Focused Card) ─── */
+                  <div
+                    style={{
+                      background: 'linear-gradient(145deg, var(--surface-1), var(--surface-2))',
+                      borderRadius: 20,
+                      padding: '24px',
+                      border: '1.5px solid var(--accent)',
+                      position: 'relative',
+                      boxShadow: '0 10px 28px var(--accent-glow)',
+                      marginBottom: 20,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 6 }}>
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 12,
+                          background: 'var(--accent-glow)',
+                          color: 'var(--accent)',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Sparkles size={13} /> Full Access
+                      </span>
+
+                      <span
+                        style={{
+                          background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                          color: '#ffffff',
+                          padding: '3px 10px',
+                          borderRadius: 12,
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          letterSpacing: '0.03em',
+                          textTransform: 'uppercase',
+                          boxShadow: '0 4px 12px var(--accent-glow)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <Star size={11} fill="white" /> Recommended
+                      </span>
+                    </div>
+
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                      Upgrade to Premium
+                    </h3>
+                    <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 16 }}>
+                      ₹299 <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ month</span>
+                    </div>
+
+                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 22px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Everything in Trial + Unlimited Usage
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Patient Records & Medical History
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Custom Letterhead & PDF Export
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Medicine Inventory & Templates
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        <Check size={16} color="var(--accent)" /> Priority Support & Cloud Backup
+                      </li>
+                    </ul>
+
+                    <button
+                      onClick={handleStartPremium}
+                      className="btn btn-primary"
+                      style={{
+                        width: '100%',
+                        padding: '14px',
+                        borderRadius: 14,
+                        fontWeight: 700,
+                        fontSize: '0.95rem',
+                        background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                        border: 'none',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 6px 18px var(--accent-glow)',
+                        minHeight: 48,
+                      }}
+                    >
+                      Get Premium Plan <ArrowRight size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  /* ─── OPTION C: NEWLY SIGNED USERS (2-Column Grid) ─── */
+                  <div className="subscription-grid">
+                    {/* Option 1: 15-Day Free Trial */}
+                    <div
+                      style={{
+                        background: 'var(--surface-1)',
+                        borderRadius: 18,
+                        padding: '20px',
+                        border: '1px solid var(--border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        transition: 'all 0.2s ease',
+                        position: 'relative',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <span
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 12,
+                              background: 'rgba(59, 130, 246, 0.12)',
+                              color: 'var(--blue)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Clock size={13} /> 15-Day Trial
+                          </span>
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>₹22 • No Auto-Debit</span>
+                        </div>
+
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                          15-Day Trial
+                        </h3>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
+                          ₹22 <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ 15 days</span>
+                        </div>
+
+                        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 18px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                            <Check size={15} color="var(--accent)" /> Full OPD Visit & Rx Generation
+                          </li>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                            <Check size={15} color="var(--accent)" /> Patient Records & Medical History
+                          </li>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                            <Check size={15} color="var(--accent)" /> Medicine Inventory & Templates
+                          </li>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                            <Check size={15} color="var(--accent)" /> 15 Days Complete Access
+                          </li>
+                        </ul>
                       </div>
-                    )}
+
+                      <button
+                        onClick={handleStartTrial}
+                        className="btn btn-secondary"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 12,
+                          fontWeight: 600,
+                          fontSize: '0.88rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          minHeight: 44,
+                        }}
+                      >
+                        Start 15-Day Trial (₹22)
+                      </button>
+
+                      {trialError && (
+                        <div
+                          role="alert"
+                          style={{
+                            marginTop: 12,
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            background: 'rgba(239, 68, 68, 0.08)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: 'var(--red)',
+                            fontSize: '0.8rem',
+                            lineHeight: 1.45,
+                            textAlign: 'left',
+                          }}
+                        >
+                          {trialError.message}
+                          {trialError.needsPhone && (
+                            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <input
+                                className="form-input"
+                                type="tel"
+                                inputMode="numeric"
+                                placeholder="10-digit clinic phone"
+                                value={clinicPhone}
+                                onChange={(e) => setClinicPhone(e.target.value)}
+                                style={{ fontSize: '0.85rem' }}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={handleSavePhoneAndRetry}
+                                disabled={loadingTrial || updateUser.isPending}
+                                style={{ justifyContent: 'center' }}
+                              >
+                                {updateUser.isPending ? 'Saving…' : 'Save phone & start trial'}
+                              </button>
+                              {!isLockout && (
+                                <Link href="/settings" onClick={onClose} style={{ fontSize: '0.78rem', color: 'var(--accent)', fontWeight: 600 }}>
+                                  Or open Settings to edit your clinic profile
+                                </Link>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Option 2: Premium Plan */}
+                    <div
+                      style={{
+                        background: 'linear-gradient(145deg, var(--surface-1), var(--surface-2))',
+                        borderRadius: 18,
+                        padding: '20px',
+                        border: '1.5px solid var(--accent)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        position: 'relative',
+                        boxShadow: '0 10px 25px var(--accent-glow)',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
+                          <span
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 12,
+                              background: 'var(--accent-glow)',
+                              color: 'var(--accent)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Sparkles size={13} /> Full Access
+                          </span>
+
+                          <span
+                            style={{
+                              background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                              color: '#ffffff',
+                              padding: '3px 10px',
+                              borderRadius: 12,
+                              fontSize: '0.7rem',
+                              fontWeight: 800,
+                              letterSpacing: '0.03em',
+                              textTransform: 'uppercase',
+                              boxShadow: '0 4px 12px var(--accent-glow)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Star size={11} fill="white" /> Recommended
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                          Premium Plan
+                        </h3>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 14 }}>
+                          ₹299 <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ month</span>
+                        </div>
+
+                        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 18px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            <Check size={15} color="var(--accent)" /> Everything in Trial + Unlimited Usage
+                          </li>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            <Check size={15} color="var(--accent)" /> Custom Letterhead & PDF Export
+                          </li>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            <Check size={15} color="var(--accent)" /> Advanced Analytics & Reports
+                          </li>
+                          <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                            <Check size={15} color="var(--accent)" /> Priority Support & Cloud Backup
+                          </li>
+                        </ul>
+                      </div>
+
+                      <button
+                        onClick={handleStartPremium}
+                        className="btn btn-primary"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 12,
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
+                          border: 'none',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          boxShadow: '0 4px 14px var(--accent-glow)',
+                          minHeight: 44,
+                        }}
+                      >
+                        Get Premium Plan <ArrowRight size={16} />
+                      </button>
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Option 2: Premium Plan */}
-              <div
-                style={{
-                  background: 'linear-gradient(145deg, var(--surface-1), var(--surface-2))',
-                  borderRadius: 18,
-                  padding: '20px',
-                  border: '1.5px solid var(--accent)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  position: 'relative',
-                  boxShadow: '0 10px 25px var(--accent-glow)',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 12,
-                        background: 'var(--accent-glow)',
-                        color: 'var(--accent)',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <Sparkles size={13} /> Full Access
-                    </span>
-
-                    {/* Recommended Badge inline inside card header */}
-                    <span
-                      style={{
-                        background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
-                        color: '#ffffff',
-                        padding: '3px 10px',
-                        borderRadius: 12,
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        letterSpacing: '0.03em',
-                        textTransform: 'uppercase',
-                        boxShadow: '0 4px 12px var(--accent-glow)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <Star size={11} fill="white" /> Recommended
-                    </span>
-                  </div>
-
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
-                    Premium Plan
-                  </h3>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 14 }}>
-                    ₹299 <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--text-secondary)' }}>/ month</span>
-                  </div>
-
-                  <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 18px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                      <Check size={15} color="var(--accent)" /> Everything in Trial + Unlimited Usage
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                      <Check size={15} color="var(--accent)" /> Custom Letterhead & PDF Export
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                      <Check size={15} color="var(--accent)" /> Advanced Analytics & Reports
-                    </li>
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                      <Check size={15} color="var(--accent)" /> Priority Support & Cloud Backup
-                    </li>
-                  </ul>
+                {/* Footer Trust Note */}
+                <div style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+                  <ShieldCheck size={14} color="var(--green)" /> You can upgrade or change plans anytime from Settings
                 </div>
 
-                <button
-                  onClick={handleStartPremium}
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: 12,
-                    fontWeight: 700,
-                    fontSize: '0.88rem',
-                    background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
-                    border: 'none',
-                    color: '#ffffff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    boxShadow: '0 4px 14px var(--accent-glow)',
-                    minHeight: 44,
-                  }}
-                >
-                  Get Premium Plan <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Footer Trust Note */}
-            <div style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
-              <ShieldCheck size={14} color="var(--green)" /> You can upgrade or change plans anytime from Settings
-            </div>
-          </>
+                {/* Logout Option When Locked Out */}
+                {isLockout && (
+                  <div style={{ textAlign: 'center', marginTop: 14 }}>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        transition: 'color 0.2s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                    >
+                      <LogOut size={14} /> Log Out
+                    </button>
+                  </div>
+                )}
+              </>
         )}
           </motion.div>
 

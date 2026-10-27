@@ -161,13 +161,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       } else if (isPlatformAdmin) {
         router.replace(ADMIN_HOME_ROUTE);
       } else if (subLock.isLocked) {
-        setShowOnboardingPlans(true);
+        if (!isSuperAdmin) {
+          logout('subscription_expired');
+        } else {
+          setShowOnboardingPlans(true);
+        }
       } else if (!canAccessRoute(pathname)) {
         const allowedRoute = getFirstAllowedRoute();
         router.replace(allowedRoute);
       }
     }
-  }, [hasHydrated, isAuthenticated, isPlatformAdmin, user, subLock.isLocked, pathname, canAccessRoute, getFirstAllowedRoute, router]);
+  }, [hasHydrated, isAuthenticated, isPlatformAdmin, isSuperAdmin, user, subLock.isLocked, pathname, canAccessRoute, getFirstAllowedRoute, router]);
 
   const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
   const followUpCount = today.data?.length || 0;
@@ -186,6 +190,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Never mount protected pages (and their queries) until the persisted session is restored and valid
   if (!mounted || !hasHydrated || !hasValidSession || isPlatformAdmin) {
     return <LoadingScreen message="Restoring session..." />;
+  }
+
+  // When subscription is expired, do not mount protected child pages that trigger 403 API queries
+  if (subLock.isLocked) {
+    if (!isSuperAdmin) {
+      return <LoadingScreen message="Subscription expired. Signing out..." />;
+    }
+    return (
+      <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <OnboardingPlansModal 
+          isOpen={true} 
+          onClose={() => {}} 
+          isLockout={true}
+          lockReason={subLock.reason}
+        />
+      </div>
+    );
   }
 
   return (
