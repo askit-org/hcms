@@ -76,6 +76,8 @@ export default function CreateBillModal({
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
   const [discount, setDiscount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<"FLAT" | "PERCENT">("FLAT");
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "UPI">("CASH");
   const [settlementType, setSettlementType] = useState<"FULL" | "PARTIAL" | "UNPAID">("FULL");
   const [customPaidAmount, setCustomPaidAmount] = useState<string>("");
@@ -200,9 +202,21 @@ export default function CreateBillModal({
     return (Number(consultationFee) || 0) + itemsTotal;
   }, [consultationFee, itemsTotal]);
 
+  const calculatedDiscount = useMemo(() => {
+    if (discountType === "PERCENT") {
+      return Math.min(subtotal, Math.round((subtotal * (Number(discountPercent) || 0)) / 100));
+    }
+    return Math.min(subtotal, Number(discount) || 0);
+  }, [discountType, discountPercent, discount, subtotal]);
+
+  const discountPercentValue = useMemo(() => {
+    if (subtotal <= 0) return 0;
+    return Math.round((calculatedDiscount / subtotal) * 100);
+  }, [calculatedDiscount, subtotal]);
+
   const totalAmount = useMemo(() => {
-    return Math.max(0, subtotal - (Number(discount) || 0));
-  }, [subtotal, discount]);
+    return Math.max(0, subtotal - calculatedDiscount);
+  }, [subtotal, calculatedDiscount]);
 
   const paidAmount = useMemo(() => {
     if (settlementType === "FULL") return totalAmount;
@@ -214,6 +228,26 @@ export default function CreateBillModal({
   const balanceDue = useMemo(() => {
     return Math.max(0, totalAmount - paidAmount);
   }, [totalAmount, paidAmount]);
+
+  const availableTreatments = useMemo(() => {
+    const rates = (settings as any)?.serviceRates || {};
+    const list = [
+      { name: "IV Injection", price: rates.ivInjection ?? 150 },
+      { name: "IM Injection", price: rates.imInjection ?? 100 },
+      { name: "Saline / IV Fluid", price: rates.saline ?? 350 },
+      { name: "Wound Dressing", price: rates.dressing ?? 200 },
+      { name: "Nebulization", price: rates.nebulization ?? 150 },
+      { name: "ECG", price: rates.ecg ?? 300 },
+      { name: "Suture / Stitching", price: rates.suture ?? 500 },
+      { name: "Blood Sugar (GRBS)", price: rates.grbs ?? 80 },
+    ];
+    if ((settings as any)?.customServices && Array.isArray((settings as any).customServices)) {
+      (settings as any).customServices.forEach((cs: any) => {
+        if (cs && cs.name) list.push({ name: cs.name, price: Number(cs.defaultPrice ?? cs.price) || 0 });
+      });
+    }
+    return list;
+  }, [settings]);
 
   const handleAddItem = (nameToAdd?: string, priceToAdd?: number) => {
     const name = (nameToAdd !== undefined ? nameToAdd : newItemName).trim();
@@ -280,7 +314,7 @@ export default function CreateBillModal({
         patientId,
         visitId,
         consultationFee: Number(consultationFee) || 0,
-        discount: Number(discount) || 0,
+        discount: calculatedDiscount,
         paidAmount,
         paymentMethod,
         notes: notes.trim() || undefined,
@@ -318,6 +352,8 @@ export default function CreateBillModal({
     const targetVisitId = visitId || createdBill?.visitId;
     if (targetVisitId) {
       window.open(`/visits/${targetVisitId}/print?bill=true`, "_blank");
+    } else {
+      window.print();
     }
   };
 
@@ -329,7 +365,12 @@ export default function CreateBillModal({
       .map((it) => `• ${it.name} (Qty: ${it.quantity}): ₹${it.totalPrice}`)
       .join("\n");
 
-    const message = `*INVOICE / BILL - ${clinicName}*\nDr. ${doctorName}\n----------------------------------\n*Bill No:* ${createdBill.billNumber}\n*Date:* ${new Date(createdBill.date).toLocaleDateString("en-IN")}\n*Patient:* ${patientName}\n\n*Charges:*\n• Consultation Fee: ₹${createdBill.consultationFee}\n${billItemsText ? billItemsText + "\n" : ""}*Total Amount:* ₹${createdBill.totalAmount}\n*Paid:* ₹${createdBill.paidAmount} (${createdBill.paymentMethod})\n*Balance Due:* ₹${createdBill.balanceDue}\n*Status:* ${createdBill.paymentStatus}\n----------------------------------\nThank you for visiting!`;
+    const sub = Number(createdBill.subtotal || (Number(createdBill.totalAmount) + Number(createdBill.discount || 0)));
+    const disc = Number(createdBill.discount || 0);
+    const discPercent = sub > 0 ? Math.round((disc / sub) * 100) : 0;
+    const discountText = disc > 0 ? `• Discount Given: -₹${disc} (${discPercent}% off)\n` : '';
+
+    const message = `*INVOICE / BILL - ${clinicName}*\nDr. ${doctorName}\n----------------------------------\n*Bill No:* ${createdBill.billNumber}\n*Date:* ${new Date(createdBill.date).toLocaleDateString("en-IN")}\n*Patient:* ${patientName}\n\n*Charges:*\n• Consultation Fee: ₹${createdBill.consultationFee}\n${billItemsText ? billItemsText + "\n" : ""}----------------------------------\n• Subtotal: ₹${sub}\n${discountText}*Final Payable Amount:* ₹${createdBill.totalAmount}\n*Paid:* ₹${createdBill.paidAmount} (${createdBill.paymentMethod})\n*Balance Due:* ₹${createdBill.balanceDue}\n*Status:* ${createdBill.paymentStatus}\n----------------------------------\nThank you for visiting!`;
 
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
@@ -573,8 +614,24 @@ export default function CreateBillModal({
                   >
                     <div>
                       <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Doctor Consultation Fee</div>
-                      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                        Default fee configured in clinic settings (editable)
+                      <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+                        <span>Presets:</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => setConsultationFee((settings as any)?.consultationFee !== undefined ? Number((settings as any).consultationFee) : 500)}
+                          style={{ fontSize: "0.72rem", padding: "2px 6px" }}
+                        >
+                          Regular (₹{(settings as any)?.consultationFee || 500})
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => setConsultationFee((settings as any)?.followUpFee !== undefined ? Number((settings as any).followUpFee) : 300)}
+                          style={{ fontSize: "0.72rem", padding: "2px 6px" }}
+                        >
+                          Follow-up (₹{(settings as any)?.followUpFee || 300})
+                        </button>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -621,7 +678,7 @@ export default function CreateBillModal({
                       marginBottom: 12,
                     }}
                   >
-                    {COMMON_TREATMENTS.map((t) => (
+                    {availableTreatments.map((t) => (
                       <button
                         key={t.name}
                         type="button"
@@ -820,6 +877,10 @@ export default function CreateBillModal({
                       <span style={{ fontWeight: 600 }}>₹{itemsTotal}</span>
                     </div>
                   )}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: "0.88rem", fontWeight: 600 }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Subtotal (Before Discount):</span>
+                    <span>₹{subtotal}</span>
+                  </div>
                   <div
                     style={{
                       display: "flex",
@@ -830,20 +891,76 @@ export default function CreateBillModal({
                       borderTop: "1px solid var(--border)",
                     }}
                   >
-                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      Discount / Concession:
-                    </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ fontSize: "0.85rem" }}>- ₹</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={discount}
-                        onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                        className="form-input"
-                        style={{ width: 85, height: 30, fontSize: "0.85rem", textAlign: "right" }}
-                      />
+                    <div>
+                      <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                        Discount / Concession:
+                      </span>
+                      {calculatedDiscount > 0 && (
+                        <div style={{ fontSize: "0.72rem", color: "#16a34a", fontWeight: 600 }}>
+                          {discountPercentValue}% discount applied
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)" }}>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => setDiscountType("FLAT")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: "0.72rem",
+                            background: discountType === "FLAT" ? "var(--accent)" : "transparent",
+                            color: discountType === "FLAT" ? "#fff" : "var(--text-secondary)",
+                            fontWeight: 600,
+                            borderRadius: 0,
+                          }}
+                        >
+                          ₹
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => setDiscountType("PERCENT")}
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: "0.72rem",
+                            background: discountType === "PERCENT" ? "var(--accent)" : "transparent",
+                            color: discountType === "PERCENT" ? "#fff" : "var(--text-secondary)",
+                            fontWeight: 600,
+                            borderRadius: 0,
+                          }}
+                        >
+                          %
+                        </button>
+                      </div>
+                      {discountType === "FLAT" ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <span style={{ fontSize: "0.85rem" }}>- ₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="10"
+                            value={discount}
+                            onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="form-input"
+                            style={{ width: 85, height: 30, fontSize: "0.85rem", textAlign: "right" }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={discountPercent}
+                            onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                            className="form-input"
+                            style={{ width: 65, height: 30, fontSize: "0.85rem", textAlign: "right" }}
+                          />
+                          <span style={{ fontSize: "0.85rem" }}>% (-₹{calculatedDiscount})</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div
@@ -855,7 +972,14 @@ export default function CreateBillModal({
                       borderTop: "2px solid var(--border)",
                     }}
                   >
-                    <span style={{ fontWeight: 700, fontSize: "1rem" }}>Total Bill Amount:</span>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: "1rem" }}>Final Payable Amount:</span>
+                      {calculatedDiscount > 0 && (
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                          (Subtotal ₹{subtotal} - ₹{calculatedDiscount} discount)
+                        </div>
+                      )}
+                    </div>
                     <span style={{ fontWeight: 800, fontSize: "1.25rem", color: "var(--accent)" }}>
                       ₹{totalAmount}
                     </span>

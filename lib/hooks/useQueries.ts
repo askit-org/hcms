@@ -47,6 +47,10 @@ import type {
   RecordPaymentInput,
   Bill,
   PendingDuesResponse,
+  IpdAdmission,
+  CreateIpdAdmissionInput,
+  AddIpdDayLogInput,
+  DischargeIpdInput,
 } from '../providers/types';
 
 // Query Keys
@@ -250,7 +254,19 @@ export function useVisitMutations() {
     },
   });
 
-  return { create, update, remove, markFollowUp };
+  const updateFollowUpStatus = useMutation({
+    mutationFn: ({ id, status, newDate }: { id: string | number; status: 'ATTENDED' | 'NOT_ATTENDED' | 'RESCHEDULED'; newDate?: string }) =>
+      provider.updateFollowUpStatus(id, status, newDate),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: keys.visit(id) });
+      qc.invalidateQueries({ queryKey: keys.followups() });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
+      qc.invalidateQueries({ queryKey: keys.patients() });
+    },
+  });
+
+  return { create, update, remove, markFollowUp, updateFollowUpStatus };
 }
 
 // ── Billing ──────────────────────────────────────────────────────
@@ -1051,5 +1067,77 @@ export function usePlatformMutations() {
     purgeOrganizationTestData,
   };
 }
+
+// ── IPD Hooks ────────────────────────────────────────────────────
+
+export function useIpdAdmissions(params?: { status?: string; patientId?: string; search?: string }) {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: ['hcms', 'ipd', params],
+    queryFn: () => provider.listIpdAdmissions(params),
+    enabled: isAuthenticated && !!token,
+  });
+}
+
+export function useIpdAdmission(id: string | undefined | null) {
+  const provider = useProviderStore(s => s.provider);
+  const { isAuthenticated, token } = useAuth();
+  return useQuery({
+    queryKey: ['hcms', 'ipd', 'detail', id],
+    queryFn: () => provider.getIpdAdmission(id!),
+    enabled: isAuthenticated && !!token && !!id,
+  });
+}
+
+export function useIpdMutations() {
+  const qc = useQueryClient();
+  const provider = useProviderStore(s => s.provider);
+
+  const createAdmission = useMutation({
+    mutationFn: (input: CreateIpdAdmissionInput) => provider.createIpdAdmission(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  const addDayLog = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: AddIpdDayLogInput }) => provider.addIpdDayLog(id, input),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+    },
+  });
+
+  const recordPayment = useMutation({
+    mutationFn: ({ id, amount }: { id: string; amount: number }) => provider.recordIpdPayment(id, amount),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  const discharge = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: DischargeIpdInput }) => provider.dischargeIpd(id, input),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  const deleteAdmission = useMutation({
+    mutationFn: (id: string) => provider.deleteIpdAdmission(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  return { createAdmission, addDayLog, recordPayment, discharge, deleteAdmission };
+}
+
 
 

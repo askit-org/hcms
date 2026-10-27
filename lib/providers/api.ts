@@ -19,6 +19,10 @@ import type {
   CreateBillInput,
   RecordPaymentInput,
   PendingDuesResponse,
+  IpdAdmission,
+  CreateIpdAdmissionInput,
+  AddIpdDayLogInput,
+  DischargeIpdInput,
   CreateMedicineInput,
   CreatePatientInput,
   CreateTemplateInput,
@@ -295,10 +299,26 @@ export const ApiDataProvider: DataProvider = {
       return await api.post<Visit>(`/visits/${visitId}/mark-attended`).then((r) => extract<Visit>(r));
     } catch (err) {
       try {
-        return await api.put<Visit>(`/visits/${visitId}`, { followUpAttended: true }).then((r) => extract<Visit>(r));
+        return await api.put<Visit>(`/visits/${visitId}`, { followUpAttended: true, followUpStatus: 'ATTENDED' }).then((r) => extract<Visit>(r));
       } catch (err2) {
-        return await api.patch<Visit>(`/visits/${visitId}`, { followUpAttended: true }).then((r) => extract<Visit>(r));
+        return await api.patch<Visit>(`/visits/${visitId}`, { followUpAttended: true, followUpStatus: 'ATTENDED' }).then((r) => extract<Visit>(r));
       }
+    }
+  },
+  async updateFollowUpStatus(visitId: string | number, status: 'ATTENDED' | 'NOT_ATTENDED' | 'RESCHEDULED', newDate?: string): Promise<Visit> {
+    try {
+      return await api.post<Visit>(`/visits/${visitId}/followup-status`, { status, newDate }).then((r) => extract<Visit>(r));
+    } catch (err) {
+      const payload: any = { followUpStatus: status };
+      if (status === 'ATTENDED') {
+        payload.followUpAttended = true;
+      } else if (status === 'RESCHEDULED' && newDate) {
+        payload.followUpAttended = false;
+        payload.followUpDate = newDate;
+      } else {
+        payload.followUpAttended = false;
+      }
+      return await api.put<Visit>(`/visits/${visitId}`, payload).then((r) => extract<Visit>(r));
     }
   },
 
@@ -398,6 +418,29 @@ export const ApiDataProvider: DataProvider = {
   },
   async recordBillPayment(billId: string, input: RecordPaymentInput): Promise<Bill> {
     return api.post<Bill>(`/billing/${encodeURIComponent(billId)}/payments`, input).then((r) => extract<Bill>(r));
+  },
+
+  // ── IPD (Inpatient Department) ──────────────────────────────────
+  async createIpdAdmission(input: CreateIpdAdmissionInput): Promise<IpdAdmission> {
+    return api.post<IpdAdmission>('/ipd', input).then((r) => extract<IpdAdmission>(r));
+  },
+  async listIpdAdmissions(params?: { status?: string; patientId?: string; search?: string }): Promise<IpdAdmission[]> {
+    return api.get<IpdAdmission[]>('/ipd', { params }).then((r) => extractArray<IpdAdmission>(r));
+  },
+  async getIpdAdmission(id: string): Promise<IpdAdmission> {
+    return api.get<IpdAdmission>(`/ipd/${encodeURIComponent(id)}`).then((r) => extract<IpdAdmission>(r));
+  },
+  async addIpdDayLog(id: string, input: AddIpdDayLogInput): Promise<IpdAdmission> {
+    return api.post<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/day-logs`, input).then((r) => extract<IpdAdmission>(r));
+  },
+  async recordIpdPayment(id: string, amount: number): Promise<IpdAdmission> {
+    return api.post<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/payments`, { amount }).then((r) => extract<IpdAdmission>(r));
+  },
+  async dischargeIpd(id: string, input: DischargeIpdInput): Promise<IpdAdmission> {
+    return api.put<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/discharge`, input).then((r) => extract<IpdAdmission>(r));
+  },
+  async deleteIpdAdmission(id: string): Promise<void> {
+    return api.delete(`/ipd/${encodeURIComponent(id)}`).then(() => undefined);
   },
 
   // ── Platform operator (AMAN) ───────────────────────────────────
