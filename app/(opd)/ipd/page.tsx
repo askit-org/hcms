@@ -171,24 +171,44 @@ export default function IpdPage() {
     [admissions]
   );
 
-  // Map of bed to occupied admission
+  // Map of bed to occupied admission (Strict token & label match, no substring collisions)
   const bedOccupancyMap = useMemo(() => {
     const map = new Map<string, IpdAdmission>();
 
     rooms.forEach((room) => {
       (room.beds || []).forEach((bed) => {
         const bedKey = `${room.id}___${bed.id}`;
-        const match = activeAdmissions.find((adm) => {
-          const admBed = (adm.bedOrRoom || "").toLowerCase();
-          const bedNum = bed.bedNumber.toLowerCase();
-          const roomName = room.name.toLowerCase();
-          return (
-            admBed === `${room.name} - ${bed.bedNumber}`.toLowerCase() ||
-            admBed === `${room.name} - Bed ${bed.bedNumber}`.toLowerCase() ||
-            admBed.includes(bedNum) ||
-            (admBed.includes(roomName) && admBed.includes(bedNum))
-          );
+        const match = activeAdmissions.find((admission) => {
+          const admBed = (admission.bedOrRoom || "").trim().toLowerCase();
+          const bedNum = (bed.bedNumber || "").trim().toLowerCase();
+          const roomName = (room.name || "").trim().toLowerCase();
+          const roomCode = (room.roomCode || "").trim().toLowerCase();
+
+          if (!admBed || !bedNum) return false;
+
+          // Exact full labels
+          if (admBed === `${roomName} - bed ${bedNum}`) return true;
+          if (admBed === `${roomName} - ${bedNum}`) return true;
+          if (roomCode && (admBed === `${roomCode} - bed ${bedNum}` || admBed === `${roomCode} - ${bedNum}` || admBed === `${roomCode}${bedNum}`)) return true;
+          if (admBed === `bed ${bedNum}` || admBed === bedNum) return true;
+
+          // If admission explicitly mentions room name, check for exact bed suffix/token
+          if (roomName && admBed.includes(roomName)) {
+            const remainder = admBed.replace(roomName, "").trim();
+            if (
+              remainder === bedNum ||
+              remainder === `- ${bedNum}` ||
+              remainder === `bed ${bedNum}` ||
+              remainder === `- bed ${bedNum}` ||
+              remainder.endsWith(` ${bedNum}`)
+            ) {
+              return true;
+            }
+          }
+
+          return false;
         });
+
         if (match) {
           map.set(bedKey, match);
         }
