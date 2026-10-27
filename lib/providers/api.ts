@@ -433,6 +433,15 @@ export const ApiDataProvider: DataProvider = {
   async addIpdDayLog(id: string, input: AddIpdDayLogInput): Promise<IpdAdmission> {
     return api.post<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/day-logs`, input).then((r) => extract<IpdAdmission>(r));
   },
+  async updateIpdDayLog(id: string, dayNumber: number, input: AddIpdDayLogInput): Promise<IpdAdmission> {
+    return api.put<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/day-logs/${encodeURIComponent(dayNumber)}`, input).then((r) => extract<IpdAdmission>(r));
+  },
+  async deleteIpdDayLog(id: string, dayNumber: number): Promise<IpdAdmission> {
+    return api.delete<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/day-logs/${encodeURIComponent(dayNumber)}`).then((r) => extract<IpdAdmission>(r));
+  },
+  async transferIpdBed(id: string, bedOrRoom: string): Promise<IpdAdmission> {
+    return api.put<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/transfer-bed`, { bedOrRoom }).then((r) => extract<IpdAdmission>(r));
+  },
   async recordIpdPayment(id: string, amount: number): Promise<IpdAdmission> {
     return api.post<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/payments`, { amount }).then((r) => extract<IpdAdmission>(r));
   },

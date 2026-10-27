@@ -469,9 +469,8 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
               <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
                 <option value="" disabled>Select category...</option>
                 <option value="OPD">OPD</option>
-                <option value="IPD">IPD</option>
                 <option value="Emergency">Emergency</option>
-                {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value)).map(c => (
+                {categoryOptions.filter(o => !['OPD', 'IPD', 'Emergency'].includes(o.value) && o.value.toUpperCase() !== 'IPD').map(c => (
                   <option key={c.id} value={c.value}>{c.value}</option>
                 ))}
               </select>

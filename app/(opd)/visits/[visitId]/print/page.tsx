@@ -6,6 +6,7 @@ import { useVisit, usePatient, useSettings, useBillForVisit } from '@/lib/hooks/
 import { Printer, MessageCircle, Share2, Receipt, FileText } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function PrintRxPage({ params }: { params: Promise<{ visitId: string }> }) {
   const { visitId } = use(params);
@@ -34,8 +35,8 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
     regNo: (visit as any)?.adminDoctor?.regNo || settings?.regNo || '',
   };
 
-  if (!visit || !patient) {
-    return <div style={{ padding: 40, color: '#888', textAlign: 'center' }}>Loading document…</div>;
+  if (visitLoading || patientLoading || settingsLoading || billLoading || !visit || !patient) {
+    return <LoadingScreen message="Preparing Medical Document & Bill..." />;
   }
 
   const age = patient.age || (patient.dob ? new Date().getFullYear() - new Date(patient.dob).getFullYear() : '');

@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Stethoscope, Phone, MapPin, Briefcase, Calendar,
-  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse, Receipt, CheckCircle2
+  Plus, Eye, Printer, Trash2, Activity, ClipboardList, MessageCircle, Edit2, Save, X, UserPlus, HeartPulse, Receipt, CheckCircle2, Bed
 } from 'lucide-react';
-import { usePatient, usePatientVisits, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
-import type { Visit, Patient } from '@/lib/providers/types';
+import { usePatient, usePatientVisits, useIpdAdmissions, usePatientMutations, useVisitMutations, useSettings } from '@/lib/hooks/useQueries';
+import type { Visit, Patient, IpdAdmission } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import { jsPDF } from 'jspdf';
@@ -38,11 +38,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
   
   const { data: patient, isLoading: patientLoading } = usePatient(patientId);
   const { data: visits = [], isLoading: visitsLoading, refetch: refetchVisits } = usePatientVisits(patientId);
+  const { data: ipdAdmissions = [], isLoading: ipdLoading } = useIpdAdmissions({ patientId, status: 'ALL' });
   const { data: settings } = useSettings();
   const { remove: removePatient, update: updatePatientMut } = usePatientMutations();
   const { update: updateVisit, remove: removeVisit } = useVisitMutations();
 
   const [activeVisit, setActiveVisit] = useState<Visit | null>(null);
+  const [activeIpdId, setActiveIpdId] = useState<string | null>(null);
   const [billingVisit, setBillingVisit] = useState<Visit | null>(null);
   const [showMultiDayBill, setShowMultiDayBill] = useState(false);
   const [activePaymentModal, setActivePaymentModal] = useState<{
@@ -52,7 +54,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
     totalAmount?: number;
     paidAmount?: number;
   } | null>(null);
-  const [tab, setTab] = useState<'overview' | 'visits'>('overview');
+  const [tab, setTab] = useState<'overview' | 'visits' | 'ipd'>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -260,6 +262,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
         <button className={`tab-btn ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Overview</button>
         <button className={`tab-btn ${tab === 'visits' ? 'active' : ''}`} onClick={() => setTab('visits')}>
           Visit History ({visits.length})
+        </button>
+        <button className={`tab-btn ${tab === 'ipd' ? 'active' : ''}`} onClick={() => setTab('ipd')}>
+          Inpatient / IPD ({ipdAdmissions.length})
         </button>
       </div>
 
@@ -518,10 +523,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
             <div className="card-title">Visit Summary</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
               {[
-                { label: 'Total Visits', value: visits.length, color: 'var(--accent-light)' },
+                { label: 'OPD Visits', value: visits.length, color: 'var(--accent-light)' },
+                { label: 'IPD Admissions', value: ipdAdmissions.length, color: 'var(--blue)' },
                 { label: 'Last Diagnosis', value: lastVisit?.diagnosis || '—', color: 'var(--text-primary)' },
                 { label: 'Follow-up Pending', value: visits.filter(v => v.followUpDate && !v.followUpAttended).length, color: 'var(--amber)' },
-                { label: 'First Visit', value: visits.length ? new Date(visits[visits.length - 1].date).toLocaleDateString('en-IN') : '—', color: 'var(--text-primary)' },
               ].map(s => (
                 <div key={s.label} style={{ background: 'var(--surface-1)', borderRadius: 8, padding: '14px', border: '1px solid var(--border)' }}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
@@ -683,6 +688,210 @@ export default function PatientDetailPage({ params }: { params: Promise<{ patien
               )}
             </motion.div>
           ))}
+        </motion.div>
+      )}
+
+      {tab === 'ipd' && (
+        <motion.div variants={containerAnimations} initial="hidden" animate="show">
+          {ipdLoading ? (
+            <LoadingScreen message="Loading inpatient records..." />
+          ) : ipdAdmissions.length === 0 ? (
+            <div className="empty-state">
+              <Bed size={36} style={{ color: 'var(--text-muted)' }} />
+              <h4>No Inpatient / IPD Admissions</h4>
+              <p>This patient has no recorded hospital inpatient stays.</p>
+              <Link href="/ipd" className="btn btn-primary" style={{ marginTop: 16 }}>
+                <Bed size={15} /> Go to Inpatient Department
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {ipdAdmissions.map((adm) => {
+                const isAdmitted = adm.status === 'ADMITTED';
+                const isExpanded = activeIpdId === adm.id;
+                return (
+                  <motion.div
+                    variants={itemAnimations}
+                    key={adm.id}
+                    className="card card-sm"
+                    style={{
+                      background: 'var(--surface-solid)',
+                      borderRadius: 12,
+                      border: isAdmitted ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border)',
+                      padding: '16px 18px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onClick={() => setActiveIpdId(isExpanded ? null : adm.id)}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '0.02em' }}>
+                            {adm.admissionNumber}
+                          </span>
+                          <span
+                            style={{
+                              background: isAdmitted ? 'rgba(16, 185, 129, 0.15)' : 'var(--surface-2)',
+                              color: isAdmitted ? '#10b981' : 'var(--text-muted)',
+                              border: isAdmitted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border)',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {isAdmitted ? '🟢 Currently Admitted' : '⚪ Discharged'}
+                          </span>
+                          <span
+                            style={{
+                              background: 'rgba(59, 130, 246, 0.12)',
+                              color: 'var(--blue)',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Bed size={12} /> {adm.bedOrRoom}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                          Admitted: <strong>{new Date(adm.admissionDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+                          {adm.dischargeDate && (
+                            <> · Discharged: <strong>{new Date(adm.dischargeDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong></>
+                          )}
+                          {adm.attendingDoctor && <> · Dr. {adm.attendingDoctor}</>}
+                        </div>
+
+                        {adm.diagnosis && (
+                          <div style={{ fontSize: '0.82rem', marginTop: 4 }}>
+                            <strong style={{ color: 'var(--text-muted)' }}>Diagnosis: </strong>
+                            <span style={{ fontWeight: 600 }}>{adm.diagnosis}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Financial summary & Action buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'right', marginRight: 4 }}>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            Charges: <strong>₹{adm.cumulativeCharges}</strong>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              color: Number(adm.balanceDue) > 0 ? '#ef4444' : '#10b981',
+                            }}
+                          >
+                            {Number(adm.balanceDue) > 0 ? `Due: ₹${adm.balanceDue}` : `Settled (₹${adm.totalPaid})`}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/ipd/${adm.id}/print`);
+                          }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          title="Print / PDF Statement"
+                        >
+                          <Printer size={12} /> Print Statement
+                        </button>
+
+                        <Link
+                          href="/ipd"
+                          className="btn btn-ghost btn-xs"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Open Inpatient Ward"
+                        >
+                          Ward View
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Expandable Daily Treatment Sheets */}
+                    {isExpanded && (
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            Inpatient Treatment Logs ({adm.dayWiseLogs?.length || 0} Days)
+                          </div>
+                          <Link href="/ipd" className="btn btn-ghost btn-xs" onClick={(e) => e.stopPropagation()}>
+                            Manage in IPD →
+                          </Link>
+                        </div>
+
+                        {(!adm.dayWiseLogs || adm.dayWiseLogs.length === 0) ? (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '8px 0' }}>
+                            No daily treatment rounds recorded yet.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {adm.dayWiseLogs.map((log) => (
+                              <div
+                                key={log.dayNumber}
+                                style={{
+                                  background: 'var(--surface-1)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: 8,
+                                  padding: '10px 12px',
+                                  fontSize: '0.82rem',
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <span style={{ fontWeight: 700 }}>
+                                    Day {log.dayNumber} · {new Date(log.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                  <span style={{ fontWeight: 700, color: 'var(--primary)' }}>₹{log.dailyCharges}</span>
+                                </div>
+
+                                {log.vitals && (
+                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                                    {log.vitals.bp && <span className="badge badge-gray" style={{ fontSize: '0.7rem' }}>BP: {log.vitals.bp}</span>}
+                                    {log.vitals.pulse && <span className="badge badge-gray" style={{ fontSize: '0.7rem' }}>Pulse: {log.vitals.pulse}</span>}
+                                    {log.vitals.temp && <span className="badge badge-gray" style={{ fontSize: '0.7rem' }}>Temp: {log.vitals.temp}°F</span>}
+                                    {log.vitals.spo2 && <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>SpO2: {log.vitals.spo2}%</span>}
+                                  </div>
+                                )}
+
+                                {log.doctorNotes && (
+                                  <div style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
+                                    <strong>Rounds:</strong> {log.doctorNotes}
+                                  </div>
+                                )}
+                                {log.medicinesAdministered && (
+                                  <div style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
+                                    <strong>Meds:</strong> {log.medicinesAdministered}
+                                  </div>
+                                )}
+                                {log.procedures && log.procedures.length > 0 && (
+                                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                                    {log.procedures.map((p, pIdx) => (
+                                      <span key={pIdx} className="badge badge-gray" style={{ fontSize: '0.7rem' }}>
+                                        {p.name} (₹{p.totalPrice})
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
       )}
       <ConfirmModal

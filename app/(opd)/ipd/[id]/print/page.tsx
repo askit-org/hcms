@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useIpdAdmission, usePatient, useSettings } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { Printer, MessageCircle, Share2, Receipt, FileText, Bed } from 'lucide-react';
+import { Printer, MessageCircle, Share2, Receipt, FileText, Bed, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/Toast';
+import LoadingScreen from '@/components/LoadingScreen';
+import PageTransition from '@/components/PageTransition';
 
 export default function IpdPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const defaultView = searchParams.get('view') || (searchParams.get('bill') === 'true' ? 'bill' : searchParams.get('summary') === 'true' ? 'summary' : 'both');
 
@@ -37,16 +41,16 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
   };
 
   if (admissionLoading || patientLoading || settingsLoading) {
-    return <div style={{ padding: 40, color: '#888', textAlign: 'center' }}>Loading IPD Document…</div>;
+    return <LoadingScreen message="Preparing Inpatient Document & Statement..." />;
   }
 
   if (!admission || !patient) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-muted)' }}>IPD Admission record not found.</p>
-        <button className="btn btn-ghost" onClick={() => history.back()} style={{ marginTop: 12 }}>
-          ← Back to Inpatients
-        </button>
+      <div style={{ padding: 60, textAlign: 'center' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Inpatient admission record not found.</p>
+        <Link href="/ipd" className="btn btn-secondary" style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <ArrowLeft size={14} /> Back to Inpatients
+        </Link>
       </div>
     );
   }
@@ -176,7 +180,7 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
   };
 
   return (
-    <div>
+    <PageTransition>
       {/* Top Toolbar (No-Print) */}
       <div
         className="no-print"
@@ -242,9 +246,13 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
           </button>
         </div>
 
-        <button className="btn btn-ghost" onClick={() => history.back()}>
-          ← Back to Inpatients
-        </button>
+        <Link
+          href="/ipd"
+          className="btn btn-ghost"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <ArrowLeft size={15} /> Back to Inpatients
+        </Link>
       </div>
 
       {/* Printable Sheet */}
@@ -648,6 +656,6 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }
