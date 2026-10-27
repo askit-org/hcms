@@ -275,7 +275,7 @@ export default function SettingsPage() {
                 </span>
               ) : sub?.planType === 'trial' ? (
                 <span style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Clock size={16} /> 15-Day Free Trial
+                  <Clock size={16} /> 15-Day Trial
                 </span>
               ) : (
                 <span style={{ color: 'var(--text-muted)' }}>No Active Plan</span>
@@ -303,10 +303,12 @@ export default function SettingsPage() {
           <div style={{ background: 'var(--surface-1)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Payment Ref</div>
             <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginTop: 2 }}>
-              {sub?.planType === 'premium' ? (
-                <span>{sub.paidAmount ? `₹${sub.paidAmount}` : 'Paid'} • {sub.paymentRef || 'Ref Verified'}</span>
+              {sub?.paidAmount ? (
+                <span>₹{sub.paidAmount} • {sub.paymentRef || 'Ref Verified'}</span>
+              ) : sub?.planType === 'trial' ? (
+                <span>15-Day Trial</span>
               ) : (
-                <span>Free Trial</span>
+                <span>—</span>
               )}
             </div>
           </div>

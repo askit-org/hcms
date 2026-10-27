@@ -20,12 +20,14 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  planType?: 'premium' | 'trial';
 }
 
 export default function PaymentModal({
   isOpen,
   onClose,
   onSuccess,
+  planType = 'premium',
 }: PaymentModalProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -70,9 +72,10 @@ export default function PaymentModal({
         return;
       }
 
-      // 2. Create Order via Backend API (Backend determines price via SUBSCRIPTION_PRICE & key)
+      const isTrial = planType === 'trial';
+      // 2. Create Order via Backend API (Backend determines price via SUBSCRIPTION_PRICE / TRIAL_SUBSCRIPTION_PRICE & key)
       const orderRes = await createRazorpayOrder.mutateAsync({
-        planType: "premium",
+        planType: isTrial ? 'trial' : 'premium',
       });
 
       if (!orderRes.success) {
@@ -86,8 +89,8 @@ export default function PaymentModal({
         key: orderRes.key,
         amount: orderRes.amount,
         currency: orderRes.currency,
-        name: "HCMS Premium",
-        description: "Upgrade to Premium Plan",
+        name: isTrial ? "HCMS 15-Day Trial" : "HCMS Premium",
+        description: isTrial ? "Activate 15-Day Trial" : "Upgrade to Premium Plan",
         order_id: orderRes.orderId,
         handler: async function (response: any) {
           try {
@@ -95,10 +98,12 @@ export default function PaymentModal({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              planType: "premium",
+              planType: isTrial ? 'trial' : 'premium',
             });
             toast(
-              "Payment verified! Premium Plan activated successfully.",
+              isTrial
+                ? "Payment verified! 15-Day Trial activated successfully."
+                : "Payment verified! Premium Plan activated successfully.",
               "success",
             );
             if (onSuccess) onSuccess();
@@ -212,7 +217,7 @@ export default function PaymentModal({
                 border: "1px solid rgba(13, 148, 136, 0.2)",
               }}
             >
-              <Sparkles size={14} /> HCMS Premium Upgrade
+              <Sparkles size={14} /> {planType === 'trial' ? 'HCMS 15-Day Trial' : 'HCMS Premium Upgrade'}
             </div>
             <h2
               style={{
@@ -223,7 +228,7 @@ export default function PaymentModal({
                 lineHeight: 1.3,
               }}
             >
-              Upgrade to Premium Plan
+              {planType === 'trial' ? 'Start 15-Day Trial' : 'Upgrade to Premium Plan'}
             </h2>
             <p
               style={{
@@ -262,7 +267,7 @@ export default function PaymentModal({
                   Subscription Plan:
                 </span>
                 <span style={{ fontWeight: 700, color: "var(--green)" }}>
-                  Premium Access
+                  {planType === 'trial' ? '15-Day Trial Access' : 'Premium Access'}
                 </span>
               </div>
               <div
@@ -276,7 +281,7 @@ export default function PaymentModal({
                   Validity:
                 </span>
                 <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                  1 Month / 30 Days
+                  {planType === 'trial' ? '15 Days' : '1 Month / 30 Days'}
                 </span>
               </div>
             </div>
