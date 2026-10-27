@@ -15,6 +15,10 @@ import {
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 import { useSubscriptionMutations } from "@/lib/hooks/useQueries";
+import { useAuth, type AuthUser } from "@/lib/hooks/useAuth";
+import { type UserSubscription } from "@/lib/providers/types";
+import { api } from "@/lib/providers/api";
+import { getQueryClient } from "@/lib/queryClient";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -34,6 +38,8 @@ export default function PaymentModal({
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [mounted, setMounted] = useState(false);
   const isVerifyingRef = useRef(false);
+  const isCompletedRef = useRef(false);
+  const isOpenRef = useRef(false);
   const router = useRouter();
   const { verifyPayment, createRazorpayOrder } = useSubscriptionMutations();
 
@@ -41,17 +47,122 @@ export default function PaymentModal({
     setMounted(true);
   }, []);
 
+  const handlePaymentSuccess = (latestUser?: AuthUser, sub?: UserSubscription) => {
+    if (isCompletedRef.current) return;
+    isCompletedRef.current = true;
+    isVerifyingRef.current = false;
+
+    // Log the user in with latest details from the database
+    const currentToken = useAuth.getState().token || "";
+    if (latestUser) {
+      useAuth.getState().login({ user: latestUser, token: currentToken });
+    } else if (sub) {
+      useAuth.getState().updateSubscription(sub);
+    }
+
+    try {
+      getQueryClient().invalidateQueries();
+    } catch {
+      // ignore
+    }
+
+    setStatus("success");
+    toast(
+      planType === "trial"
+        ? "Payment verified! 15-Day Trial activated successfully."
+        : "Payment verified! Premium Plan activated successfully.",
+      "success"
+    );
+
+    // Hold user on the success confirmation screen briefly, then redirect cleanly to dashboard
+    setTimeout(() => {
+      if (onSuccess) onSuccess();
+      onClose();
+      router.replace("/dashboard");
+      router.refresh();
+      if (typeof window !== "undefined") {
+        window.location.replace("/dashboard");
+      }
+    }, 1200);
+  };
+
+  /**
+   * Poll in the background for 20 seconds (1 second interval) to check if the
+   * webhook arrived and the database confirms this user is active/premium.
+   */
+  const startBackgroundPolling = async (maxAttempts = 20) => {
+    for (let i = 0; i < maxAttempts; i++) {
+      if (isCompletedRef.current || !isOpenRef.current) return;
+
+      // Wait 1 second between attempts
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      if (isCompletedRef.current || !isOpenRef.current) return;
+
+      try {
+        const res = await api.get<{ success: boolean; user?: AuthUser }>("/auth/me");
+        const latestUser = res.data?.user;
+        const sub = latestUser?.subscription;
+
+        const isActivated =
+          sub?.subscriptionStatus === "active" ||
+          sub?.subscriptionStatus === "trialing";
+
+        if (isActivated && sub) {
+          handlePaymentSuccess(latestUser, sub);
+          return;
+        }
+      } catch {
+        // Network fluctuation during polling, continue trying
+      }
+    }
+
+    // If 20 seconds elapsed without activation
+    if (!isCompletedRef.current && isVerifyingRef.current) {
+      isVerifyingRef.current = false;
+      setStatus("idle");
+      toast(
+        "Payment is still processing with your bank. If your account was debited, your subscription will activate shortly.",
+        "info"
+      );
+    }
+  };
+
   useEffect(() => {
+    isOpenRef.current = isOpen;
     if (isOpen) {
       document.body.style.overflow = "hidden";
-      handleConfirmPayment();
+      isCompletedRef.current = false;
+
+      // 1. Check immediately if the DB already says the user is active (e.g. from prior webhook)
+      api
+        .get<{ success: boolean; user?: AuthUser }>("/auth/me")
+        .then((res) => {
+          const latestUser = res.data?.user;
+          const sub = latestUser?.subscription;
+          if (
+            sub &&
+            (sub.subscriptionStatus === "active" ||
+              sub.subscriptionStatus === "trialing")
+          ) {
+            handlePaymentSuccess(latestUser, sub);
+            return;
+          }
+          // Not active yet, initiate Razorpay checkout
+          handleConfirmPayment();
+        })
+        .catch(() => {
+          handleConfirmPayment();
+        });
     } else {
       document.body.style.overflow = "";
       setStatus("idle");
       isVerifyingRef.current = false;
+      isCompletedRef.current = false;
     }
     return () => {
       document.body.style.overflow = "";
+      isOpenRef.current = false;
     };
   }, [isOpen]);
 
@@ -71,7 +182,7 @@ export default function PaymentModal({
 
   const handleConfirmPayment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isVerifyingRef.current) return;
+    if (isVerifyingRef.current || isCompletedRef.current) return;
     setStatus("preparing");
 
     try {
@@ -84,7 +195,7 @@ export default function PaymentModal({
       }
 
       const isTrial = planType === "trial";
-      // 2. Create Order via Backend API (Backend determines price via SUBSCRIPTION_PRICE / TRIAL_SUBSCRIPTION_PRICE)
+      // 2. Create Order via Backend API
       const orderRes = await createRazorpayOrder.mutateAsync({
         planType: isTrial ? "trial" : "premium",
       });
@@ -95,7 +206,12 @@ export default function PaymentModal({
         return;
       }
 
-      // 3. Open Razorpay Checkout popup
+      // 3. Keep loading animation visible and begin background polling for 20 seconds
+      isVerifyingRef.current = true;
+      setStatus("verifying");
+      startBackgroundPolling(20);
+
+      // 4. Open Razorpay Checkout popup
       const options = {
         key: orderRes.key,
         amount: orderRes.amount,
@@ -115,38 +231,34 @@ export default function PaymentModal({
               planType: isTrial ? "trial" : "premium",
             });
 
-            setStatus("success");
-            toast(
-              isTrial
-                ? "Payment verified! 15-Day Trial activated successfully."
-                : "Payment verified! Premium Plan activated successfully.",
-              "success",
-            );
-
-            // Hold user on the success confirmation screen briefly, then redirect cleanly to dashboard
-            setTimeout(() => {
-              isVerifyingRef.current = false;
-              if (onSuccess) onSuccess();
-              onClose();
-              router.replace("/dashboard");
-              router.refresh();
-            }, 1400);
+            // Re-fetch latest user profile and finish
+            const meRes = await api
+              .get<{ success: boolean; user?: AuthUser }>("/auth/me")
+              .catch(() => null);
+            handlePaymentSuccess(meRes?.data?.user);
           } catch (err: any) {
-            isVerifyingRef.current = false;
-            setStatus("idle");
-            toast(
-              getErrorMessage(err, "Payment verification failed on server."),
-              "error",
-            );
+            // Check if webhook already activated it in DB
+            const meRes = await api
+              .get<{ success: boolean; user?: AuthUser }>("/auth/me")
+              .catch(() => null);
+            const sub = meRes?.data?.user?.subscription;
+            if (
+              sub &&
+              (sub.subscriptionStatus === "active" ||
+                sub.subscriptionStatus === "trialing")
+            ) {
+              handlePaymentSuccess(meRes?.data?.user, sub);
+            }
           }
         },
         theme: { color: "#0d9488" },
         modal: {
           ondismiss: function () {
-            // If payment verification is in progress, do not close or interrupt the modal
-            if (isVerifyingRef.current) return;
-            setStatus("idle");
-            onClose();
+            // When user closes Razorpay popup (e.g. after paying via UPI QR on mobile),
+            // stay in verifying animation while the 20-second polling continues
+            if (!isCompletedRef.current) {
+              setStatus("verifying");
+            }
           },
         },
       };

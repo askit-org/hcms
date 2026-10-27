@@ -13,7 +13,7 @@ const PRESERVED_KEYS = new Set<string>(['hcms_pwa_installed']);
 /** sessionStorage key used to tell the login page why the user was signed out. */
 export const LOGOUT_REASON_KEY = 'hcms_logout_reason';
 
-export type LogoutReason = 'manual' | 'expired' | 'idle' | 'unauthorized';
+export type LogoutReason = 'manual' | 'expired' | 'idle' | 'unauthorized' | 'subscription_expired';
 
 /** Last-activity timestamp shared across tabs (used by the idle timeout). */
 export const LAST_ACTIVITY_KEY = 'hcms_last_activity';

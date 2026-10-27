@@ -34,6 +34,8 @@ export default function LoginPage() {
       sessionStorage.removeItem(LOGOUT_REASON_KEY);
       if (reason === 'idle') {
         toast('You were signed out due to inactivity.', 'info');
+      } else if (reason === 'subscription_expired') {
+        toast('Your subscription has expired. Please sign in again.', 'info');
       } else {
         toast('Your session has expired. Please sign in again.', 'info');
       }
