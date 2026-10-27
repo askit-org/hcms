@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSettings, useBillingMutations, useSettingsMutations, useBillForVisit } from "@/lib/hooks/useQueries";
+import LoadingScreen from "./LoadingScreen";
 import { toast } from "./Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 import UpiQrCode from "./UpiQrCode";
@@ -69,6 +71,7 @@ export default function CreateBillModal({
   const { createBill, updateBill } = useBillingMutations();
   const { update: updateSettings } = useSettingsMutations();
   const { data: existingBill, isLoading: billLoading } = useBillForVisit(isOpen && visitId ? visitId : undefined);
+  const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
   const [consultationFee, setConsultationFee] = useState<number>(500);
@@ -84,6 +87,7 @@ export default function CreateBillModal({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdBill, setCreatedBill] = useState<Bill | null>(null);
+  const [isNavigatingPrint, setIsNavigatingPrint] = useState(false);
 
   const prevIsOpenRef = useRef(false);
   const populatedVisitBillIdRef = useRef<string | null>(null);
@@ -332,14 +336,23 @@ export default function CreateBillModal({
         result = await updateBill.mutateAsync({ id: existingBill.id, input: billPayload });
         toast("Payment & bill updated successfully!", "success");
         onSuccess?.(result);
-        onClose();
-        return;
       } else {
         hasCreatedBillRef.current = true;
         result = await createBill.mutateAsync(billPayload);
         toast("Bill generated successfully!", "success");
         setCreatedBill(result);
         onSuccess?.(result);
+      }
+
+      const targetVisitId = result?.visitId || visitId;
+      if (targetVisitId) {
+        setIsNavigatingPrint(true);
+        setTimeout(() => {
+          router.push(`/visits/${targetVisitId}/print?bill=true`);
+          onClose();
+        }, 500);
+      } else {
+        onClose();
       }
     } catch (err) {
       toast(getErrorMessage(err, "Failed to save bill & payment"), "error");
@@ -351,7 +364,11 @@ export default function CreateBillModal({
   const handlePrint = () => {
     const targetVisitId = visitId || createdBill?.visitId;
     if (targetVisitId) {
-      window.open(`/visits/${targetVisitId}/print?bill=true`, "_blank");
+      setIsNavigatingPrint(true);
+      setTimeout(() => {
+        router.push(`/visits/${targetVisitId}/print?bill=true`);
+        onClose();
+      }, 300);
     } else {
       window.print();
     }
@@ -1321,6 +1338,24 @@ export default function CreateBillModal({
             </div>
           )}
         </motion.div>
+
+        {/* Smooth Loading Animation when navigating to Print / PDF */}
+        {isNavigatingPrint && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 99999,
+              background: "rgba(0, 0, 0, 0.55)",
+              backdropFilter: "blur(5px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <LoadingScreen message="Billing complete! Opening Print & PDF Statement..." />
+          </div>
+        )}
       </div>
     </AnimatePresence>,
     document.body

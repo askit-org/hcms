@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bed,
   Plus,
@@ -23,6 +24,14 @@ import {
   Activity,
   Layers,
   Sparkles,
+  ArrowRightLeft,
+  Edit2,
+  HeartPulse,
+  Pill,
+  Utensils,
+  Clock,
+  AlertTriangle,
+  Stethoscope,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIpdAdmissions, useIpdMutations, useSettings, useSettingsMutations } from "@/lib/hooks/useQueries";
@@ -30,6 +39,7 @@ import { useProviderStore } from "@/lib/providers";
 import { useAuth } from "@/lib/hooks/useAuth";
 import type {
   IpdAdmission,
+  IpdDayLog,
   Patient,
   CreateIpdAdmissionInput,
   AddIpdDayLogInput,
@@ -41,18 +51,31 @@ import PageTransition from "@/components/PageTransition";
 import LoadingScreen from "@/components/LoadingScreen";
 import ErrorState from "@/components/ErrorState";
 import SettingsIpdRooms from "@/components/SettingsIpdRooms";
+import IpdDayLogModal from "@/components/IpdDayLogModal";
+import IpdBedTransferModal from "@/components/IpdBedTransferModal";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 
 export default function IpdPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { data: settings } = useSettings();
   const { update: updateSettingsMutation } = useSettingsMutations();
   const provider = useProviderStore((s) => s.provider);
 
+  const [isNavigatingPrint, setIsNavigatingPrint] = useState(false);
   const [tab, setTab] = useState<"ADMITTED" | "DISCHARGED" | "ALL">("ADMITTED");
   const { data: admissions = [], isLoading, error } = useIpdAdmissions({ status: tab });
-  const { createAdmission, addDayLog, discharge, recordPayment, deleteAdmission } = useIpdMutations();
+  const {
+    createAdmission,
+    addDayLog,
+    updateDayLog,
+    deleteDayLog,
+    transferBed,
+    discharge,
+    recordPayment,
+    deleteAdmission,
+  } = useIpdMutations();
 
   // View state: Graphical Bed Floor Plan vs Inpatient List Table
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
@@ -66,6 +89,8 @@ export default function IpdPage() {
   const [showNewAdmissionModal, setShowNewAdmissionModal] = useState(false);
   const [selectedAdmission, setSelectedAdmission] = useState<IpdAdmission | null>(null);
   const [showAddDayLogModal, setShowAddDayLogModal] = useState(false);
+  const [editingLog, setEditingLog] = useState<IpdDayLog | null>(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [showBedConfigModal, setShowBedConfigModal] = useState(false);
@@ -133,16 +158,7 @@ export default function IpdPage() {
     return () => clearTimeout(t);
   }, [patientQuery, provider]);
 
-  // Day Log Form State (Real clinical logs: vitals & procedures start blank)
-  const [dayLogForm, setDayLogForm] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    doctorNotes: "",
-    nursingNotes: "",
-    vitals: { bp: "", pulse: "", temp: "", spo2: "" },
-    medicinesAdministered: "",
-    procedureName: "",
-    procedureCharge: "",
-  });
+
 
   // Discharge Form State (Zero fake text, clean clinical notes)
   const [dischargeForm, setDischargeForm] = useState({
@@ -355,61 +371,25 @@ export default function IpdPage() {
     }
   };
 
-  // Submit Day Log
-  const handleAddDayLog = async () => {
+  // Delete Day Log with automated financial recalculation
+  const handleDeleteDayLog = async (dayNumber: number) => {
     if (!selectedAdmission) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to delete Day ${dayNumber} log? Any procedures and charges recorded on this day will be removed and balances automatically updated.`
+      )
+    ) {
+      return;
+    }
     try {
-      const charge = parseFloat(dayLogForm.procedureCharge) || 0;
-      const vitalsParts: string[] = [];
-      if (dayLogForm.vitals.bp?.trim()) vitalsParts.push(`BP ${dayLogForm.vitals.bp.trim()}`);
-      if (dayLogForm.vitals.pulse?.trim()) vitalsParts.push(`Pulse ${dayLogForm.vitals.pulse.trim()} bpm`);
-      if (dayLogForm.vitals.temp?.trim()) vitalsParts.push(`Temp ${dayLogForm.vitals.temp.trim()}°F`);
-      if (dayLogForm.vitals.spo2?.trim()) vitalsParts.push(`SpO2 ${dayLogForm.vitals.spo2.trim()}%`);
-
-      const combinedNursingNotes = [
-        dayLogForm.nursingNotes.trim(),
-        vitalsParts.length > 0 ? `Vitals: ${vitalsParts.join(", ")}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | ");
-
-      const payload: AddIpdDayLogInput = {
-        date: dayLogForm.date,
-        doctorNotes: dayLogForm.doctorNotes.trim() || undefined,
-        nursingNotes: combinedNursingNotes || undefined,
-        medicinesAdministered: dayLogForm.medicinesAdministered.trim() || undefined,
-        procedures: dayLogForm.procedureName.trim()
-          ? [
-              {
-                name: dayLogForm.procedureName.trim(),
-                quantity: 1,
-                unitPrice: charge,
-                totalPrice: charge,
-              },
-            ]
-          : [],
-        dailyCharges: charge,
-      };
-
-      const updated = await addDayLog.mutateAsync({
+      const updated = await deleteDayLog.mutateAsync({
         id: selectedAdmission.id,
-        input: payload,
+        dayNumber,
       });
-
       setSelectedAdmission(updated);
-      setShowAddDayLogModal(false);
-      setDayLogForm({
-        date: new Date().toISOString().slice(0, 10),
-        doctorNotes: "",
-        nursingNotes: "",
-        vitals: { bp: "", pulse: "", temp: "", spo2: "" },
-        medicinesAdministered: "",
-        procedureName: "",
-        procedureCharge: "",
-      });
-      toast(`Recorded Day treatment log!`, "success");
+      toast(`Day ${dayNumber} treatment log deleted`, "success");
     } catch (err) {
-      toast(getErrorMessage(err, "Failed to add day log"), "error");
+      toast(getErrorMessage(err, "Failed to delete day log"), "error");
     }
   };
 
@@ -467,9 +447,10 @@ export default function IpdPage() {
     }
   };
 
-  // Open Unified Printable Statement & PDF View (reusing OPD letterhead & styling)
+  // Open Unified Printable Statement & PDF View gracefully without opening in a new tab
   const handleOpenPrintDocument = (adm: IpdAdmission, view: "both" | "bill" | "summary" = "both") => {
-    window.open(`/ipd/${adm.id}/print?view=${view}`, "_blank");
+    setIsNavigatingPrint(true);
+    router.push(`/ipd/${adm.id}/print?view=${view}`);
   };
 
   const handleWhatsAppShare = (adm: IpdAdmission) => {
@@ -1427,10 +1408,22 @@ export default function IpdPage() {
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
-                        onClick={() => setShowAddDayLogModal(true)}
+                        onClick={() => {
+                          setEditingLog(null);
+                          setShowAddDayLogModal(true);
+                        }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
                       >
                         <Plus size={14} /> Log Day Treatment
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowTransferModal(true)}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                        title="Transfer patient to another vacant bed or room"
+                      >
+                        <ArrowRightLeft size={14} /> Transfer Bed
                       </button>
                       <button
                         type="button"
@@ -1449,9 +1442,28 @@ export default function IpdPage() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => handleOpenPrintDocument(selectedAdmission)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                    disabled={isNavigatingPrint}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
-                    <Printer size={14} /> Print / PDF Document
+                    {isNavigatingPrint ? (
+                      <>
+                        <div
+                          style={{
+                            width: 12,
+                            height: 12,
+                            border: "2px solid currentColor",
+                            borderTopColor: "transparent",
+                            borderRadius: "50%",
+                            animation: "spin 0.6s linear infinite",
+                          }}
+                        />
+                        <span>Loading Document...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={14} /> Print / PDF Document
+                      </>
+                    )}
                   </button>
                   <button
                     type="button"
@@ -1495,7 +1507,7 @@ export default function IpdPage() {
                 </div>
               </div>
 
-              {/* Day-Wise Treatment Log Timeline */}
+              {/* Day-Wise Treatment Log Timeline (Visit-style Inpatient Chart) */}
               <div>
                 <div
                   style={{
@@ -1503,36 +1515,58 @@ export default function IpdPage() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     marginBottom: 12,
+                    flexWrap: "wrap",
+                    gap: 8,
                   }}
                 >
                   <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>
                     Inpatient Treatment Sheet ({selectedAdmission.dayWiseLogs?.length || 0} Days Logged)
                   </div>
+                  {selectedAdmission.status === "ADMITTED" && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => {
+                        setEditingLog(null);
+                        setShowAddDayLogModal(true);
+                      }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                    >
+                      <Plus size={12} /> Add Day Log
+                    </button>
+                  )}
                 </div>
 
                 {(!selectedAdmission.dayWiseLogs || selectedAdmission.dayWiseLogs.length === 0) ? (
                   <div style={{ textAlign: "center", padding: 24, color: "var(--text-muted)", fontSize: "0.85rem" }}>
                     No day treatment logs recorded yet. Click <strong>&quot;+ Log Day Treatment&quot;</strong> above to record
-                    doctor rounds, vitals &amp; procedures.
+                    doctor rounds, vitals, prescribed medicines &amp; procedures.
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {selectedAdmission.dayWiseLogs.map((log) => (
                       <div
                         key={log.dayNumber}
                         style={{
                           background: "var(--surface-1)",
                           border: "1px solid var(--border)",
-                          borderRadius: 10,
-                          padding: "12px 16px",
+                          borderRadius: 12,
+                          padding: "14px 16px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
                         }}
                       >
+                        {/* Day Card Header */}
                         <div
                           style={{
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
-                            marginBottom: 6,
+                            flexWrap: "wrap",
+                            gap: 8,
+                            borderBottom: "1px solid var(--border)",
+                            paddingBottom: 8,
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1540,64 +1574,326 @@ export default function IpdPage() {
                               style={{
                                 background: "var(--primary)",
                                 color: "#fff",
-                                padding: "2px 8px",
+                                padding: "3px 10px",
                                 borderRadius: 6,
                                 fontWeight: 700,
-                                fontSize: "0.75rem",
+                                fontSize: "0.78rem",
                               }}
                             >
                               Day {log.dayNumber}
                             </span>
-                            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                            <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>
                               {new Date(log.date).toLocaleDateString("en-IN", {
                                 weekday: "short",
                                 day: "numeric",
                                 month: "short",
+                                year: "numeric",
                               })}
                             </span>
+                            {log.updatedAt && (
+                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                                (edited)
+                              </span>
+                            )}
                           </div>
-                          <span style={{ fontWeight: 700, color: "var(--primary)", fontSize: "0.9rem" }}>
-                            ₹{log.dailyCharges}
-                          </span>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color: "var(--primary)",
+                                fontSize: "0.92rem",
+                                background: "rgba(13, 148, 136, 0.1)",
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                              }}
+                            >
+                              ₹{log.dailyCharges}
+                            </span>
+
+                            {selectedAdmission.status === "ADMITTED" && (
+                              <div style={{ display: "flex", gap: 4 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={() => {
+                                    setEditingLog(log);
+                                    setShowAddDayLogModal(true);
+                                  }}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    color: "var(--primary)",
+                                    border: "1px solid rgba(13, 148, 136, 0.25)",
+                                  }}
+                                  title="Edit this day's notes, vitals, medicines or procedures"
+                                >
+                                  <Edit2 size={12} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={() => handleDeleteDayLog(log.dayNumber)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    color: "var(--red)",
+                                    border: "1px solid rgba(239, 68, 68, 0.25)",
+                                  }}
+                                  title="Delete this day's record"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {log.doctorNotes && (
-                          <div style={{ fontSize: "0.84rem", marginBottom: 4 }}>
-                            <strong style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>Doctor Notes: </strong>
-                            {log.doctorNotes}
-                          </div>
-                        )}
-
-                        {log.nursingNotes && (
-                          <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: 4 }}>
-                            <strong>Nursing &amp; Vitals: </strong>
-                            {log.nursingNotes}
-                          </div>
-                        )}
-
-                        {log.medicinesAdministered && (
-                          <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: 4 }}>
-                            <strong>Meds Administered: </strong>
-                            {log.medicinesAdministered}
-                          </div>
-                        )}
-
-                        {log.procedures && log.procedures.length > 0 && (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                            {log.procedures.map((p, idx) => (
+                        {/* Structured Vitals Strip */}
+                        {log.vitals &&
+                          (log.vitals.bp ||
+                            log.vitals.pulse ||
+                            log.vitals.temp ||
+                            log.vitals.spo2 ||
+                            log.vitals.respRate ||
+                            log.vitals.sugar) && (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 6,
+                                flexWrap: "wrap",
+                                background: "var(--surface-2)",
+                                padding: "6px 10px",
+                                borderRadius: 6,
+                                border: "1px solid var(--border)",
+                                alignItems: "center",
+                              }}
+                            >
                               <span
-                                key={idx}
                                 style={{
-                                  background: "var(--surface-2)",
-                                  border: "1px solid var(--border)",
-                                  padding: "2px 8px",
-                                  borderRadius: 6,
-                                  fontSize: "0.75rem",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  color: "var(--text-muted)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.04em",
                                 }}
                               >
-                                {p.name} (₹{p.totalPrice})
+                                <Activity size={12} style={{ color: "var(--primary)" }} /> Vitals:
                               </span>
-                            ))}
+                              {log.vitals.bp && (
+                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
+                                  BP: <strong>{log.vitals.bp}</strong>
+                                </span>
+                              )}
+                              {log.vitals.pulse && (
+                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
+                                  Pulse: <strong>{log.vitals.pulse} bpm</strong>
+                                </span>
+                              )}
+                              {log.vitals.temp && (
+                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
+                                  Temp: <strong>{log.vitals.temp} °F</strong>
+                                </span>
+                              )}
+                              {log.vitals.spo2 && (
+                                <span
+                                  className={
+                                    Number(log.vitals.spo2) > 0 && Number(log.vitals.spo2) < 95
+                                      ? "badge badge-red"
+                                      : "badge badge-blue"
+                                  }
+                                  style={{ fontSize: "0.74rem" }}
+                                >
+                                  SpO2: <strong>{log.vitals.spo2}%</strong>
+                                  {Number(log.vitals.spo2) > 0 && Number(log.vitals.spo2) < 95 && " ⚠️ Low"}
+                                </span>
+                              )}
+                              {log.vitals.respRate && (
+                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
+                                  RR: <strong>{log.vitals.respRate}/min</strong>
+                                </span>
+                              )}
+                              {log.vitals.sugar && (
+                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
+                                  GRBS: <strong>{log.vitals.sugar} mg/dL</strong>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                        {/* Doctor Clinical Notes */}
+                        {log.doctorNotes && (
+                          <div style={{ fontSize: "0.84rem", lineHeight: 1.5 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                color: "var(--primary)",
+                                fontWeight: 700,
+                                fontSize: "0.74rem",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <Stethoscope size={13} /> DOCTOR ROUNDS:
+                            </div>
+                            <div style={{ color: "var(--text-primary)", whiteSpace: "pre-line" }}>
+                              {log.doctorNotes}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Medications Administered */}
+                        {log.medications && log.medications.length > 0 ? (
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                color: "#8b5cf6",
+                                fontWeight: 700,
+                                fontSize: "0.74rem",
+                                marginBottom: 4,
+                              }}
+                            >
+                              <Pill size={13} /> MEDICATIONS GIVEN ({log.medications.length}):
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {log.medications.map((m, idx) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    background: "rgba(139, 92, 246, 0.08)",
+                                    border: "1px solid rgba(139, 92, 246, 0.2)",
+                                    borderRadius: 6,
+                                    padding: "3px 8px",
+                                    fontSize: "0.75rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                  }}
+                                >
+                                  <strong style={{ color: "#7c3aed" }}>{m.name}</strong>
+                                  <span style={{ color: "var(--text-muted)" }}>·</span>
+                                  <span>{m.dose || (m as any).dosage}</span>
+                                  {m.route && (
+                                    <span
+                                      style={{
+                                        background: "rgba(139, 92, 246, 0.15)",
+                                        padding: "1px 5px",
+                                        borderRadius: 4,
+                                        fontSize: "0.68rem",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      {m.route}
+                                    </span>
+                                  )}
+                                  {m.timing && <span style={{ color: "var(--text-muted)" }}>({m.timing})</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : log.medicinesAdministered ? (
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                color: "#8b5cf6",
+                                fontWeight: 700,
+                                fontSize: "0.74rem",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <Pill size={13} /> MEDICINES:
+                            </div>
+                            <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                              {log.medicinesAdministered}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Diet & Fluid Orders */}
+                        {log.dietNotes && (
+                          <div style={{ fontSize: "0.82rem" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                color: "var(--amber)",
+                                fontWeight: 700,
+                                fontSize: "0.74rem",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <Utensils size={13} /> DIET &amp; FLUID ORDERS:
+                            </div>
+                            <div style={{ color: "var(--text-secondary)" }}>{log.dietNotes}</div>
+                          </div>
+                        )}
+
+                        {/* Nursing Notes */}
+                        {log.nursingNotes && (
+                          <div style={{ fontSize: "0.82rem" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                color: "var(--text-muted)",
+                                fontWeight: 700,
+                                fontSize: "0.74rem",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <FileText size={13} /> NURSING OBSERVATIONS:
+                            </div>
+                            <div style={{ color: "var(--text-secondary)" }}>{log.nursingNotes}</div>
+                          </div>
+                        )}
+
+                        {/* Procedures & Services */}
+                        {log.procedures && log.procedures.length > 0 && (
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                color: "var(--blue)",
+                                fontWeight: 700,
+                                fontSize: "0.74rem",
+                                marginBottom: 4,
+                              }}
+                            >
+                              <Receipt size={13} /> PROCEDURES &amp; SERVICES:
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {log.procedures.map((p, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    background: "var(--surface-2)",
+                                    border: "1px solid var(--border)",
+                                    padding: "2px 8px",
+                                    borderRadius: 6,
+                                    fontSize: "0.76rem",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {p.name} {p.quantity > 1 ? `(×${p.quantity})` : ""} ·{" "}
+                                  <strong style={{ color: "var(--primary)" }}>₹{p.totalPrice}</strong>
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1916,179 +2212,35 @@ export default function IpdPage() {
         </div>
       )}
 
-      {/* ─── Add Day Log Modal ─── */}
+      {/* ─── Add / Edit Inpatient Day Log Modal (Visit-Style) ─── */}
       {showAddDayLogModal && selectedAdmission && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
+        <IpdDayLogModal
+          isOpen={showAddDayLogModal}
+          onClose={() => {
+            setShowAddDayLogModal(false);
+            setEditingLog(null);
           }}
-          onClick={() => setShowAddDayLogModal(false)}
-        >
-          <div
-            style={{
-              background: "var(--surface-solid)",
-              borderRadius: 14,
-              padding: 24,
-              maxWidth: 520,
-              width: "100%",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              border: "1px solid var(--border)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>
-                Log Treatment: Day {(selectedAdmission.dayWiseLogs || []).length + 1}
-              </div>
-              <button type="button" className="btn-icon" onClick={() => setShowAddDayLogModal(false)}>
-                <X size={16} />
-              </button>
-            </div>
+          admission={selectedAdmission}
+          initialLog={editingLog}
+          onSuccess={(updated) => {
+            setSelectedAdmission(updated);
+            setEditingLog(null);
+            setShowAddDayLogModal(false);
+          }}
+        />
+      )}
 
-            <div style={{ marginBottom: 12 }}>
-              <label className="form-label" style={{ fontWeight: 600 }}>Date of Treatment</label>
-              <input
-                type="date"
-                className="form-input"
-                value={dayLogForm.date}
-                onChange={(e) => setDayLogForm((f) => ({ ...f, date: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label className="form-label" style={{ fontWeight: 600 }}>Doctor Rounds &amp; Clinical Progress</label>
-              <textarea
-                className="form-textarea"
-                rows={2}
-                placeholder="e.g. Afebrile today, hydration improved, lungs clear."
-                value={dayLogForm.doctorNotes}
-                onChange={(e) => setDayLogForm((f) => ({ ...f, doctorNotes: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
-              <div>
-                <label className="form-label" style={{ fontSize: "0.7rem" }}>BP</label>
-                <input
-                  className="form-input"
-                  placeholder="e.g. 120/80"
-                  value={dayLogForm.vitals.bp}
-                  onChange={(e) => setDayLogForm((f) => ({ ...f, vitals: { ...f.vitals, bp: e.target.value } }))}
-                />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: "0.7rem" }}>Pulse (bpm)</label>
-                <input
-                  className="form-input"
-                  placeholder="e.g. 76"
-                  value={dayLogForm.vitals.pulse}
-                  onChange={(e) => setDayLogForm((f) => ({ ...f, vitals: { ...f.vitals, pulse: e.target.value } }))}
-                />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: "0.7rem" }}>Temp (°F)</label>
-                <input
-                  className="form-input"
-                  placeholder="e.g. 98.4"
-                  value={dayLogForm.vitals.temp}
-                  onChange={(e) => setDayLogForm((f) => ({ ...f, vitals: { ...f.vitals, temp: e.target.value } }))}
-                />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: "0.7rem" }}>SpO2 (%)</label>
-                <input
-                  className="form-input"
-                  placeholder="e.g. 99"
-                  value={dayLogForm.vitals.spo2}
-                  onChange={(e) => setDayLogForm((f) => ({ ...f, vitals: { ...f.vitals, spo2: e.target.value } }))}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label className="form-label" style={{ fontWeight: 600 }}>Medicines Administered</label>
-              <input
-                className="form-input"
-                placeholder="e.g. Inj. Ceftriaxone 1g IV, Inj. Pantop 40mg IV"
-                value={dayLogForm.medicinesAdministered}
-                onChange={(e) => setDayLogForm((f) => ({ ...f, medicinesAdministered: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
-                  Procedure / Treatment Given
-                </label>
-                {availableProcedures.length > 0 && (
-                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                    Real configured clinic rates
-                  </span>
-                )}
-              </div>
-
-              {availableProcedures.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <select
-                    className="form-select"
-                    style={{ fontSize: "0.82rem", height: 32 }}
-                    onChange={(e) => {
-                      const found = availableProcedures.find((p) => p.name === e.target.value);
-                      if (found) {
-                        setDayLogForm((f) => ({
-                          ...f,
-                          procedureName: found.name,
-                          procedureCharge: String(found.price),
-                        }));
-                      }
-                    }}
-                  >
-                    <option value="">-- Quick Select Configured Clinic Procedure --</option>
-                    {availableProcedures.map((proc, idx) => (
-                      <option key={idx} value={proc.name}>
-                        {proc.name} (₹{proc.price})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
-                <input
-                  className="form-input"
-                  placeholder="e.g. IV Fluid Saline 500ml, Nebulization"
-                  value={dayLogForm.procedureName}
-                  onChange={(e) => setDayLogForm((f) => ({ ...f, procedureName: e.target.value }))}
-                />
-                <input
-                  type="number"
-                  className="form-input"
-                  placeholder="Charges (₹)"
-                  value={dayLogForm.procedureCharge}
-                  onChange={(e) => setDayLogForm((f) => ({ ...f, procedureCharge: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowAddDayLogModal(false)}>
-                Cancel
-              </button>
-              <button type="button" className="btn btn-primary" onClick={handleAddDayLog}>
-                Save Day Log
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ─── Inpatient Bed / Ward Transfer Modal ─── */}
+      {showTransferModal && selectedAdmission && (
+        <IpdBedTransferModal
+          isOpen={showTransferModal}
+          onClose={() => setShowTransferModal(false)}
+          admission={selectedAdmission}
+          onSuccess={(updated) => {
+            setSelectedAdmission(updated);
+            setShowTransferModal(false);
+          }}
+        />
       )}
 
       {/* ─── Add Interim Advance Deposit Modal ─── */}
@@ -2351,6 +2503,24 @@ export default function IpdPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Graceful Navigation Loader Overlay for Print / PDF */}
+      {isNavigatingPrint && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+            background: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <LoadingScreen message="Preparing Inpatient Document & Statement..." />
         </div>
       )}
     </PageTransition>

@@ -22,6 +22,7 @@ import {
   X,
   AlertCircle,
   RefreshCw,
+  Bed,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardStats, useVisitMutations, usePendingDues } from "@/lib/hooks/useQueries";
@@ -32,7 +33,8 @@ import LoadingScreen from "@/components/LoadingScreen";
 import ErrorState from "@/components/ErrorState";
 import RecordPaymentModal from "@/components/RecordPaymentModal";
 import CreateBillModal from "@/components/CreateBillModal";
-import type { Patient, Visit } from "@/lib/providers/types";
+import IpdDayLogModal from "@/components/IpdDayLogModal";
+import type { Patient, Visit, IpdAdmission } from "@/lib/providers/types";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -70,6 +72,10 @@ export default function DashboardPage() {
     currentDate?: string;
   } | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<string>("");
+
+  // Inpatient (IPD) Round / Treatment Modal
+  const [activeIpdModal, setActiveIpdModal] = useState<IpdAdmission | null>(null);
+  const [patientFilter, setPatientFilter] = useState<"ALL" | "OPD" | "IPD">("ALL");
 
   // Universal Search effect
   useEffect(() => {
@@ -326,153 +332,361 @@ export default function DashboardPage() {
             </div>
           </Link>
         </motion.div>
+
+        {/* Card 5: Inpatients Admitted (IPD) */}
+        <motion.div variants={itemAnim}>
+          <Link
+            href="/ipd"
+            className="stat-card"
+            style={{ "--stat-color": "#8b5cf6", "--stat-bg": "rgba(139, 92, 246, 0.1)" } as React.CSSProperties}
+          >
+            <div className="stat-icon" style={{ "--stat-color": "#8b5cf6" } as React.CSSProperties}>
+              <Bed style={{ color: "#8b5cf6" }} />
+            </div>
+            <div className="stat-info">
+              <div className="stat-value" style={{ color: "#8b5cf6" }}>
+                {(s as any).activeInpatientsCount ?? 0}
+              </div>
+              <div className="stat-label">Inpatients Admitted</div>
+              <div className="stat-sub">
+                {(s as any).todayIpdAdmissionsCount ? `${(s as any).todayIpdAdmissionsCount} admitted today` : "Live ward care"} · Bed view →
+              </div>
+            </div>
+          </Link>
+        </motion.div>
       </motion.div>
 
       {/* Main Two-Column Layout */}
       <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1.3fr", gap: 20 }}>
-        {/* Left Column: Today's OPD Patients Only */}
+        {/* Left Column: Today's OPD + IPD Inpatient Queue */}
         <div className="card" style={{ padding: 18 }}>
-          <div className="section-header" style={{ marginBottom: 14 }}>
+          <div className="section-header" style={{ marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
             <div>
               <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Stethoscope size={18} style={{ color: "var(--primary)" }} />
-                <span>Today&apos;s OPD Patients Queue</span>
+                <span>Today&apos;s Hospital Patients</span>
                 <span className="badge badge-blue" style={{ fontSize: "0.72rem" }}>
-                  {todayVisitsList.length} today
+                  {todayVisitsList.length + ((s as any)?.activeInpatients?.length || 0)} total
                 </span>
               </div>
               <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
-                Showing visits recorded today only ({new Date().toLocaleDateString("en-IN")})
+                OPD consultations &amp; active IPD inpatients for {new Date().toLocaleDateString("en-IN")}
               </div>
             </div>
-            <Link
-              href="/patients"
-              style={{ fontSize: "0.8rem", color: "var(--primary)", display: "flex", alignItems: "center", gap: 4 }}
+
+            {/* Department Filter Tabs */}
+            <div
+              style={{
+                display: "inline-flex",
+                background: "var(--surface-2)",
+                padding: 3,
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                gap: 2,
+              }}
             >
-              All patients <ArrowRight size={14} />
-            </Link>
+              <button
+                type="button"
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "0.76rem",
+                  fontWeight: patientFilter === "ALL" ? 700 : 500,
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  background: patientFilter === "ALL" ? "var(--primary)" : "transparent",
+                  color: patientFilter === "ALL" ? "#fff" : "var(--text-secondary)",
+                }}
+                onClick={() => setPatientFilter("ALL")}
+              >
+                All ({todayVisitsList.length + ((s as any)?.activeInpatients?.length || 0)})
+              </button>
+              <button
+                type="button"
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "0.76rem",
+                  fontWeight: patientFilter === "OPD" ? 700 : 500,
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  background: patientFilter === "OPD" ? "var(--primary)" : "transparent",
+                  color: patientFilter === "OPD" ? "#fff" : "var(--text-secondary)",
+                }}
+                onClick={() => setPatientFilter("OPD")}
+              >
+                OPD ({todayVisitsList.length})
+              </button>
+              <button
+                type="button"
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "0.76rem",
+                  fontWeight: patientFilter === "IPD" ? 700 : 500,
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  background: patientFilter === "IPD" ? "#8b5cf6" : "transparent",
+                  color: patientFilter === "IPD" ? "#fff" : "var(--text-secondary)",
+                }}
+                onClick={() => setPatientFilter("IPD")}
+              >
+                Inpatients ({((s as any)?.activeInpatients?.length || 0)})
+              </button>
+            </div>
           </div>
 
-          {todayVisitsList.length === 0 ? (
-            <div className="empty-state" style={{ padding: "40px 10px" }}>
-              <CheckCircle2 />
-              <h4>No Patients Recorded Today</h4>
-              <p>No OPD visits logged yet for today.</p>
-              <Link href="/visits/new" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
-                <Plus size={14} /> Start First Visit
-              </Link>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {todayVisitsList.map(({ visit, patient }) => {
-                const bill = visit.bill;
-                const hasDues = bill && Number(bill.balanceDue) > 0;
-                return (
-                  <div
-                    key={visit.id}
-                    style={{
-                      background: "var(--surface-1)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 200 }}>
-                      <div className="followup-avatar" style={{ width: 40, height: 40, fontSize: "0.95rem" }}>
-                        {patient?.name?.charAt(0)?.toUpperCase() || "?"}
-                      </div>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontWeight: 700, fontSize: "0.92rem" }}>
-                            {patient?.name || "Patient"}
-                          </span>
-                          {patient?.age && (
-                            <span style={{ fontSize: "0.76rem", color: "var(--text-muted)" }}>
-                              ({patient.age}y / {patient.gender})
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
-                          {patient?.mobile} {visit.diagnosis ? `· Dx: ${visit.diagnosis}` : ""}
-                        </div>
-                        {visit.bp && (
-                          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
-                            BP: {visit.bp} · Pulse: {visit.pulse || "-"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+          {/* List items */}
+          {(() => {
+            const showOpd = patientFilter === "ALL" || patientFilter === "OPD";
+            const showIpd = patientFilter === "ALL" || patientFilter === "IPD";
+            const inpatients: Array<{ admission: IpdAdmission; patient: Patient | undefined }> = (s as any)?.activeInpatients || [];
 
-                    {/* Financial Badge & Actions */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div>
-                        {bill ? (
-                          hasDues ? (
-                            <span className="badge badge-red" style={{ fontSize: "0.72rem" }}>
-                              Due ₹{bill.balanceDue}
-                            </span>
-                          ) : (
-                            <span className="badge badge-green" style={{ fontSize: "0.72rem" }}>
-                              Paid ₹{bill.paidAmount}
-                            </span>
-                          )
-                        ) : (
-                          <span className="badge badge-amber" style={{ fontSize: "0.72rem" }}>
-                            Unbilled
-                          </span>
-                        )}
-                      </div>
+            const totalVisible = (showOpd ? todayVisitsList.length : 0) + (showIpd ? inpatients.length : 0);
 
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <Link
-                          href={`/visits/${visit.id}/print`}
-                          className="btn btn-ghost btn-xs"
-                          title="Print Rx / Bill"
-                        >
-                          <Printer size={13} />
-                        </Link>
-                        {hasDues ? (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-xs"
-                            onClick={() =>
-                              setActivePaymentModal({
-                                billId: bill.id,
-                                billNumber: bill.billNumber,
-                                patientName: patient?.name || "Patient",
-                                balanceDue: Number(bill.balanceDue),
-                                totalAmount: Number(bill.totalAmount),
-                                paidAmount: Number(bill.paidAmount),
-                              })
-                            }
-                          >
-                            <Banknote size={12} /> Settle ₹{bill.balanceDue}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-xs"
-                            onClick={() => {
-                              if (patient) {
-                                setBillingVisit({ visit, patient });
-                              }
-                            }}
-                          >
-                            <Receipt size={12} /> {bill ? "Bill" : "Create Bill"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+            if (totalVisible === 0) {
+              return (
+                <div className="empty-state" style={{ padding: "40px 10px" }}>
+                  <CheckCircle2 />
+                  <h4>No Patients in this View</h4>
+                  <p>
+                    {patientFilter === "IPD"
+                      ? "No patients currently admitted in the Inpatient Department (IPD)."
+                      : "No OPD visits or inpatients recorded yet for today."}
+                  </p>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
+                    <Link href="/visits/new" className="btn btn-primary btn-sm">
+                      <Plus size={14} /> Start OPD Visit
+                    </Link>
+                    <Link href="/ipd" className="btn btn-secondary btn-sm">
+                      <Bed size={14} /> Inpatient Wards
+                    </Link>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {/* 1. IPD Inpatients */}
+                {showIpd &&
+                  inpatients.map(({ admission: adm, patient }) => (
+                    <div
+                      key={adm.id}
+                      style={{
+                        background: "var(--surface-1)",
+                        border: "1.5px solid rgba(139, 92, 246, 0.25)",
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 200 }}>
+                        <div
+                          className="followup-avatar"
+                          style={{
+                            width: 40,
+                            height: 40,
+                            fontSize: "0.95rem",
+                            background: "rgba(139, 92, 246, 0.15)",
+                            color: "#8b5cf6",
+                          }}
+                        >
+                          <Bed size={18} />
+                        </div>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 700, fontSize: "0.92rem" }}>
+                              {patient?.name || "Inpatient"}
+                            </span>
+                            {patient?.age && (
+                              <span style={{ fontSize: "0.76rem", color: "var(--text-muted)" }}>
+                                ({patient.age}y / {patient.gender})
+                              </span>
+                            )}
+                            <span
+                              style={{
+                                background: "rgba(139, 92, 246, 0.15)",
+                                color: "#8b5cf6",
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                fontSize: "0.72rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              IPD · {adm.bedOrRoom}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
+                            {adm.admissionNumber} {adm.diagnosis ? `· Dx: ${adm.diagnosis}` : ""}
+                          </div>
+                          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                            Admitted: {new Date(adm.admissionDate).toLocaleDateString("en-IN")} · Day {(adm.dayWiseLogs || []).length + 1} Care
+                            {adm.attendingDoctor ? ` · Dr. ${adm.attendingDoctor}` : ""}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Financial Badges & Actions */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span className="badge badge-blue" style={{ fontSize: "0.72rem" }}>
+                          Charges: ₹{adm.cumulativeCharges}
+                        </span>
+                        {Number(adm.advancePaid) > 0 && (
+                          <span className="badge badge-green" style={{ fontSize: "0.72rem" }}>
+                            Adv: ₹{adm.advancePaid}
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-xs"
+                          style={{ background: "#8b5cf6", borderColor: "#8b5cf6" }}
+                          onClick={() => setActiveIpdModal(adm)}
+                          title="Log daily rounds, vitals, procedures and medications"
+                        >
+                          <Plus size={12} /> Log Rounds
+                        </button>
+
+                        <Link
+                          href="/ipd"
+                          className="btn btn-secondary btn-xs"
+                          title="View Inpatient File"
+                        >
+                          Bed View
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+
+                {/* 2. OPD Visits */}
+                {showOpd &&
+                  todayVisitsList.map(({ visit, patient }) => {
+                    const bill = visit.bill;
+                    const hasDues = bill && Number(bill.balanceDue) > 0;
+                    return (
+                      <div
+                        key={visit.id}
+                        style={{
+                          background: "var(--surface-1)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 10,
+                          padding: "12px 14px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 200 }}>
+                          <div className="followup-avatar" style={{ width: 40, height: 40, fontSize: "0.95rem" }}>
+                            {patient?.name?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontWeight: 700, fontSize: "0.92rem" }}>
+                                {patient?.name || "Patient"}
+                              </span>
+                              {patient?.age && (
+                                <span style={{ fontSize: "0.76rem", color: "var(--text-muted)" }}>
+                                  ({patient.age}y / {patient.gender})
+                                </span>
+                              )}
+                              <span
+                                style={{
+                                  background: "rgba(59, 130, 246, 0.12)",
+                                  color: "var(--blue)",
+                                  padding: "2px 8px",
+                                  borderRadius: 6,
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                OPD Visit
+                              </span>
+                            </div>
+                            <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
+                              {patient?.mobile} {visit.diagnosis ? `· Dx: ${visit.diagnosis}` : ""}
+                            </div>
+                            {visit.bp && (
+                              <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                                BP: {visit.bp} · Pulse: {visit.pulse || "-"}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Financial Badge & Actions */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div>
+                            {bill ? (
+                              hasDues ? (
+                                <span className="badge badge-red" style={{ fontSize: "0.72rem" }}>
+                                  Due ₹{bill.balanceDue}
+                                </span>
+                              ) : (
+                                <span className="badge badge-green" style={{ fontSize: "0.72rem" }}>
+                                  Paid ₹{bill.paidAmount}
+                                </span>
+                              )
+                            ) : (
+                              <span className="badge badge-amber" style={{ fontSize: "0.72rem" }}>
+                                Unbilled
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <Link
+                              href={`/visits/${visit.id}/print`}
+                              className="btn btn-ghost btn-xs"
+                              title="Print Rx / Bill"
+                            >
+                              <Printer size={13} />
+                            </Link>
+                            {hasDues ? (
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-xs"
+                                onClick={() =>
+                                  setActivePaymentModal({
+                                    billId: bill.id,
+                                    billNumber: bill.billNumber,
+                                    patientName: patient?.name || "Patient",
+                                    balanceDue: Number(bill.balanceDue),
+                                    totalAmount: Number(bill.totalAmount),
+                                    paidAmount: Number(bill.paidAmount),
+                                  })
+                                }
+                              >
+                                <Banknote size={12} /> Settle ₹{bill.balanceDue}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-xs"
+                                onClick={() => {
+                                  if (patient) {
+                                    setBillingVisit({ visit, patient });
+                                  }
+                                }}
+                              >
+                                <Receipt size={12} /> {bill ? "Bill" : "Create Bill"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right Column: Separate Follow-up Patients & Dues Widget */}
@@ -774,6 +988,18 @@ export default function DashboardPage() {
           onSuccess={() => {
             refetchStats();
             refetchDues();
+          }}
+        />
+      )}
+
+      {/* Inpatient Daily Treatment & Clinical Rounds Modal */}
+      {activeIpdModal && (
+        <IpdDayLogModal
+          isOpen={!!activeIpdModal}
+          onClose={() => setActiveIpdModal(null)}
+          admission={activeIpdModal}
+          onSuccess={() => {
+            refetchStats();
           }}
         />
       )}

@@ -270,6 +270,9 @@ export interface DashboardStats {
   totalPatients: number;
   followUpsToday: number;
   upcomingFollowUps: number;
+  activeInpatientsCount?: number;
+  todayIpdAdmissionsCount?: number;
+  activeInpatients?: Array<{ admission: IpdAdmission; patient: Patient | undefined }>;
   recentVisits: Array<{ visit: Visit; patient: Patient | undefined }>;
   todayVisits?: Array<{ visit: Visit; patient: Patient | undefined }>;
   todayFollowUpList: FollowUpItem[];
@@ -290,14 +293,35 @@ export interface IpdProcedureItem {
   totalPrice: number;
 }
 
+export interface IpdMedicationItem {
+  name: string;
+  dose?: string;
+  route?: string;
+  timing?: string;
+  instructions?: string;
+}
+
+export interface IpdVitals {
+  bp?: string;
+  pulse?: string;
+  temp?: string;
+  spo2?: string;
+  respRate?: string;
+  sugar?: string;
+}
+
 export interface IpdDayLog {
   dayNumber: number;
   date: string;
   doctorNotes?: string;
   nursingNotes?: string;
+  vitals?: IpdVitals;
+  medications?: IpdMedicationItem[];
   medicinesAdministered?: string;
   procedures?: IpdProcedureItem[];
   dailyCharges: number;
+  dietNotes?: string;
+  updatedAt?: string;
 }
 
 export interface IpdAdmission {
@@ -339,9 +363,12 @@ export interface AddIpdDayLogInput {
   date?: string;
   doctorNotes?: string;
   nursingNotes?: string;
+  vitals?: IpdVitals;
+  medications?: IpdMedicationItem[];
   medicinesAdministered?: string;
   procedures?: Array<{ name: string; quantity?: number; unitPrice?: number; totalPrice?: number }>;
   dailyCharges?: number;
+  dietNotes?: string;
 }
 
 export interface DischargeIpdInput {
@@ -925,6 +952,9 @@ export interface DataProvider {
   listIpdAdmissions(params?: { status?: string; patientId?: string; search?: string }): Promise<IpdAdmission[]>;
   getIpdAdmission(id: string): Promise<IpdAdmission>;
   addIpdDayLog(id: string, input: AddIpdDayLogInput): Promise<IpdAdmission>;
+  updateIpdDayLog(id: string, dayNumber: number, input: AddIpdDayLogInput): Promise<IpdAdmission>;
+  deleteIpdDayLog(id: string, dayNumber: number): Promise<IpdAdmission>;
+  transferIpdBed(id: string, bedOrRoom: string): Promise<IpdAdmission>;
   recordIpdPayment(id: string, amount: number): Promise<IpdAdmission>;
   dischargeIpd(id: string, input: DischargeIpdInput): Promise<IpdAdmission>;
   deleteIpdAdmission(id: string): Promise<void>;

@@ -1136,7 +1136,44 @@ export function useIpdMutations() {
     },
   });
 
-  return { createAdmission, addDayLog, recordPayment, discharge, deleteAdmission };
+  const updateDayLog = useMutation({
+    mutationFn: ({ id, dayNumber, input }: { id: string; dayNumber: number; input: AddIpdDayLogInput }) =>
+      provider.updateIpdDayLog(id, dayNumber, input),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  const deleteDayLog = useMutation({
+    mutationFn: ({ id, dayNumber }: { id: string; dayNumber: number }) => provider.deleteIpdDayLog(id, dayNumber),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  const transferBed = useMutation({
+    mutationFn: ({ id, bedOrRoom }: { id: string; bedOrRoom: string }) => provider.transferIpdBed(id, bedOrRoom),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
+    },
+  });
+
+  return {
+    createAdmission,
+    addDayLog,
+    updateDayLog,
+    deleteDayLog,
+    transferBed,
+    recordPayment,
+    discharge,
+    deleteAdmission,
+  };
 }
 
 
