@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, useMemo, use } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useIpdAdmission, usePatient, useSettings } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { Printer, MessageCircle, Share2, Receipt, FileText, Bed, ArrowLeft } from 'lucide-react';
+import { Printer, MessageCircle, Share2, Receipt, FileText, Bed, ArrowLeft, Pill } from 'lucide-react';
 import { toast } from '@/components/Toast';
 import LoadingScreen from '@/components/LoadingScreen';
 import PageTransition from '@/components/PageTransition';
+import { parseDoseToWords } from '@/lib/medicationInstructions';
+import type { PrescribedMedicine } from '@/lib/providers/types';
 
 export default function IpdPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -30,6 +32,16 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
       setViewMode(defaultView);
     }
   }, [defaultView]);
+
+  // Parse structured discharge medications if available (must be called before any early return)
+  const parsedDischargeMeds: PrescribedMedicine[] | null = useMemo(() => {
+    if (!admission?.dischargeMedications) return null;
+    try {
+      const parsed = JSON.parse(admission.dischargeMedications);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+    return null;
+  }, [admission?.dischargeMedications]);
 
   const clinic = {
     doctorName: admission?.attendingDoctor || settings?.doctorName || user?.doctorName || 'Dr. Administrator',
@@ -97,11 +109,25 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
           }\n----------------------------------\n\n`
         : '';
 
+    let dischargeMedsFormatted = '';
+    if (admission.dischargeMedications) {
+      if (parsedDischargeMeds && parsedDischargeMeds.length > 0) {
+        dischargeMedsFormatted = parsedDischargeMeds
+          .map(
+            (m, i) =>
+              `${i + 1}. *${m.name}*\n   - ${m.dose} for ${m.duration}${m.instructions ? `\n   - Instructions: ${m.instructions}` : ''}`
+          )
+          .join('\n\n');
+      } else {
+        dischargeMedsFormatted = admission.dischargeMedications;
+      }
+    }
+
     const clinicalSection =
       viewMode !== 'bill'
         ? `*DISCHARGE SUMMARY*\n*Diagnosis:* ${admission.diagnosis}\n${
             admission.dischargeSummary ? `*Summary:* ${admission.dischargeSummary}\n\n` : ''
-          }${admission.dischargeMedications ? `*Discharge Rx / Medications:*\n${admission.dischargeMedications}\n\n` : ''}${
+          }${dischargeMedsFormatted ? `*Discharge Rx / Medications:*\n${dischargeMedsFormatted}\n\n` : ''}${
             admission.dischargeNotes ? `*Post-Discharge Instructions:* ${admission.dischargeNotes}\n\n` : ''
           }`
         : '';
@@ -452,13 +478,104 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
 
                 {/* Discharge Medications */}
                 {admission.dischargeMedications && (
-                  <div style={{ marginBottom: 12, background: '#f0fdf4', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', marginBottom: 4 }}>
-                      Prescribed Discharge Medications
+                  <div style={{ marginBottom: 14 }}>
+                    <div
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: '#0d9488',
+                        textTransform: 'uppercase',
+                        marginBottom: 6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#0d9488', lineHeight: 1 }}>℞</span>
+                      <span>Prescribed Discharge Medications (Home Treatment)</span>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: '#14532d', whiteSpace: 'pre-wrap', lineHeight: 1.5, fontWeight: 500 }}>
-                      {admission.dischargeMedications}
-                    </div>
+
+                    {parsedDischargeMeds && parsedDischargeMeds.length > 0 ? (
+                      <div style={{ width: '100%', overflowX: 'auto' }}>
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.82rem',
+                          }}
+                        >
+                          <thead>
+                            <tr
+                              style={{
+                                background: '#f1f5f9',
+                                color: '#334155',
+                                borderBottom: '1.5px solid #cbd5e1',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <th style={{ padding: '8px 10px', width: '35px', textAlign: 'center' }}>#</th>
+                              <th style={{ padding: '8px 10px' }}>Medicine Name</th>
+                              <th style={{ padding: '8px 10px' }}>Dose Schedule (खुराक)</th>
+                              <th style={{ padding: '8px 10px', width: '90px' }}>Duration</th>
+                              <th style={{ padding: '8px 10px' }}>Instructions (निर्देश)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {parsedDischargeMeds.map((m, i) => {
+                              const doseWords = parseDoseToWords(m.dose);
+                              return (
+                                <tr
+                                  key={i}
+                                  style={{
+                                    borderBottom: '1px solid #e2e8f0',
+                                    background: i % 2 === 0 ? '#ffffff' : '#f8fafc',
+                                  }}
+                                >
+                                  <td
+                                    style={{
+                                      padding: '8px 10px',
+                                      fontWeight: 700,
+                                      textAlign: 'center',
+                                      color: '#0d9488',
+                                    }}
+                                  >
+                                    {i + 1}
+                                  </td>
+                                  <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>{m.name}</td>
+                                  <td style={{ padding: '8px 10px', color: '#334155' }}>
+                                    <span style={{ fontWeight: 600 }}>{m.dose}</span>
+                                    {doseWords.en && (
+                                      <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>
+                                        {doseWords.en} {doseWords.hi ? `(${doseWords.hi})` : ''}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '8px 10px', color: '#334155', fontWeight: 500 }}>{m.duration}</td>
+                                  <td style={{ padding: '8px 10px', color: '#475569' }}>{m.instructions || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          background: '#f0fdf4',
+                          padding: 12,
+                          borderRadius: 8,
+                          border: '1px solid #bbf7d0',
+                          fontSize: '0.85rem',
+                          color: '#14532d',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: 1.5,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {admission.dischargeMedications}
+                      </div>
+                    )}
                   </div>
                 )}
 

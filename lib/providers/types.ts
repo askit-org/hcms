@@ -310,6 +310,22 @@ export interface IpdVitals {
   sugar?: string;
 }
 
+export interface IpdDoctorRound {
+  id: string;
+  time: string;
+  roundType?: string;
+  doctorName?: string;
+  doctorNotes?: string;
+  nursingNotes?: string;
+  vitals?: IpdVitals;
+  medications?: IpdMedicationItem[];
+  medicinesAdministered?: string;
+  procedures?: IpdProcedureItem[];
+  charges?: number;
+  dietNotes?: string;
+  createdAt?: string;
+}
+
 export interface IpdDayLog {
   dayNumber: number;
   date: string;
@@ -322,6 +338,7 @@ export interface IpdDayLog {
   dailyCharges: number;
   dietNotes?: string;
   updatedAt?: string;
+  rounds?: IpdDoctorRound[];
 }
 
 export interface IpdAdmission {
@@ -369,6 +386,7 @@ export interface AddIpdDayLogInput {
   procedures?: Array<{ name: string; quantity?: number; unitPrice?: number; totalPrice?: number }>;
   dailyCharges?: number;
   dietNotes?: string;
+  rounds?: IpdDoctorRound[];
 }
 
 export interface DischargeIpdInput {

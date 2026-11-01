@@ -460,7 +460,17 @@ export const ApiDataProvider: DataProvider = {
     return api.get<IpdAdmission[]>('/ipd', { params }).then((r) => extractArray<IpdAdmission>(r));
   },
   async getIpdAdmission(id: string): Promise<IpdAdmission> {
-    return api.get<IpdAdmission>(`/ipd/${encodeURIComponent(id)}`).then((r) => extract<IpdAdmission>(r));
+    try {
+      return await api.get<IpdAdmission>(`/ipd/${encodeURIComponent(id)}`).then((r) => extract<IpdAdmission>(r));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number }; status?: number };
+      if (axiosErr?.response?.status === 404 || axiosErr?.status === 404) {
+        const all = await this.listIpdAdmissions();
+        const found = all.find((a) => a.id === id);
+        if (found) return found;
+      }
+      throw err;
+    }
   },
   async addIpdDayLog(id: string, input: AddIpdDayLogInput): Promise<IpdAdmission> {
     return api.post<IpdAdmission>(`/ipd/${encodeURIComponent(id)}/day-logs`, input).then((r) => extract<IpdAdmission>(r));
