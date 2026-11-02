@@ -49,7 +49,7 @@ import DoseSelector, { DurationSelect } from "@/components/DoseSelector";
 import InstructionPicker from "@/components/InstructionPicker";
 import UpiQrCode from "@/components/UpiQrCode";
 import { parseDoseToWords } from "@/lib/medicationInstructions";
-import { getDayRounds } from "@/lib/utils/ipd";
+import { getDayRounds, getBedDailyRate } from "@/lib/utils/ipd";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -233,6 +233,17 @@ export default function IpdDischargeModal({
 
     // ── Compile Itemized Billing Rows from All Day Logs and Visits ──
     const compiledRows: ItemRow[] = [];
+
+    // 1. Calculate & Include Admitted Bed / Room Charges
+    const dailyBedRate = getBedDailyRate(admission.bedOrRoom, settings?.ipdRooms);
+    compiledRows.push({
+      id: "bed_charge_auto",
+      name: `Bed / Room Care: ${admission.bedOrRoom} (${stayDays} ${stayDays === 1 ? "day" : "days"} @ ₹${dailyBedRate}/day)`,
+      quantity: stayDays,
+      unitPrice: dailyBedRate,
+    });
+
+    // 2. Compile procedures from all day logs
     const logs = [...(admission.dayWiseLogs || [])].sort((a, b) => a.dayNumber - b.dayNumber);
 
     logs.forEach((log) => {
@@ -268,7 +279,26 @@ export default function IpdDischargeModal({
     });
 
     setItems(compiledRows);
-  }, [isOpen, admission?.id, admission?.status]);
+  }, [isOpen, admission?.id, admission?.status, settings?.ipdRooms, stayDays]);
+
+  // Keep Bed Charge line item in sync when stayDays changes (e.g. if doctor adjusts discharge date)
+  useEffect(() => {
+    if (!admission || isAlreadyDischarged) return;
+    setItems((prev) => {
+      const idx = prev.findIndex((it) => it.id === "bed_charge_auto");
+      if (idx === -1) return prev;
+      const current = prev[idx];
+      if (current.quantity === stayDays) return prev;
+      const unit = current.unitPrice;
+      const next = [...prev];
+      next[idx] = {
+        ...current,
+        quantity: stayDays,
+        name: `Bed / Room Care: ${admission.bedOrRoom} (${stayDays} ${stayDays === 1 ? "day" : "days"} @ ₹${unit}/day)`,
+      };
+      return next;
+    });
+  }, [stayDays, admission?.bedOrRoom, isAlreadyDischarged]);
 
   // Add Item Row
   const handleAddItem = (name: string, price: number, qty = 1) => {
@@ -450,6 +480,7 @@ export default function IpdDischargeModal({
         discount: calculatedDiscount,
         finalPayment: amountToCollectNow,
         paymentMethod,
+        cumulativeCharges: grossHospitalCharges,
       };
 
       const updated = await discharge.mutateAsync({

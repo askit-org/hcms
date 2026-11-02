@@ -56,6 +56,7 @@ import IpdDayLogModal from "@/components/IpdDayLogModal";
 import IpdDischargeModal from "@/components/IpdDischargeModal";
 import IpdBedTransferModal from "@/components/IpdBedTransferModal";
 import IpdPatientJourneyModal from "@/components/IpdPatientJourneyModal";
+import { getBedDailyRate } from "@/lib/utils/ipd";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -243,10 +244,14 @@ export default function IpdPage() {
     const vacant = Math.max(0, total - occupied);
     const occupancyPercent = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
-    const totalRevenue = admissions.reduce(
-      (sum, a) => sum + (Number(a.cumulativeCharges) || 0),
-      0
-    );
+    const totalRevenue = admissions.reduce((sum, a) => {
+      if (a.status === "ADMITTED") {
+        const days = Math.max(1, Math.ceil((Date.now() - new Date(a.admissionDate).getTime()) / (1000 * 60 * 60 * 24)));
+        const rate = getBedDailyRate(a.bedOrRoom, rooms);
+        return sum + (days * rate) + (Number(a.cumulativeCharges) || 0);
+      }
+      return sum + (Number(a.cumulativeCharges) || 0);
+    }, 0);
     const totalAdvances = admissions.reduce(
       (sum, a) => sum + (Number(a.advancePaid) || 0),
       0
@@ -1148,6 +1153,13 @@ export default function IpdPage() {
                 Math.ceil((new Date().getTime() - new Date(adm.admissionDate).getTime()) / (1000 * 60 * 60 * 24))
               );
 
+              const bedRate = getBedDailyRate(adm.bedOrRoom, rooms);
+              const bedCharges = daysStayed * bedRate;
+              const effectiveCharges = isAdmitted ? (bedCharges + Number(adm.cumulativeCharges || 0)) : Number(adm.cumulativeCharges || 0);
+              const effectiveBalanceDue = isAdmitted
+                ? Math.max(0, effectiveCharges - Number(adm.discount || 0) - Number(adm.totalPaid || adm.advancePaid || 0))
+                : Number(adm.balanceDue || 0);
+
               return (
                 <div
                   key={adm.id}
@@ -1205,16 +1217,16 @@ export default function IpdPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
-                          Charges: ₹{adm.cumulativeCharges} · Advance: ₹{adm.advancePaid}
+                          Charges: ₹{effectiveCharges} · Advance: ₹{adm.advancePaid}
                         </div>
                         <div
                           style={{
                             fontWeight: 800,
                             fontSize: "1.05rem",
-                            color: adm.balanceDue > 0 ? "#ef4444" : "#16a34a",
+                            color: effectiveBalanceDue > 0 ? "#ef4444" : "#16a34a",
                           }}
                         >
-                          {adm.balanceDue > 0 ? `₹${adm.balanceDue} Due` : "Settled"}
+                          {effectiveBalanceDue > 0 ? `₹${effectiveBalanceDue} Due` : "Settled"}
                         </div>
                       </div>
 

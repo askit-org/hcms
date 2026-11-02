@@ -1,4 +1,4 @@
-import type { IpdDayLog, IpdDoctorRound } from '@/lib/providers/types';
+import type { IpdDayLog, IpdDoctorRound, IpdRoom } from '@/lib/providers/types';
 
 /**
  * Normalizes an IPD Day log into an array of doctor visits / rounds.
@@ -108,4 +108,56 @@ export function getRoundSessionMeta(roundType?: string) {
     border: '1px solid var(--border)',
   };
 }
+
+/**
+ * Resolves the daily charge rate (₹) for a given bed or room name
+ * based on the clinic's configured IPD rooms in settings.
+ * Defaults to 500 if unconfigured.
+ */
+export function getBedDailyRate(bedOrRoom?: string, rooms?: IpdRoom[]): number {
+  if (!rooms || rooms.length === 0) return 500;
+  const clean = (bedOrRoom || '').trim().toLowerCase();
+  if (!clean) return 500;
+
+  // 1. Check exact bedNumber match within rooms
+  for (const r of rooms) {
+    for (const b of r.beds || []) {
+      const bNum = (b.bedNumber || '').trim().toLowerCase();
+      if (bNum && (clean === bNum || clean.includes(bNum))) {
+        if (r.dailyRate && Number(r.dailyRate) > 0) {
+          return Number(r.dailyRate);
+        }
+      }
+    }
+  }
+
+  // 2. Check room name or room code match
+  for (const r of rooms) {
+    const rName = (r.name || '').trim().toLowerCase();
+    const rCode = (r.roomCode || '').trim().toLowerCase();
+    if ((rName && clean.includes(rName)) || (rCode && clean.includes(rCode))) {
+      if (r.dailyRate && Number(r.dailyRate) > 0) {
+        return Number(r.dailyRate);
+      }
+    }
+  }
+
+  // 3. Fallback to first room's rate if positive
+  if (rooms[0]?.dailyRate && Number(rooms[0].dailyRate) > 0) {
+    return Number(rooms[0].dailyRate);
+  }
+
+  return 500;
+}
+
+/**
+ * Calculates calendar stay duration in days (minimum 1 day).
+ */
+export function getAdmissionStayDays(admissionDate: string, dischargeDate?: string | null): number {
+  if (!admissionDate) return 1;
+  const start = new Date(admissionDate).getTime();
+  const end = dischargeDate ? new Date(dischargeDate).getTime() : Date.now();
+  return Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+}
+
 

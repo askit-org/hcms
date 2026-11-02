@@ -10,6 +10,7 @@ import { toast } from '@/components/Toast';
 import LoadingScreen from '@/components/LoadingScreen';
 import PageTransition from '@/components/PageTransition';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
+import { getBedDailyRate } from '@/lib/utils/ipd';
 import type { PrescribedMedicine } from '@/lib/providers/types';
 
 export default function IpdPrintPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +44,19 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
     return null;
   }, [admission?.dischargeMedications]);
 
+  // Stay days calculation (hook must be called before any early return)
+  const stayDays = useMemo(() => {
+    if (!admission?.admissionDate) return 1;
+    const end = admission.dischargeDate ? new Date(admission.dischargeDate).getTime() : Date.now();
+    const start = new Date(admission.admissionDate).getTime();
+    return Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+  }, [admission?.admissionDate, admission?.dischargeDate]);
+
+  // Bed daily rate resolution (hook must be called before any early return)
+  const dailyBedRate = useMemo(() => {
+    return getBedDailyRate(admission?.bedOrRoom, settings?.ipdRooms);
+  }, [admission?.bedOrRoom, settings?.ipdRooms]);
+
   const clinic = {
     doctorName: admission?.attendingDoctor || settings?.doctorName || user?.doctorName || 'Dr. Administrator',
     clinicName: settings?.clinicName || user?.clinicName || 'Hospital Inpatient Department',
@@ -69,10 +83,15 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
 
   const age = patient.age || (patient.dob ? new Date().getFullYear() - new Date(patient.dob).getFullYear() : '');
   const isDischarged = admission.status === 'DISCHARGED';
-  const subtotal = Number(admission.cumulativeCharges || 0);
+
+  const bedChargesTotal = stayDays * dailyBedRate;
+  const proceduresChargesTotal = (admission.dayWiseLogs || []).reduce((sum, l) => sum + (Number(l.dailyCharges) || 0), 0);
+
+  // If already discharged, use admission.cumulativeCharges (or procedures + bed charges if higher)
+  const subtotal = Math.max(Number(admission.cumulativeCharges || 0), bedChargesTotal + proceduresChargesTotal);
   const discount = Number(admission.discount || 0);
   const totalPaid = Number(admission.totalPaid || 0);
-  const balanceDue = Number(admission.balanceDue || 0);
+  const balanceDue = Math.max(0, subtotal - discount - totalPaid);
   const discPercent = subtotal > 0 ? Math.round((discount / subtotal) * 100) : 0;
 
   // WhatsApp formatted statement share
@@ -81,9 +100,9 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
     const docName = clinic.doctorName;
     const patientName = patient.name;
 
-    let dayLogsSummary = '';
+    let dayLogsSummary = `• *Bed / Room Charges* (${stayDays}d @ ₹${dailyBedRate}/d): ₹${bedChargesTotal}`;
     if (admission.dayWiseLogs && admission.dayWiseLogs.length > 0) {
-      dayLogsSummary = admission.dayWiseLogs
+      dayLogsSummary += '\n' + admission.dayWiseLogs
         .map(
           (d) =>
             `• *Day ${d.dayNumber}* (${new Date(d.date).toLocaleDateString('en-IN')}): ₹${d.dailyCharges} - ${
@@ -637,6 +656,32 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
                       </tr>
                     </thead>
                     <tbody>
+                      {/* Admitted Bed / Room Charge Row */}
+                      <tr
+                        style={{
+                          borderBottom: '1.5px solid #cbd5e1',
+                          background: '#f0fdfa',
+                        }}
+                      >
+                        <td style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'center', color: '#0d9488' }}>
+                          Bed
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#0f766e', fontSize: '0.8rem', fontWeight: 600 }}>
+                          {stayDays} {stayDays === 1 ? 'day' : 'days'}
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <div style={{ fontWeight: 600, color: '#0f766e' }}>
+                            Bed / Room Daily Care: {admission.bedOrRoom}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#134e4a', marginTop: 2 }}>
+                            {stayDays} {stayDays === 1 ? 'day' : 'days'} stay @ ₹{dailyBedRate}/day
+                          </div>
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: '#0f766e' }}>
+                          ₹{bedChargesTotal}
+                        </td>
+                      </tr>
+
                       {admission.dayWiseLogs && admission.dayWiseLogs.length > 0 ? (
                         admission.dayWiseLogs.map((log, idx) => (
                           <tr

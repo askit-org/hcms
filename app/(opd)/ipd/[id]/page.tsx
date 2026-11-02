@@ -32,7 +32,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useIpdAdmission, useIpdMutations, useSettings } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
 import type { IpdAdmission, IpdDayLog, IpdDoctorRound, PrescribedMedicine } from '@/lib/providers/types';
-import { getDayRounds, getRoundSessionMeta } from '@/lib/utils/ipd';
+import { getDayRounds, getRoundSessionMeta, getBedDailyRate } from '@/lib/utils/ipd';
 import PageTransition from '@/components/PageTransition';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorState from '@/components/ErrorState';
@@ -68,6 +68,40 @@ export default function IpdAdmissionDetailPage({ params }: { params: Promise<{ i
     const start = new Date(admission.admissionDate).getTime();
     return Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
   }, [admission?.admissionDate, admission?.dischargeDate]);
+
+  // Daily rate for the assigned bed/room
+  const dailyBedRate = useMemo(() => {
+    return getBedDailyRate(admission?.bedOrRoom, settings?.ipdRooms);
+  }, [admission?.bedOrRoom, settings?.ipdRooms]);
+
+  // Total bed care charges accrued for the stay duration
+  const runningBedCharges = useMemo(() => {
+    return stayDays * dailyBedRate;
+  }, [stayDays, dailyBedRate]);
+
+  // Total procedure / care charges logged during rounds
+  const proceduresChargesTotal = useMemo(() => {
+    return dayLogs.reduce((sum, l) => sum + (Number(l.dailyCharges) || 0), 0);
+  }, [dayLogs]);
+
+  // Effective Hospital Charges:
+  // For discharged admissions, use finalized cumulativeCharges
+  // For currently admitted patients, live sum of accrued Bed Charges + logged Procedures
+  const effectiveHospitalCharges = useMemo(() => {
+    if (!admission) return 0;
+    if (isDischarged) {
+      return Number(admission.cumulativeCharges || 0);
+    }
+    return runningBedCharges + proceduresChargesTotal;
+  }, [admission, isDischarged, runningBedCharges, proceduresChargesTotal]);
+
+  const effectiveBalanceDue = useMemo(() => {
+    if (!admission) return 0;
+    if (isDischarged) {
+      return Number(admission.balanceDue || 0);
+    }
+    return Math.max(0, effectiveHospitalCharges - Number(admission.discount || 0) - Number(admission.totalPaid || 0));
+  }, [admission, isDischarged, effectiveHospitalCharges]);
 
   // Selected Timeline Node: 'admission' | number (dayNumber) | 'discharge'
   const defaultDay = useMemo(() => {
@@ -310,8 +344,17 @@ export default function IpdAdmissionDetailPage({ params }: { params: Promise<{ i
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Hospital Charges</div>
-              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>₹{admission.cumulativeCharges}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                {isDischarged ? 'Hospital Charges' : 'Running Hospital Charges'}
+              </div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                ₹{effectiveHospitalCharges}
+              </div>
+              {!isDischarged && (
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  Bed: ₹{runningBedCharges} ({stayDays}d @ ₹{dailyBedRate}) + Care: ₹{proceduresChargesTotal}
+                </div>
+              )}
             </div>
             <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 16 }}>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Advance Deposit</div>
@@ -333,10 +376,10 @@ export default function IpdAdmissionDetailPage({ params }: { params: Promise<{ i
                 style={{
                   fontWeight: 800,
                   fontSize: '1.15rem',
-                  color: Number(admission.balanceDue) > 0 ? '#ef4444' : '#16a34a',
+                  color: effectiveBalanceDue > 0 ? '#ef4444' : '#16a34a',
                 }}
               >
-                ₹{admission.balanceDue}
+                ₹{effectiveBalanceDue}
               </div>
             </div>
           </div>

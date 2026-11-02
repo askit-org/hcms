@@ -397,6 +397,7 @@ export interface DischargeIpdInput {
   discount?: number;
   finalPayment?: number;
   paymentMethod?: string;
+  cumulativeCharges?: number;
 }
 
 // ─── Billing Module Types ─────────────────────────────────────────
