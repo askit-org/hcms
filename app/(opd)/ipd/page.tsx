@@ -46,13 +46,17 @@ import type {
   DischargeIpdInput,
   IpdRoom,
   IpdBed,
+  PrescribedMedicine,
 } from "@/lib/providers/types";
 import PageTransition from "@/components/PageTransition";
 import LoadingScreen from "@/components/LoadingScreen";
 import ErrorState from "@/components/ErrorState";
 import SettingsIpdRooms from "@/components/SettingsIpdRooms";
 import IpdDayLogModal from "@/components/IpdDayLogModal";
+import IpdDischargeModal from "@/components/IpdDischargeModal";
 import IpdBedTransferModal from "@/components/IpdBedTransferModal";
+import IpdPatientJourneyModal from "@/components/IpdPatientJourneyModal";
+import { getBedDailyRate } from "@/lib/utils/ipd";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -160,15 +164,10 @@ export default function IpdPage() {
 
 
 
-  // Discharge Form State (Zero fake text, clean clinical notes)
-  const [dischargeForm, setDischargeForm] = useState({
-    dischargeDate: new Date().toISOString().slice(0, 16),
-    dischargeSummary: "",
-    dischargeMedications: "",
-    dischargeNotes: "",
-    discount: "0",
-    paymentMethod: "CASH" as "CASH" | "UPI",
-  });
+  const handleOpenDischargeModal = (adm: IpdAdmission) => {
+    setSelectedAdmission(adm);
+    setShowDischargeModal(true);
+  };
 
   // Advance Deposit Form State
   const [advanceAmount, setAdvanceAmount] = useState("");
@@ -245,10 +244,14 @@ export default function IpdPage() {
     const vacant = Math.max(0, total - occupied);
     const occupancyPercent = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
-    const totalRevenue = admissions.reduce(
-      (sum, a) => sum + (Number(a.cumulativeCharges) || 0),
-      0
-    );
+    const totalRevenue = admissions.reduce((sum, a) => {
+      if (a.status === "ADMITTED") {
+        const days = Math.max(1, Math.ceil((Date.now() - new Date(a.admissionDate).getTime()) / (1000 * 60 * 60 * 24)));
+        const rate = getBedDailyRate(a.bedOrRoom, rooms);
+        return sum + (days * rate) + (Number(a.cumulativeCharges) || 0);
+      }
+      return sum + (Number(a.cumulativeCharges) || 0);
+    }, 0);
     const totalAdvances = admissions.reduce(
       (sum, a) => sum + (Number(a.advancePaid) || 0),
       0
@@ -320,9 +323,9 @@ export default function IpdPage() {
     setShowNewAdmissionModal(true);
   };
 
-  // Click on occupied bed -> Open Patient Sheet
+  // Click on occupied bed -> Open Dedicated Inpatient Route
   const handleSelectOccupiedBed = (admission: IpdAdmission) => {
-    setSelectedAdmission(admission);
+    router.push(`/ipd/${admission.id}`);
   };
 
   // Submit New Admission
@@ -416,37 +419,6 @@ export default function IpdPage() {
     }
   };
 
-  // Submit Discharge
-  const handleDischarge = async () => {
-    if (!selectedAdmission) return;
-    try {
-      const disc = parseFloat(dischargeForm.discount) || 0;
-      const netPayable = Math.max(0, (selectedAdmission.cumulativeCharges || 0) - disc);
-      const remainingBalance = Math.max(0, netPayable - (selectedAdmission.totalPaid || 0));
-
-      const payload: DischargeIpdInput = {
-        dischargeDate: dischargeForm.dischargeDate,
-        dischargeSummary: dischargeForm.dischargeSummary.trim() || undefined,
-        dischargeMedications: dischargeForm.dischargeMedications.trim() || undefined,
-        dischargeNotes: dischargeForm.dischargeNotes.trim() || undefined,
-        discount: disc,
-        finalPayment: remainingBalance,
-        paymentMethod: dischargeForm.paymentMethod,
-      };
-
-      const updated = await discharge.mutateAsync({
-        id: selectedAdmission.id,
-        input: payload,
-      });
-
-      setSelectedAdmission(updated);
-      setShowDischargeModal(false);
-      toast(`Patient discharged successfully! Final bill settled.`, "success");
-    } catch (err) {
-      toast(getErrorMessage(err, "Failed to discharge patient"), "error");
-    }
-  };
-
   // Open Unified Printable Statement & PDF View gracefully without opening in a new tab
   const handleOpenPrintDocument = (adm: IpdAdmission, view: "both" | "bill" | "summary" = "both") => {
     setIsNavigatingPrint(true);
@@ -459,7 +431,27 @@ export default function IpdPage() {
     const pName = adm.patient?.name || (adm as any).patientName || "Patient";
     const pMob = adm.patient?.mobile || (adm as any).patientMobile || "";
 
-    const message = `*INPATIENT DISCHARGE & BILL STATEMENT*\n*${clinicName}* (Dr. ${doctorName})\n----------------------------------\n*Patient:* ${pName} (${pMob})\n*IPD No:* ${adm.admissionNumber} | *Bed:* ${adm.bedOrRoom}\n*Admitted:* ${new Date(adm.admissionDate).toLocaleDateString("en-IN")}\n*Discharged:* ${adm.dischargeDate ? new Date(adm.dischargeDate).toLocaleDateString("en-IN") : "Active"}\n\n*Diagnosis:* ${adm.diagnosis || "N/A"}\n*Summary:* ${adm.dischargeSummary || "Condition stable"}\n----------------------------------\n*Total Hospital Charges:* ₹${adm.cumulativeCharges}\n*Advance Deposits Paid:* -₹${adm.advancePaid}\n*Discount Given:* -₹${adm.discount}\n*Total Settled:* ₹${adm.totalPaid}\n*Balance Due:* ₹${adm.balanceDue}\n----------------------------------\nThank you for trusting us with your healthcare!`;
+    let medsSection = "";
+    if (adm.dischargeMedications) {
+      try {
+        const parsed: PrescribedMedicine[] = JSON.parse(adm.dischargeMedications);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          medsSection =
+            `\n*Prescribed Home Medications:*\n` +
+            parsed
+              .map(
+                (m, i) =>
+                  `${i + 1}. *${m.name}* - ${m.dose} for ${m.duration}${m.instructions ? ` (${m.instructions})` : ""}`
+              )
+              .join("\n") +
+            `\n`;
+        }
+      } catch {
+        medsSection = `\n*Prescribed Home Medications:*\n${adm.dischargeMedications}\n`;
+      }
+    }
+
+    const message = `*INPATIENT DISCHARGE & BILL STATEMENT*\n*${clinicName}* (Dr. ${doctorName})\n----------------------------------\n*Patient:* ${pName} (${pMob})\n*IPD No:* ${adm.admissionNumber} | *Bed:* ${adm.bedOrRoom}\n*Admitted:* ${new Date(adm.admissionDate).toLocaleDateString("en-IN")}\n*Discharged:* ${adm.dischargeDate ? new Date(adm.dischargeDate).toLocaleDateString("en-IN") : "Active"}\n\n*Diagnosis:* ${adm.diagnosis || "N/A"}\n*Summary:* ${adm.dischargeSummary || "Condition stable"}\n${medsSection}----------------------------------\n*Total Hospital Charges:* ₹${adm.cumulativeCharges}\n*Advance Deposits Paid:* -₹${adm.advancePaid}\n*Discount Given:* -₹${adm.discount}\n*Total Settled:* ₹${adm.totalPaid}\n*Balance Due:* ₹${adm.balanceDue}\n----------------------------------\nThank you for trusting us with your healthcare!`;
 
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
@@ -1161,6 +1153,13 @@ export default function IpdPage() {
                 Math.ceil((new Date().getTime() - new Date(adm.admissionDate).getTime()) / (1000 * 60 * 60 * 24))
               );
 
+              const bedRate = getBedDailyRate(adm.bedOrRoom, rooms);
+              const bedCharges = daysStayed * bedRate;
+              const effectiveCharges = isAdmitted ? (bedCharges + Number(adm.cumulativeCharges || 0)) : Number(adm.cumulativeCharges || 0);
+              const effectiveBalanceDue = isAdmitted
+                ? Math.max(0, effectiveCharges - Number(adm.discount || 0) - Number(adm.totalPaid || adm.advancePaid || 0))
+                : Number(adm.balanceDue || 0);
+
               return (
                 <div
                   key={adm.id}
@@ -1169,7 +1168,7 @@ export default function IpdPage() {
                     cursor: "pointer",
                     borderLeft: `4px solid ${isAdmitted ? "var(--primary)" : "var(--border)"}`,
                   }}
-                  onClick={() => setSelectedAdmission(adm)}
+                  onClick={() => router.push(`/ipd/${adm.id}`)}
                 >
                   <div
                     style={{
@@ -1218,16 +1217,16 @@ export default function IpdPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
-                          Charges: ₹{adm.cumulativeCharges} · Advance: ₹{adm.advancePaid}
+                          Charges: ₹{effectiveCharges} · Advance: ₹{adm.advancePaid}
                         </div>
                         <div
                           style={{
                             fontWeight: 800,
                             fontSize: "1.05rem",
-                            color: adm.balanceDue > 0 ? "#ef4444" : "#16a34a",
+                            color: effectiveBalanceDue > 0 ? "#ef4444" : "#16a34a",
                           }}
                         >
-                          {adm.balanceDue > 0 ? `₹${adm.balanceDue} Due` : "Settled"}
+                          {effectiveBalanceDue > 0 ? `₹${effectiveBalanceDue} Due` : "Settled"}
                         </div>
                       </div>
 
@@ -1236,7 +1235,7 @@ export default function IpdPage() {
                         className="btn btn-secondary btn-sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedAdmission(adm);
+                          router.push(`/ipd/${adm.id}`);
                         }}
                       >
                         View Sheet &amp; Bill <ChevronRight size={14} />
@@ -1263,647 +1262,22 @@ export default function IpdPage() {
         </div>
       )}
 
-      {/* ─── Inpatient Detail Sheet & Treatment Log Drawer ─── */}
+      {/* ─── Interactive Multi-Day Inpatient Journey & Bedside Case Sheet ─── */}
       {selectedAdmission && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.6)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            justifyContent: "flex-end",
+        <IpdPatientJourneyModal
+          isOpen={!!selectedAdmission}
+          admission={selectedAdmission}
+          onClose={() => setSelectedAdmission(null)}
+          onOpenDayLog={(log) => {
+            setEditingLog(log || null);
+            setShowAddDayLogModal(true);
           }}
-          onClick={() => setSelectedAdmission(null)}
-        >
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            style={{
-              background: "var(--surface-solid)",
-              width: "100%",
-              maxWidth: 780,
-              height: "100%",
-              overflowY: "auto",
-              boxShadow: "-10px 0 30px rgba(0,0,0,0.25)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drawer Header */}
-            <div
-              style={{
-                padding: "18px 24px",
-                borderBottom: "1px solid var(--border)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "var(--surface-1)",
-              }}
-            >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 700, fontSize: "1.15rem" }}>
-                    {selectedAdmission.patient?.name || (selectedAdmission as any).patientName || "Patient"}
-                  </span>
-                  <span className="badge badge-blue">Bed: {selectedAdmission.bedOrRoom}</span>
-                  <span
-                    className={`badge ${
-                      selectedAdmission.status === "ADMITTED" ? "badge-green" : "badge-gray"
-                    }`}
-                  >
-                    {selectedAdmission.status}
-                  </span>
-                </div>
-                <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2 }}>
-                  IPD #{selectedAdmission.admissionNumber} · Admitted on{" "}
-                  {new Date(selectedAdmission.admissionDate).toLocaleString("en-IN")}
-                </div>
-              </div>
-              <button type="button" className="btn-icon" onClick={() => setSelectedAdmission(null)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Drawer Body */}
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
-              {/* Running Bill Breakdown Card */}
-              <div
-                style={{
-                  background: "var(--surface-1)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 12,
-                  padding: "16px 20px",
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                  gap: 12,
-                  textAlign: "center",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                    Advance Paid
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--primary)" }}>
-                    ₹{selectedAdmission.advancePaid}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                    Daily Charges
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>
-                    ₹{selectedAdmission.cumulativeCharges}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                    Discount
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "#16a34a" }}>
-                    -₹{selectedAdmission.discount}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                    Total Settled
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "#16a34a" }}>
-                    ₹{selectedAdmission.totalPaid}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                    Running Due
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 800,
-                      fontSize: "1.15rem",
-                      color: selectedAdmission.balanceDue > 0 ? "#ef4444" : "#16a34a",
-                    }}
-                  >
-                    ₹{selectedAdmission.balanceDue}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Toolbar */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {selectedAdmission.status === "ADMITTED" && (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setEditingLog(null);
-                          setShowAddDayLogModal(true);
-                        }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                      >
-                        <Plus size={14} /> Log Day Treatment
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setShowTransferModal(true)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                        title="Transfer patient to another vacant bed or room"
-                      >
-                        <ArrowRightLeft size={14} /> Transfer Bed
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setShowAdvanceModal(true)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                      >
-                        <Banknote size={14} /> + Advance Deposit
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleOpenPrintDocument(selectedAdmission)}
-                    disabled={isNavigatingPrint}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                  >
-                    {isNavigatingPrint ? (
-                      <>
-                        <div
-                          style={{
-                            width: 12,
-                            height: 12,
-                            border: "2px solid currentColor",
-                            borderTopColor: "transparent",
-                            borderRadius: "50%",
-                            animation: "spin 0.6s linear infinite",
-                          }}
-                        />
-                        <span>Loading Document...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Printer size={14} /> Print / PDF Document
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleWhatsAppShare(selectedAdmission)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      background: "#25D366",
-                      color: "#fff",
-                      border: "none",
-                    }}
-                  >
-                    <Share2 size={14} /> WhatsApp
-                  </button>
-                  {selectedAdmission.status === "ADMITTED" && (
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setShowDischargeModal(true)}
-                      style={{ background: "var(--red)", borderColor: "var(--red)" }}
-                    >
-                      Discharge &amp; Settle
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => handleDeleteAdmission(selectedAdmission)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      color: "var(--red)",
-                    }}
-                    title="Delete this admission record and free bed"
-                  >
-                    <Trash2 size={14} /> Delete Admission
-                  </button>
-                </div>
-              </div>
-
-              {/* Day-Wise Treatment Log Timeline (Visit-style Inpatient Chart) */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 12,
-                    flexWrap: "wrap",
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>
-                    Inpatient Treatment Sheet ({selectedAdmission.dayWiseLogs?.length || 0} Days Logged)
-                  </div>
-                  {selectedAdmission.status === "ADMITTED" && (
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-xs"
-                      onClick={() => {
-                        setEditingLog(null);
-                        setShowAddDayLogModal(true);
-                      }}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-                    >
-                      <Plus size={12} /> Add Day Log
-                    </button>
-                  )}
-                </div>
-
-                {(!selectedAdmission.dayWiseLogs || selectedAdmission.dayWiseLogs.length === 0) ? (
-                  <div style={{ textAlign: "center", padding: 24, color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                    No day treatment logs recorded yet. Click <strong>&quot;+ Log Day Treatment&quot;</strong> above to record
-                    doctor rounds, vitals, prescribed medicines &amp; procedures.
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {selectedAdmission.dayWiseLogs.map((log) => (
-                      <div
-                        key={log.dayNumber}
-                        style={{
-                          background: "var(--surface-1)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 12,
-                          padding: "14px 16px",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 10,
-                        }}
-                      >
-                        {/* Day Card Header */}
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: 8,
-                            borderBottom: "1px solid var(--border)",
-                            paddingBottom: 8,
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span
-                              style={{
-                                background: "var(--primary)",
-                                color: "#fff",
-                                padding: "3px 10px",
-                                borderRadius: 6,
-                                fontWeight: 700,
-                                fontSize: "0.78rem",
-                              }}
-                            >
-                              Day {log.dayNumber}
-                            </span>
-                            <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>
-                              {new Date(log.date).toLocaleDateString("en-IN", {
-                                weekday: "short",
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </span>
-                            {log.updatedAt && (
-                              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                                (edited)
-                              </span>
-                            )}
-                          </div>
-
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span
-                              style={{
-                                fontWeight: 700,
-                                color: "var(--primary)",
-                                fontSize: "0.92rem",
-                                background: "rgba(13, 148, 136, 0.1)",
-                                padding: "2px 8px",
-                                borderRadius: 6,
-                              }}
-                            >
-                              ₹{log.dailyCharges}
-                            </span>
-
-                            {selectedAdmission.status === "ADMITTED" && (
-                              <div style={{ display: "flex", gap: 4 }}>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-xs"
-                                  onClick={() => {
-                                    setEditingLog(log);
-                                    setShowAddDayLogModal(true);
-                                  }}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    color: "var(--primary)",
-                                    border: "1px solid rgba(13, 148, 136, 0.25)",
-                                  }}
-                                  title="Edit this day's notes, vitals, medicines or procedures"
-                                >
-                                  <Edit2 size={12} /> Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-xs"
-                                  onClick={() => handleDeleteDayLog(log.dayNumber)}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    color: "var(--red)",
-                                    border: "1px solid rgba(239, 68, 68, 0.25)",
-                                  }}
-                                  title="Delete this day's record"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Structured Vitals Strip */}
-                        {log.vitals &&
-                          (log.vitals.bp ||
-                            log.vitals.pulse ||
-                            log.vitals.temp ||
-                            log.vitals.spo2 ||
-                            log.vitals.respRate ||
-                            log.vitals.sugar) && (
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 6,
-                                flexWrap: "wrap",
-                                background: "var(--surface-2)",
-                                padding: "6px 10px",
-                                borderRadius: 6,
-                                border: "1px solid var(--border)",
-                                alignItems: "center",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: "0.72rem",
-                                  fontWeight: 700,
-                                  color: "var(--text-muted)",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.04em",
-                                }}
-                              >
-                                <Activity size={12} style={{ color: "var(--primary)" }} /> Vitals:
-                              </span>
-                              {log.vitals.bp && (
-                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
-                                  BP: <strong>{log.vitals.bp}</strong>
-                                </span>
-                              )}
-                              {log.vitals.pulse && (
-                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
-                                  Pulse: <strong>{log.vitals.pulse} bpm</strong>
-                                </span>
-                              )}
-                              {log.vitals.temp && (
-                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
-                                  Temp: <strong>{log.vitals.temp} °F</strong>
-                                </span>
-                              )}
-                              {log.vitals.spo2 && (
-                                <span
-                                  className={
-                                    Number(log.vitals.spo2) > 0 && Number(log.vitals.spo2) < 95
-                                      ? "badge badge-red"
-                                      : "badge badge-blue"
-                                  }
-                                  style={{ fontSize: "0.74rem" }}
-                                >
-                                  SpO2: <strong>{log.vitals.spo2}%</strong>
-                                  {Number(log.vitals.spo2) > 0 && Number(log.vitals.spo2) < 95 && " ⚠️ Low"}
-                                </span>
-                              )}
-                              {log.vitals.respRate && (
-                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
-                                  RR: <strong>{log.vitals.respRate}/min</strong>
-                                </span>
-                              )}
-                              {log.vitals.sugar && (
-                                <span className="badge badge-gray" style={{ fontSize: "0.74rem" }}>
-                                  GRBS: <strong>{log.vitals.sugar} mg/dL</strong>
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                        {/* Doctor Clinical Notes */}
-                        {log.doctorNotes && (
-                          <div style={{ fontSize: "0.84rem", lineHeight: 1.5 }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                color: "var(--primary)",
-                                fontWeight: 700,
-                                fontSize: "0.74rem",
-                                marginBottom: 2,
-                              }}
-                            >
-                              <Stethoscope size={13} /> DOCTOR ROUNDS:
-                            </div>
-                            <div style={{ color: "var(--text-primary)", whiteSpace: "pre-line" }}>
-                              {log.doctorNotes}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Medications Administered */}
-                        {log.medications && log.medications.length > 0 ? (
-                          <div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                color: "#8b5cf6",
-                                fontWeight: 700,
-                                fontSize: "0.74rem",
-                                marginBottom: 4,
-                              }}
-                            >
-                              <Pill size={13} /> MEDICATIONS GIVEN ({log.medications.length}):
-                            </div>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              {log.medications.map((m, idx) => (
-                                <div
-                                  key={idx}
-                                  style={{
-                                    background: "rgba(139, 92, 246, 0.08)",
-                                    border: "1px solid rgba(139, 92, 246, 0.2)",
-                                    borderRadius: 6,
-                                    padding: "3px 8px",
-                                    fontSize: "0.75rem",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                  }}
-                                >
-                                  <strong style={{ color: "#7c3aed" }}>{m.name}</strong>
-                                  <span style={{ color: "var(--text-muted)" }}>·</span>
-                                  <span>{m.dose || (m as any).dosage}</span>
-                                  {m.route && (
-                                    <span
-                                      style={{
-                                        background: "rgba(139, 92, 246, 0.15)",
-                                        padding: "1px 5px",
-                                        borderRadius: 4,
-                                        fontSize: "0.68rem",
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      {m.route}
-                                    </span>
-                                  )}
-                                  {m.timing && <span style={{ color: "var(--text-muted)" }}>({m.timing})</span>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : log.medicinesAdministered ? (
-                          <div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                color: "#8b5cf6",
-                                fontWeight: 700,
-                                fontSize: "0.74rem",
-                                marginBottom: 2,
-                              }}
-                            >
-                              <Pill size={13} /> MEDICINES:
-                            </div>
-                            <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                              {log.medicinesAdministered}
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {/* Diet & Fluid Orders */}
-                        {log.dietNotes && (
-                          <div style={{ fontSize: "0.82rem" }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                color: "var(--amber)",
-                                fontWeight: 700,
-                                fontSize: "0.74rem",
-                                marginBottom: 2,
-                              }}
-                            >
-                              <Utensils size={13} /> DIET &amp; FLUID ORDERS:
-                            </div>
-                            <div style={{ color: "var(--text-secondary)" }}>{log.dietNotes}</div>
-                          </div>
-                        )}
-
-                        {/* Nursing Notes */}
-                        {log.nursingNotes && (
-                          <div style={{ fontSize: "0.82rem" }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                color: "var(--text-muted)",
-                                fontWeight: 700,
-                                fontSize: "0.74rem",
-                                marginBottom: 2,
-                              }}
-                            >
-                              <FileText size={13} /> NURSING OBSERVATIONS:
-                            </div>
-                            <div style={{ color: "var(--text-secondary)" }}>{log.nursingNotes}</div>
-                          </div>
-                        )}
-
-                        {/* Procedures & Services */}
-                        {log.procedures && log.procedures.length > 0 && (
-                          <div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                color: "var(--blue)",
-                                fontWeight: 700,
-                                fontSize: "0.74rem",
-                                marginBottom: 4,
-                              }}
-                            >
-                              <Receipt size={13} /> PROCEDURES &amp; SERVICES:
-                            </div>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              {log.procedures.map((p, idx) => (
-                                <span
-                                  key={idx}
-                                  style={{
-                                    background: "var(--surface-2)",
-                                    border: "1px solid var(--border)",
-                                    padding: "2px 8px",
-                                    borderRadius: 6,
-                                    fontSize: "0.76rem",
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  {p.name} {p.quantity > 1 ? `(×${p.quantity})` : ""} ·{" "}
-                                  <strong style={{ color: "var(--primary)" }}>₹{p.totalPrice}</strong>
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </div>
+          onOpenDischarge={() => handleOpenDischargeModal(selectedAdmission)}
+          onOpenTransfer={() => setShowTransferModal(true)}
+          onOpenAdvance={() => setShowAdvanceModal(true)}
+          onDeleteAdmission={() => handleDeleteAdmission(selectedAdmission)}
+          onDeleteDayLog={(dayNum) => handleDeleteDayLog(dayNum)}
+        />
       )}
 
       {/* ─── Real Hospital Rooms & Beds Configurator Modal ─── */}
@@ -1952,42 +1326,70 @@ export default function IpdPage() {
 
       {/* ─── New Inpatient Admission Modal (Smart Real Bed Selector) ─── */}
       {showNewAdmissionModal && (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12 }}
+          transition={{ duration: 0.18 }}
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(4px)",
+            zIndex: 99999,
+            width: "100vw",
+            height: "100vh",
+            background: "var(--background)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
+            flexDirection: "column",
+            overflow: "hidden",
           }}
-          onClick={() => setShowNewAdmissionModal(false)}
         >
+          {/* Top Full-Screen Navigation Header */}
           <div
             style={{
+              padding: "14px 24px",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               background: "var(--surface-solid)",
-              borderRadius: 14,
-              padding: 24,
-              maxWidth: 540,
-              width: "100%",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              border: "1px solid var(--border)",
+              flexShrink: 0,
+              gap: 16,
+              flexWrap: "wrap",
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 8 }}>
-                <Bed size={18} style={{ color: "var(--primary)" }} /> Inpatient Admission Entry
-              </div>
-              <button type="button" className="btn-icon" onClick={() => setShowNewAdmissionModal(false)}>
-                <X size={16} />
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setShowNewAdmissionModal(false)}
+                style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                ← Back to Ward Plan
               </button>
+              <div style={{ height: 20, width: 1, background: "var(--border)" }} />
+              <div style={{ fontWeight: 700, fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <Bed size={18} style={{ color: "var(--primary)" }} /> Inpatient Admission Entry {admissionForm.bedOrRoom ? `· ${admissionForm.bedOrRoom}` : ""}
+              </div>
             </div>
+            <button type="button" className="btn-icon" onClick={() => setShowNewAdmissionModal(false)}>
+              <X size={18} />
+            </button>
+          </div>
 
+          {/* Form Body */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px" }}>
+            <div
+              style={{
+                background: "var(--surface-solid)",
+                borderRadius: 14,
+                padding: "24px 28px",
+                maxWidth: 640,
+                width: "100%",
+                margin: "0 auto",
+                border: "1px solid var(--border)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+              }}
+            >
             {/* Select Patient */}
             <div style={{ marginBottom: 14 }}>
               <label className="form-label" style={{ fontWeight: 600 }}>
@@ -2144,7 +1546,7 @@ export default function IpdPage() {
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 14 }}>
               <div>
                 <label className="form-label" style={{ fontWeight: 600 }}>Admission Date &amp; Time</label>
                 <input
@@ -2176,7 +1578,7 @@ export default function IpdPage() {
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 14 }}>
               <div>
                 <label className="form-label" style={{ fontWeight: 600 }}>Advance Deposit (₹)</label>
                 <input
@@ -2210,7 +1612,8 @@ export default function IpdPage() {
             </div>
           </div>
         </div>
-      )}
+      </motion.div>
+    )}
 
       {/* ─── Add / Edit Inpatient Day Log Modal (Visit-Style) ─── */}
       {showAddDayLogModal && selectedAdmission && (
@@ -2302,208 +1705,15 @@ export default function IpdPage() {
 
       {/* ─── Discharge & Final Bill Settlement Modal ─── */}
       {showDischargeModal && selectedAdmission && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
+        <IpdDischargeModal
+          isOpen={showDischargeModal}
+          onClose={() => setShowDischargeModal(false)}
+          admission={selectedAdmission}
+          onSuccess={(updated) => {
+            setSelectedAdmission(updated);
+            setShowDischargeModal(false);
           }}
-          onClick={() => setShowDischargeModal(false)}
-        >
-          <div
-            style={{
-              background: "var(--surface-solid)",
-              borderRadius: 14,
-              padding: 24,
-              maxWidth: 580,
-              width: "100%",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              border: "1px solid var(--border)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>Discharge &amp; Final Bill Settlement</div>
-              <button type="button" className="btn-icon" onClick={() => setShowDischargeModal(false)}>
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Financial Overview Banner */}
-            <div
-              style={{
-                background: "var(--surface-1)",
-                padding: "12px 16px",
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                marginBottom: 14,
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Running Charges</div>
-                <div style={{ fontWeight: 700, fontSize: "1rem" }}>₹{selectedAdmission.cumulativeCharges}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Already Paid</div>
-                <div style={{ fontWeight: 700, fontSize: "1rem", color: "#16a34a" }}>₹{selectedAdmission.totalPaid}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Net Balance Due</div>
-                <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#ef4444" }}>
-                  ₹{selectedAdmission.balanceDue}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label className="form-label" style={{ fontWeight: 600 }}>Discharge Date &amp; Time</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={dischargeForm.dischargeDate}
-                onChange={(e) => setDischargeForm((f) => ({ ...f, dischargeDate: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
-                  Discharge Summary / Hospital Course
-                </label>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    style={{ fontSize: "0.7rem", padding: "1px 6px" }}
-                    onClick={() =>
-                      setDischargeForm((f) => ({
-                        ...f,
-                        dischargeSummary: "Patient recovered satisfactorily. Afebrile and vitals stable at discharge.",
-                      }))
-                    }
-                  >
-                    + Satisfactory Recovery
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    style={{ fontSize: "0.7rem", padding: "1px 6px" }}
-                    onClick={() =>
-                      setDischargeForm((f) => ({
-                        ...f,
-                        dischargeSummary: "Patient hemodynamically stable. Discharged on patient / attender request.",
-                      }))
-                    }
-                  >
-                    + Stable on Request
-                  </button>
-                </div>
-              </div>
-              <textarea
-                className="form-textarea"
-                rows={2}
-                placeholder="Enter patient course during admission, clinical recovery, or procedure notes..."
-                value={dischargeForm.dischargeSummary}
-                onChange={(e) => setDischargeForm((f) => ({ ...f, dischargeSummary: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label className="form-label" style={{ fontWeight: 600 }}>Discharge Prescription / Home Medications</label>
-              <textarea
-                className="form-textarea"
-                rows={2}
-                placeholder="Tab. Cefixime 200mg 1-0-1 for 5 days&#10;Tab. Pantop 40mg 1-0-0 for 5 days"
-                value={dischargeForm.dischargeMedications}
-                onChange={(e) => setDischargeForm((f) => ({ ...f, dischargeMedications: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <label className="form-label" style={{ fontWeight: 600, margin: 0 }}>
-                  Discharge Advice &amp; Follow-Up Instructions
-                </label>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    style={{ fontSize: "0.7rem", padding: "1px 6px" }}
-                    onClick={() =>
-                      setDischargeForm((f) => ({
-                        ...f,
-                        dischargeNotes: "Review in OPD after 5-7 days or SOS in case of acute symptoms.",
-                      }))
-                    }
-                  >
-                    + Review in 5-7d
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    style={{ fontSize: "0.7rem", padding: "1px 6px" }}
-                    onClick={() =>
-                      setDischargeForm((f) => ({
-                        ...f,
-                        dischargeNotes: "Strict bed rest, light diet, plenty of fluids. Review with fresh reports.",
-                      }))
-                    }
-                  >
-                    + Rest &amp; Diet
-                  </button>
-                </div>
-              </div>
-              <textarea
-                className="form-textarea"
-                rows={2}
-                placeholder="e.g. Review in OPD after 5 days, wound care, diet advice, warning signs..."
-                value={dischargeForm.dischargeNotes}
-                onChange={(e) => setDischargeForm((f) => ({ ...f, dischargeNotes: e.target.value }))}
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <div>
-                <label className="form-label" style={{ fontWeight: 600 }}>Discount (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={dischargeForm.discount}
-                  onChange={(e) => setDischargeForm((f) => ({ ...f, discount: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontWeight: 600 }}>Settlement Mode</label>
-                <select
-                  className="form-select"
-                  value={dischargeForm.paymentMethod}
-                  onChange={(e) => setDischargeForm((f) => ({ ...f, paymentMethod: e.target.value as any }))}
-                >
-                  <option value="CASH">Cash</option>
-                  <option value="UPI">UPI (QR Code)</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowDischargeModal(false)}>
-                Cancel
-              </button>
-              <button type="button" className="btn btn-primary" onClick={handleDischarge}>
-                Complete Discharge
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {/* Graceful Navigation Loader Overlay for Print / PDF */}

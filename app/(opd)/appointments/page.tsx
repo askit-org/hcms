@@ -1294,8 +1294,19 @@ export default function AppointmentsPage() {
             </Reorder.Group>
 
             {waitingList.length === 0 && !nowServing && (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Clock size={36} style={{ opacity: 0.3, marginBottom: 8 }} />
+              <div
+                className="empty-state"
+                style={{
+                  padding: '40px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <Clock size={36} style={{ opacity: 0.3, margin: '0 auto 8px', display: 'block' }} />
                 <h4 style={{ margin: '0 0 4px 0', color: 'var(--text-primary)' }}>Queue Empty</h4>
                 <p style={{ margin: 0, fontSize: '0.84rem' }}>Drag patient cards from left box or select a patient to enqueue.</p>
               </div>

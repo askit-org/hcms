@@ -1,50 +1,130 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, Stethoscope, Pill, Calendar,
-  BarChart3, Settings, Activity, Search, Bell, Menu, X, LogOut, Package, ShieldCheck, Bed
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useProviderStore } from '@/lib/providers';
-import { useSettings, useFollowUps } from '@/lib/hooks/useQueries';
-import { useAuth, checkSubscriptionLock } from '@/lib/hooks/useAuth';
-import { usePermissions, ADMIN_HOME_ROUTE } from '@/lib/hooks/usePermissions';
-import { useSessionGuard } from '@/lib/hooks/useSessionGuard';
-import { isTokenExpired, logout } from '@/lib/auth/session';
-import type { Patient, AppModel } from '@/lib/providers/types';
-import ThemeToggle from '@/components/ThemeToggle';
-import SubscriptionBanner from '@/components/SubscriptionBanner';
-import SupportModeBanner from '@/components/admin/SupportModeBanner';
-import GlobalAnnouncementBanner from '@/components/GlobalAnnouncementBanner';
-import OnboardingPlansModal from '@/components/OnboardingPlansModal';
-import LoadingScreen from '@/components/LoadingScreen';
+  LayoutDashboard,
+  Users,
+  Stethoscope,
+  Pill,
+  Calendar,
+  BarChart3,
+  Settings,
+  Activity,
+  Search,
+  Bell,
+  Menu,
+  X,
+  LogOut,
+  Package,
+  ShieldCheck,
+  Bed,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useProviderStore } from "@/lib/providers";
+import { useSettings, useFollowUps } from "@/lib/hooks/useQueries";
+import { useAuth, checkSubscriptionLock } from "@/lib/hooks/useAuth";
+import { usePermissions, ADMIN_HOME_ROUTE } from "@/lib/hooks/usePermissions";
+import { useSessionGuard } from "@/lib/hooks/useSessionGuard";
+import { isTokenExpired, logout } from "@/lib/auth/session";
+import type { Patient, AppModel } from "@/lib/providers/types";
+import ThemeToggle from "@/components/ThemeToggle";
+import SubscriptionBanner from "@/components/SubscriptionBanner";
+import SupportModeBanner from "@/components/admin/SupportModeBanner";
+import GlobalAnnouncementBanner from "@/components/GlobalAnnouncementBanner";
+import OnboardingPlansModal from "@/components/OnboardingPlansModal";
+import LoadingScreen from "@/components/LoadingScreen";
 
 interface NavItem {
   href: string;
   label: string;
   icon: any;
-  group: 'main' | 'clinical' | 'records' | 'organization';
+  group: "main" | "clinical" | "records" | "organization";
   model: AppModel;
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'main', model: 'PATIENTS' },
-  { href: '/appointments', label: 'Appointments & Queue', icon: Calendar, group: 'main', model: 'PATIENTS' },
-  { href: '/patients', label: 'Patients', icon: Users, group: 'main', model: 'PATIENTS' },
-  { href: '/visits/new', label: 'New OPD Visit', icon: Stethoscope, group: 'main', model: 'VISITS' },
-  { href: '/prescription', label: 'Prescription', icon: Pill, group: 'clinical', model: 'VISITS' },
-  { href: '/followup', label: 'Follow-Up', icon: Calendar, group: 'clinical', model: 'FOLLOWUPS' },
-  { href: '/ipd', label: 'Inpatient (IPD)', icon: Bed, group: 'clinical', model: 'VISITS' },
-  { href: '/staff', label: 'Manage Staff', icon: ShieldCheck, group: 'organization', model: 'STAFF' },
-  { href: '/reports', label: 'Reports', icon: BarChart3, group: 'records', model: 'REPORTS' },
-  { href: '/medicines', label: 'Medicines', icon: Package, group: 'records', model: 'MEDICINES' },
-  { href: '/settings', label: 'Settings', icon: Settings, group: 'records', model: 'SETTINGS' },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    group: "main",
+    model: "PATIENTS",
+  },
+  {
+    href: "/appointments",
+    label: "Appointments & Queue",
+    icon: Calendar,
+    group: "main",
+    model: "PATIENTS",
+  },
+  {
+    href: "/patients",
+    label: "Patients",
+    icon: Users,
+    group: "main",
+    model: "PATIENTS",
+  },
+  {
+    href: "/visits/new",
+    label: "New Visit",
+    icon: Stethoscope,
+    group: "main",
+    model: "VISITS",
+  },
+  {
+    href: "/ipd",
+    label: "Inpatient (IPD)",
+    icon: Bed,
+    group: "main",
+    model: "VISITS",
+  },
+  {
+    href: "/prescription",
+    label: "Prescription",
+    icon: Pill,
+    group: "clinical",
+    model: "VISITS",
+  },
+  {
+    href: "/followup",
+    label: "Follow-Up",
+    icon: Calendar,
+    group: "clinical",
+    model: "FOLLOWUPS",
+  },
+  {
+    href: "/staff",
+    label: "Manage Staff",
+    icon: ShieldCheck,
+    group: "organization",
+    model: "STAFF",
+  },
+  {
+    href: "/reports",
+    label: "Reports",
+    icon: BarChart3,
+    group: "records",
+    model: "REPORTS",
+  },
+  {
+    href: "/medicines",
+    label: "Medicines",
+    icon: Package,
+    group: "records",
+    model: "MEDICINES",
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
+    group: "records",
+    model: "SETTINGS",
+  },
 ];
 
-import { memo } from 'react';
+import { memo } from "react";
 
 const DateTime = memo(function DateTime() {
   const [now, setNow] = useState<Date | null>(null);
@@ -53,17 +133,35 @@ const DateTime = memo(function DateTime() {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (!now) return <div className="datetime-display"><div className="dt-date">—</div></div>;
+  if (!now)
+    return (
+      <div className="datetime-display">
+        <div className="dt-date">—</div>
+      </div>
+    );
   return (
     <div className="datetime-display" suppressHydrationWarning>
-      <div className="dt-date">{now.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</div>
-      <div className="dt-time">{now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+      <div className="dt-date">
+        {now.toLocaleDateString("en-IN", {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}
+      </div>
+      <div className="dt-time">
+        {now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })}
+      </div>
     </div>
   );
 });
 
 function GlobalSearch() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<Patient[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -71,12 +169,19 @@ function GlobalSearch() {
   const provider = useProviderStore((s) => s.provider);
   const { hasPermission } = usePermissions();
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!hasPermission('PATIENTS', 'canRead') || !q.trim()) { setResults([]); setOpen(false); return; }
-    const { data: r } = await provider.listPatients({ search: q, limit: 8 });
-    setResults(r.slice(0, 8));
-    setOpen(r.length > 0);
-  }, [provider, hasPermission]);
+  const doSearch = useCallback(
+    async (q: string) => {
+      if (!hasPermission("PATIENTS", "canRead") || !q.trim()) {
+        setResults([]);
+        setOpen(false);
+        return;
+      }
+      const { data: r } = await provider.listPatients({ search: q, limit: 8 });
+      setResults(r.slice(0, 8));
+      setOpen(r.length > 0);
+    },
+    [provider, hasPermission],
+  );
 
   useEffect(() => {
     const t = setTimeout(() => doSearch(query), 200);
@@ -84,36 +189,58 @@ function GlobalSearch() {
   }, [query, doSearch]);
 
   useEffect(() => {
-    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
   return (
     <div className="search-wrapper" ref={ref}>
       <div className="search-input-wrap">
-        <span className="s-icon"><Search /></span>
+        <span className="s-icon">
+          <Search />
+        </span>
         <input
           className="search-input"
           placeholder="Search patient by name, mobile, ID…"
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query && setOpen(true)}
         />
       </div>
       {open && (
         <div className="search-dropdown">
           {results.length === 0 ? (
-            <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: '0.84rem' }}>No patients found</div>
-          ) : results.map(p => (
-            <div key={p.id} className="search-result" onClick={() => {
-              router.push(`/patients/${p.patientId}`);
-              setOpen(false); setQuery('');
-            }}>
-              <div className="sr-name">{p.name}</div>
-              <div className="sr-meta">{p.patientId} · {p.mobile} · {p.gender}, {p.age}y</div>
+            <div
+              style={{
+                padding: "12px 14px",
+                color: "var(--text-muted)",
+                fontSize: "0.84rem",
+              }}
+            >
+              No patients found
             </div>
-          ))}
+          ) : (
+            results.map((p) => (
+              <div
+                key={p.id}
+                className="search-result"
+                onClick={() => {
+                  router.push(`/patients/${p.patientId}`);
+                  setOpen(false);
+                  setQuery("");
+                }}
+              >
+                <div className="sr-name">{p.name}</div>
+                <div className="sr-meta">
+                  {p.patientId} · {p.mobile} · {p.gender}, {p.age}y
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -123,7 +250,13 @@ function GlobalSearch() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isPlatformAdmin, isSuperAdmin, hasPermission, canAccessRoute, getFirstAllowedRoute } = usePermissions();
+  const {
+    isPlatformAdmin,
+    isSuperAdmin,
+    hasPermission,
+    canAccessRoute,
+    getFirstAllowedRoute,
+  } = usePermissions();
   const { isAuthenticated, user, token } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -159,12 +292,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setMounted(true);
     if (hasHydrated) {
       if (!isAuthenticated) {
-        router.replace('/login');
+        router.replace("/login");
       } else if (isPlatformAdmin) {
         router.replace(ADMIN_HOME_ROUTE);
       } else if (subLock.isLocked) {
         if (!isSuperAdmin) {
-          logout('subscription_expired');
+          logout("subscription_expired");
         } else {
           setShowOnboardingPlans(true);
         }
@@ -173,18 +306,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         router.replace(allowedRoute);
       }
     }
-  }, [hasHydrated, isAuthenticated, isPlatformAdmin, isSuperAdmin, user, subLock.isLocked, pathname, canAccessRoute, getFirstAllowedRoute, router]);
+  }, [
+    hasHydrated,
+    isAuthenticated,
+    isPlatformAdmin,
+    isSuperAdmin,
+    user,
+    subLock.isLocked,
+    pathname,
+    canAccessRoute,
+    getFirstAllowedRoute,
+    router,
+  ]);
 
-  const clinicName = user?.clinicName || settings?.clinicName || 'My Clinic';
+  const clinicName = user?.clinicName || settings?.clinicName || "My Clinic";
   const followUpCount = today.data?.length || 0;
 
-
-
   const groups = [
-    { label: 'Main', key: 'main' },
-    { label: 'Clinical', key: 'clinical' },
-    { label: 'Organization', key: 'organization' },
-    { label: 'Records', key: 'records' },
+    { label: "Main", key: "main" },
+    { label: "Clinical", key: "clinical" },
+    { label: "Organization", key: "organization" },
+    { label: "Records", key: "records" },
   ];
 
   const defaultHome = getFirstAllowedRoute();
@@ -200,10 +342,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return <LoadingScreen message="Subscription expired. Signing out..." />;
     }
     return (
-      <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
-        <OnboardingPlansModal 
-          isOpen={true} 
-          onClose={() => {}} 
+      <div
+        className="app-shell"
+        style={{
+          display: "flex",
+          minHeight: "100vh",
+          background: "var(--bg-primary)",
+        }}
+      >
+        <OnboardingPlansModal
+          isOpen={true}
+          onClose={() => {}}
           isLockout={true}
           lockReason={subLock.reason}
         />
@@ -212,27 +361,43 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="app-shell" style={{ display: 'flex' }}>
+    <div className="app-shell" style={{ display: "flex" }}>
       {/* Mobile Backdrop Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="modal-overlay"
-            style={{ zIndex: 40, animation: 'none' }}
+            style={{ zIndex: 40, animation: "none" }}
             onClick={() => setMobileMenuOpen(false)}
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <Link href={defaultHome} className="logo-wrap" style={{ textDecoration: 'none', display: 'block' }} onClick={() => setMobileMenuOpen(false)}>
+      <aside className={`sidebar ${mobileMenuOpen ? "open" : ""}`}>
+        <Link
+          href={defaultHome}
+          className="logo-wrap"
+          style={{ textDecoration: "none", display: "block" }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
           <div className="logo-row">
             <div className="logo-icon">
-              <img src="/icons/logo.png" alt="HCMS Logo" width={36} height={36} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8 }} />
+              <img
+                src="/icons/logo.png"
+                alt="HCMS Logo"
+                width={36}
+                height={36}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  borderRadius: 8,
+                }}
+              />
             </div>
             <div className="logo-text">
               <h2>HCMS</h2>
@@ -243,54 +408,66 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <nav className="nav-scroll">
-          {groups.map(g => {
-            const filteredItems = navItems.filter(n => {
+          {groups.map((g) => {
+            const filteredItems = navItems.filter((n) => {
               if (n.group !== g.key) return false;
-              if (n.href === '/dashboard' || n.href === '/settings' || n.href === '/staff') {
+              if (
+                n.href === "/dashboard" ||
+                n.href === "/settings" ||
+                n.href === "/staff"
+              ) {
                 return isSuperAdmin;
               }
-              return hasPermission(n.model, 'canRead');
+              return hasPermission(n.model, "canRead");
             });
             if (filteredItems.length === 0) return null;
 
             return (
               <div key={g.key}>
                 <div className="nav-group-label">{g.label}</div>
-                {filteredItems.map(item => {
-                  const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                return (
-                  <a 
-                    key={item.href} 
-                    href={item.href}
-                    className={`nav-item ${active ? 'active' : ''}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setMobileMenuOpen(false);
-                      if ((window as any).__hcms_has_unsaved_visit) {
-                        setNavConfirmTarget(item.href);
-                        return;
-                      }
-                      router.push(item.href);
-                    }}
-                  >
-                    <item.icon />
-                    {item.label}
-                    {item.href === '/followup' && followUpCount > 0 && (
-                      <span className="nav-badge">{followUpCount}</span>
-                    )}
-                  </a>
-                );
-              })}
-            </div>
-          );
-        })}
+                {filteredItems.map((item) => {
+                  const active =
+                    pathname === item.href ||
+                    (item.href !== "/dashboard" &&
+                      pathname.startsWith(item.href));
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className={`nav-item ${active ? "active" : ""}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setMobileMenuOpen(false);
+                        if ((window as any).__hcms_has_unsaved_visit) {
+                          setNavConfirmTarget(item.href);
+                          return;
+                        }
+                        router.push(item.href);
+                      }}
+                    >
+                      <item.icon />
+                      {item.label}
+                      {item.href === "/followup" && followUpCount > 0 && (
+                        <span className="nav-badge">{followUpCount}</span>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">
           <DateTime />
-          <button 
-            className="btn btn-ghost btn-sm" 
-            style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--text-secondary)', marginTop: 8 }}
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{
+              width: "100%",
+              justifyContent: "flex-start",
+              color: "var(--text-secondary)",
+              marginTop: 8,
+            }}
             onClick={() => logout()}
           >
             <LogOut size={16} style={{ marginRight: 8 }} /> Log Out
@@ -303,63 +480,126 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <GlobalAnnouncementBanner />
         <SupportModeBanner />
         <header className="topbar">
-          <button 
-            className="btn-icon" 
-            style={{ display: 'none' }} // Hidden by default, shown via CSS on small screens, BUT CSS does logic differently. Let's just render it and use CSS or conditional rendering
+          <button
+            className="btn-icon"
+            style={{ display: "none" }} // Hidden by default, shown via CSS on small screens, BUT CSS does logic differently. Let's just render it and use CSS or conditional rendering
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Toggle Menu"
             id="mobile-menu-btn"
           >
             <Menu size={20} />
           </button>
-          
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {hasPermission('FOLLOWUPS', 'canRead') && followUpCount > 0 && (
-              <Link href="/followup" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--amber)' }}>
+
+          <div
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              gap: "16px",
+              alignItems: "center",
+            }}
+          >
+            {hasPermission("FOLLOWUPS", "canRead") && followUpCount > 0 && (
+              <Link
+                href="/followup"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.82rem",
+                  color: "var(--amber)",
+                }}
+              >
                 <Bell size={16} />
-                {followUpCount} follow-up{followUpCount > 1 ? 's' : ''} today
+                {followUpCount} follow-up{followUpCount > 1 ? "s" : ""} today
               </Link>
             )}
             {isSuperAdmin && <SubscriptionBanner />}
             <ThemeToggle />
           </div>
         </header>
-        <main className="page-content fade-up">
-          {children}
-        </main>
+        <main className="page-content fade-up">{children}</main>
       </div>
       {/* Exit / Unsaved Visit Confirmation Modal */}
       <AnimatePresence>
         {navConfirmTarget && (
           <div className="modal-overlay" style={{ zIndex: 99999 }}>
-            <motion.div 
-              className="modal modal-md" 
+            <motion.div
+              className="modal modal-md"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              style={{ padding: '24px', textAlign: 'left' }}
+              style={{ padding: "24px", textAlign: "left" }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--accent-glow)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "var(--accent-glow)",
+                    color: "var(--accent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   <Stethoscope size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Save or Discard Visit?</h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>You have unsaved changes on the visit screen.</span>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem" }}>
+                    Save or Discard Visit?
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    You have unsaved changes on the visit screen.
+                  </span>
                 </div>
               </div>
 
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px', background: 'var(--surface-1)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                Would you like to save this visit directly to the database or discard the entered information?
+              <p
+                style={{
+                  fontSize: "0.88rem",
+                  color: "var(--text-secondary)",
+                  marginBottom: "20px",
+                  background: "var(--surface-1)",
+                  padding: "14px 16px",
+                  borderRadius: "10px",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                Would you like to save this visit directly to the database or
+                discard the entered information?
               </p>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setNavConfirmTarget(null)}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  justifyContent: "flex-end",
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setNavConfirmTarget(null)}
+                >
                   Continue Editing
                 </button>
-                <button 
-                  type="button" 
-                  className="btn btn-danger" 
+                <button
+                  type="button"
+                  className="btn btn-danger"
                   onClick={() => {
                     const target = navConfirmTarget;
                     (window as any).__hcms_has_unsaved_visit = false;
@@ -369,9 +609,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   Discard Visit
                 </button>
-                <button 
-                  type="button" 
-                  className="btn btn-primary" 
+                <button
+                  type="button"
+                  className="btn btn-primary"
                   onClick={async () => {
                     const target = navConfirmTarget;
                     const saveFn = (window as any).__hcms_save_visit_handler;
@@ -398,9 +638,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* Onboarding Welcome & Plan Selection Modal */}
-      <OnboardingPlansModal 
-        isOpen={showOnboardingPlans || subLock.isLocked} 
-        onClose={() => setShowOnboardingPlans(false)} 
+      <OnboardingPlansModal
+        isOpen={showOnboardingPlans || subLock.isLocked}
+        onClose={() => setShowOnboardingPlans(false)}
         isLockout={subLock.isLocked}
         lockReason={subLock.reason}
       />

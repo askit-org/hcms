@@ -1099,6 +1099,8 @@ export function useIpdMutations() {
     mutationFn: (input: CreateIpdAdmissionInput) => provider.createIpdAdmission(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
@@ -1108,6 +1110,9 @@ export function useIpdMutations() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
+      qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
 
@@ -1116,6 +1121,8 @@ export function useIpdMutations() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
@@ -1125,6 +1132,8 @@ export function useIpdMutations() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd', 'detail', id] });
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
@@ -1133,6 +1142,8 @@ export function useIpdMutations() {
     mutationFn: (id: string) => provider.deleteIpdAdmission(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
+      qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
     },
   });
