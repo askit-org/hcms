@@ -325,8 +325,8 @@ export default function ReportsPage() {
     window.print();
   };
 
-  const totalEncountersCount = filteredVisits.length + filteredAdmissions.length;
-  const totalIpdCount = filteredAdmissions.length + filteredIpdCategoryVisits.length;
+  const totalEncountersCount = filteredOpdVisits.length + filteredAdmissions.length;
+  const totalIpdCount = filteredAdmissions.length;
 
   return (
     <PageTransition>

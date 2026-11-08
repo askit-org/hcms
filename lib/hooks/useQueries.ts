@@ -246,6 +246,7 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.pendingDues() });
       qc.invalidateQueries({ queryKey: keys.bills() });
       qc.invalidateQueries({ queryKey: keys.billForVisit(String(id)) });
+      qc.invalidateQueries({ queryKey: ['hcms', 'ipd'] });
     },
   });
 
@@ -1138,6 +1139,9 @@ export function useIpdMutations() {
       qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
       qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
+      qc.invalidateQueries({ queryKey: keys.bills() });
+      qc.invalidateQueries({ queryKey: keys.pendingDues() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
     },
   });
 
@@ -1148,6 +1152,9 @@ export function useIpdMutations() {
       qc.invalidateQueries({ queryKey: ['hcms', 'patient'] });
       qc.invalidateQueries({ queryKey: ['hcms', 'patientVisits'] });
       qc.invalidateQueries({ queryKey: keys.dashboard() });
+      qc.invalidateQueries({ queryKey: keys.bills() });
+      qc.invalidateQueries({ queryKey: keys.pendingDues() });
+      qc.invalidateQueries({ queryKey: keys.visits() });
     },
   });
 
