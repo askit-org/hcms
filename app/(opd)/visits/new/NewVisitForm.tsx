@@ -3320,7 +3320,6 @@ export default function NewVisitForm() {
                   {/* Print Admission Sheet */}
                   <Link
                     href={`/ipd/${newlyAdmittedRecord.id}/print`}
-                    target="_blank"
                     className="btn btn-secondary"
                     style={{
                       display: "flex",

@@ -963,11 +963,256 @@ body::before {
 
 /* ─── Print ───────────────────────────────────────────────────── */
 @media print {
-  html, body { background: #fff; color: #000; font-size: 13px; }
-  .no-print, .sidebar, .topbar, .modal-overlay { display: none !important; }
-  .print-only { display: block !important; }
-  .page-content { padding: 0; overflow: visible; }
-  .prescription-sheet { page-break-inside: avoid; }
+  @page {
+    size: auto;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11.5px !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset all layout containers so content flows continuously across multiple pages */
+  .app-shell,
+  .main-area,
+  .page-content,
+  main,
+  div[data-theme],
+  div[class*="app-shell"],
+  div[class*="main-area"],
+  div[class*="page-content"] {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  /* Clear all 3D transforms, filters, and backdrops that create single-page viewport clipping roots */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: none !important;
+  }
+
+  /* Interactive UI elements strictly hidden during print */
+  .no-print,
+  .sidebar,
+  .topbar,
+  .page-header,
+  .modal-overlay,
+  .flex-wrap-header-actions,
+  .search-dropdown,
+  .btn,
+  button,
+  .action-col,
+  .action-cell,
+  #mobile-menu-btn,
+  .quick-btn {
+    display: none !important;
+  }
+
+  /* Elements visible only during print */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Expand truncated text in print */
+  .truncate {
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+    max-width: none !important;
+  }
+
+  /* Section cards expand cleanly without heavy grey borders */
+  .card {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    margin-bottom: 16px !important;
+    padding: 12px 14px !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  /* Section headers inside cards */
+  .section-header {
+    margin-bottom: 10px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+
+  /* Tables expand cleanly with modern divider lines instead of harsh cell grids */
+  .table-wrap {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    border: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .data-table thead {
+    display: table-header-group !important;
+  }
+
+  .data-table thead th {
+    background: #f8fafc !important;
+    color: #334155 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    padding: 8px 10px !important;
+    border: none !important;
+    border-top: 1px solid #cbd5e1 !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    text-align: left !important;
+  }
+
+  .data-table tbody tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: #fafafa !important;
+  }
+
+  .data-table tbody td {
+    padding: 7px 10px !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    border: none !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    vertical-align: top !important;
+  }
+
+  /* Badges print with clean themed colors & borders */
+  .badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    border-radius: 4px !important;
+    padding: 2px 6px !important;
+    font-size: 9.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px !important;
+    box-shadow: none !important;
+  }
+
+  .badge-green {
+    background: #ecfdf5 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+  }
+
+  .badge-red {
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+  }
+
+  .badge-amber {
+    background: #fffbeb !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+  }
+
+  .badge-blue {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
+  }
+
+  .badge-teal {
+    background: #f0fdfa !important;
+    color: #0f766e !important;
+    border: 1px solid #99f6e4 !important;
+  }
+
+  .badge-purple {
+    background: #faf5ff !important;
+    color: #7e22ce !important;
+    border: 1px solid #e9d5ff !important;
+  }
+
+  .badge-gray {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  /* KPI Stats Grid in print */
+  .dashboard-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .stat-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    padding: 10px 12px !important;
+    text-align: center !important;
+  }
+
+  .prescription-sheet {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 .print-only { display: none; }
 

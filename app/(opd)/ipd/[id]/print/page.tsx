@@ -291,13 +291,20 @@ export default function IpdPrintPage({ params }: { params: Promise<{ id: string 
           </button>
         </div>
 
-        <Link
-          href="/ipd"
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/ipd');
+            }
+          }}
           className="btn btn-ghost"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
-          <ArrowLeft size={15} /> Back to Inpatients
-        </Link>
+          <ArrowLeft size={15} /> Back
+        </button>
       </div>
 
       {/* Printable Sheet */}

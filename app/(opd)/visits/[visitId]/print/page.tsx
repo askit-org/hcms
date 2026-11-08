@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useVisit, usePatient, useSettings, useBillForVisit } from '@/lib/hooks/useQueries';
 import { Printer, MessageCircle, Share2, Receipt, FileText } from 'lucide-react';
 import { toast } from '@/components/Toast';
@@ -10,6 +10,7 @@ import LoadingScreen from '@/components/LoadingScreen';
 
 export default function PrintRxPage({ params }: { params: Promise<{ visitId: string }> }) {
   const { visitId } = use(params);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const defaultBillView = searchParams.get('bill') === 'true';
 
@@ -208,7 +209,18 @@ export default function PrintRxPage({ params }: { params: Promise<{ visitId: str
           </button>
         </div>
 
-        <button className="btn btn-ghost" onClick={() => history.back()}>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/dashboard');
+            }
+          }}
+        >
           ← Back
         </button>
       </div>

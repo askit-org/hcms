@@ -7,8 +7,24 @@ import type { Medicine, PrescribedMedicine, Template } from '@/lib/providers/typ
 import { toast } from '@/components/Toast';
 import { getErrorMessage } from '@/lib/utils/error';
 import PageTransition from '@/components/PageTransition';
-import DoseSelector, { DoseDisplay, DurationSelect } from '@/components/DoseSelector';
+import DoseSelector, { DoseDisplay, DurationSelect, DURATION_OPTIONS } from '@/components/DoseSelector';
+import InstructionPicker from '@/components/InstructionPicker';
+import { parseDoseToWords } from '@/lib/medicationInstructions';
 import ConfirmModal from '@/components/ConfirmModal';
+
+const DOSE_OPTIONS = [
+  '1-0-1',
+  '1-0-0',
+  '0-0-1',
+  '1-1-1',
+  '0-1-0',
+  '1-1-0',
+  '0-1-1',
+  '1-0-1-1',
+  'SOS',
+  'Stat',
+  '1/2-0-1/2',
+];
 
 const CATEGORIES = [
   'All', 'Antipyretic', 'NSAID', 'Antibiotic', 'Antacid', 'Antiemetic', 'Antidiabetic',
@@ -118,7 +134,15 @@ export default function PrescriptionPage() {
       name: t.name || '',
       diagnosis: t.diagnosis || '',
       notes: t.notes || '',
-      medicines: (t.medicines || []).map((m: PrescribedMedicine) => ({ ...m })),
+      medicines: (t.medicines || []).map((m: PrescribedMedicine) => ({
+        ...m,
+        dose: m.dose || '1-0-1',
+        duration: m.duration || '5 days',
+        instructions: m.instructions || '',
+        instructionKeys: m.instructionKeys || [],
+        customInstruction: m.customInstruction || m.instructions || '',
+        instructionLangs: m.instructionLangs || ['en', 'hi'],
+      })),
     });
     setTplMedQuery('');
     setShowTplForm(true);
@@ -131,13 +155,16 @@ export default function PrescriptionPage() {
         ...f.medicines,
         {
           medicineId: m.id,
-          name: m.name,
+          name: m.name || '',
           category: m.category || 'Other',
           strength: m.strength || '',
           unit: m.unit || 'Tablet',
           dose: m.defaultDose || '1-0-1',
           duration: m.defaultDuration || '5 days',
-          instructions: m.instructions || 'After food',
+          instructions: m.instructions || '',
+          instructionKeys: [],
+          customInstruction: m.instructions || '',
+          instructionLangs: ['en', 'hi'],
         }
       ]
     }));
@@ -158,14 +185,17 @@ export default function PrescriptionPage() {
           unit: 'Tablet',
           dose: '1-0-1',
           duration: '5 days',
-          instructions: 'After food',
+          instructions: '',
+          instructionKeys: [],
+          customInstruction: '',
+          instructionLangs: ['en', 'hi'],
         }
       ]
     }));
     setTplMedQuery('');
   };
 
-  const updateTplMedField = (index: number, field: keyof PrescribedMedicine, value: string) => {
+  const updateTplMedField = (index: number, field: keyof PrescribedMedicine, value: any) => {
     setTplForm(f => ({
       ...f,
       medicines: f.medicines.map((m, i) => i === index ? { ...m, [field]: value } : m)
@@ -430,7 +460,7 @@ export default function PrescriptionPage() {
                               </td>
                               <td><DoseDisplay dose={m.dose} /></td>
                               <td style={{ color: 'var(--text-secondary)' }}>{m.duration}</td>
-                              <td style={{ color: 'var(--text-muted)' }}>{m.customInstruction || m.instructions || 'After food'}</td>
+                              <td style={{ color: 'var(--text-muted)' }}>{m.instructions || m.customInstruction || '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -506,16 +536,16 @@ export default function PrescriptionPage() {
       {/* Template Form Modal */}
       {showTplForm && (
         <div className="modal-overlay" onClick={() => setShowTplForm(false)}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()} style={{ maxWidth: 860 }}>
+          <div className="modal modal-xl" onClick={e => e.stopPropagation()} style={{ maxWidth: 980 }}>
             <div className="modal-header">
               <h3>{editTpl ? 'Edit Prescription Template' : 'New Prescription Template'}</h3>
               <button className="btn-icon" onClick={() => setShowTplForm(false)}><X size={16} /></button>
             </div>
-            <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+            <div className="modal-body" style={{ maxHeight: '78vh', overflowY: 'auto', paddingBottom: 80 }}>
               <div className="form-grid form-grid-2" style={{ gap: 14, marginBottom: 16 }}>
                 <div className="form-group">
                   <label className="form-label">Template Name <span className="required">*</span></label>
-                  <input className="form-input" placeholder="e.g. Fever Protocol, Diabetic Follow-up" value={tplForm.name} onChange={e => setTplForm(f => ({ ...f, name: e.target.value }))} />
+                  <input className="form-input" placeholder="e.g. Fever Protocol, Diabetic Follow-up" value={tplForm.name} onChange={e => setTplForm(f => ({ ...f, name: e.target.value }))} autoFocus />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Diagnosis</label>
@@ -523,158 +553,242 @@ export default function PrescriptionPage() {
                 </div>
               </div>
 
-              {/* Medicine Selection & Search */}
-              <div className="form-group" style={{ marginBottom: 16 }}>
+              {/* Medicine Selection & Search (OPD Pattern) */}
+              <div style={{ position: "relative", zIndex: 100, marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label className="form-label" style={{ marginBottom: 0 }}>Add Medicines to Template ({tplForm.medicines.length} added)</label>
+                  <label className="form-label" style={{ marginBottom: 0 }}>
+                    Prescription Medicines ({tplForm.medicines.length} added)
+                  </label>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Master Catalog: {medicines.length} medicines</span>
                 </div>
-                
-                <div style={{ position: 'relative', marginBottom: 8 }}>
-                  <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    className="form-input" 
-                    style={{ paddingLeft: 32 }} 
-                    placeholder="Search medicine catalog by name, category, or strength..." 
+                <div className="search-input-wrap">
+                  <span className="s-icon">
+                    <Search />
+                  </span>
+                  <input
+                    className="search-input"
+                    placeholder="Search medicine to add…"
                     value={tplMedQuery}
-                    onChange={e => setTplMedQuery(e.target.value)}
+                    onChange={(e) => setTplMedQuery(e.target.value)}
                   />
-                  {tplMedQuery.trim() !== '' && (
-                    <div className="search-dropdown" style={{ maxHeight: 220, overflowY: 'auto', zIndex: 100 }}>
-                      {medicines
-                        .filter(m => m.name.toLowerCase().includes(tplMedQuery.toLowerCase()) || (m.category && m.category.toLowerCase().includes(tplMedQuery.toLowerCase())))
-                        .slice(0, 30)
-                        .map(m => (
-                          <div 
-                            key={m.id} 
-                            className="search-result" 
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                            onClick={() => addMedToTemplate(m)}
-                          >
-                            <div>
-                              <span style={{ fontWeight: 600 }}>{m.name}</span>
-                              {m.strength && <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginLeft: 6 }}>({m.strength} · {m.unit || 'Tablet'})</span>}
-                              <span className="badge badge-teal" style={{ marginLeft: 8, fontSize: '0.7rem' }}>{m.category || 'Other'}</span>
-                            </div>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--accent-light)', fontWeight: 600 }}>
-                              + Add to Template
-                            </span>
+                </div>
+                {tplMedQuery.trim() !== "" && (
+                  <div className="search-dropdown" style={{ maxHeight: 240, overflowY: 'auto' }}>
+                    {medicines
+                      .filter((m) =>
+                        (m.name && m.name.toLowerCase().includes(tplMedQuery.toLowerCase())) ||
+                        (m.category && m.category.toLowerCase().includes(tplMedQuery.toLowerCase())) ||
+                        (m.strength && m.strength.toLowerCase().includes(tplMedQuery.toLowerCase()))
+                      )
+                      .slice(0, 30)
+                      .map((m) => (
+                        <div
+                          key={m.id}
+                          className="search-result"
+                          onClick={() => addMedToTemplate(m)}
+                        >
+                          <div className="sr-name">{m.name}</div>
+                          <div className="sr-meta">
+                            {m.category || 'Other'}
+                            {m.strength ? ` · ${m.strength}` : ''}
+                            {m.unit ? ` (${m.unit})` : ''} ·{" "}
+                            {parseDoseToWords(m.defaultDose || '1-0-1').en || m.defaultDose || '1-0-1'} ·{" "}
+                            {m.defaultDuration || '5 days'}
                           </div>
-                        ))}
-                      <div 
-                        className="search-result" 
-                        style={{ color: 'var(--primary)', fontWeight: 600, background: 'rgba(13, 148, 136, 0.05)', display: 'flex', alignItems: 'center', gap: 6 }}
-                        onClick={() => addCustomMedToTemplate(tplMedQuery)}
-                      >
-                        <Plus size={14} /> Add custom medicine &quot;{tplMedQuery.trim()}&quot; to template
-                      </div>
+                        </div>
+                      ))}
+                    <div
+                      className="search-result"
+                      style={{
+                        color: "var(--primary)",
+                        fontWeight: 600,
+                        borderTop:
+                          medicines.filter((m) =>
+                            (m.name && m.name.toLowerCase().includes(tplMedQuery.toLowerCase())) ||
+                            (m.category && m.category.toLowerCase().includes(tplMedQuery.toLowerCase())) ||
+                            (m.strength && m.strength.toLowerCase().includes(tplMedQuery.toLowerCase()))
+                          ).length > 0
+                            ? "1px solid var(--border)"
+                            : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: "rgba(13, 148, 136, 0.05)",
+                      }}
+                      onClick={() => addCustomMedToTemplate(tplMedQuery)}
+                    >
+                      <Plus size={15} /> Add &quot;{tplMedQuery.trim()}&quot; as new medicine
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Template Medicines Table with ALL Columns */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
-                  Configured Medicines in Template ({tplForm.medicines.length})
-                </div>
-
-                {tplForm.medicines.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '24px', border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text-muted)', fontSize: '0.84rem' }}>
-                    No medicines added yet. Use the search bar above to search and add medicines with dose, duration, and instructions.
-                  </div>
-                ) : (
-                  <div className="table-wrap">
-                    <table className="data-table" style={{ fontSize: '0.82rem' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: '22%' }}>Medicine Name</th>
-                          <th style={{ width: '13%' }}>Category</th>
-                          <th style={{ width: '15%' }}>Form / Unit</th>
-                          <th style={{ width: '12%' }}>Strength</th>
-                          <th style={{ width: '15%' }}>Dose</th>
-                          <th style={{ width: '12%' }}>Duration</th>
-                          <th style={{ width: '18%' }}>Instructions</th>
-                          <th style={{ width: '5%', textAlign: 'center' }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tplForm.medicines.map((m, i) => (
-                          <tr key={i}>
-                            <td>
-                              <input 
-                                className="form-input form-input-sm" 
-                                value={m.name} 
-                                onChange={e => updateTplMedField(i, 'name', e.target.value)} 
-                                placeholder="Medicine Name"
-                              />
-                            </td>
-                            <td>
-                              <select 
-                                className="form-select form-select-sm" 
-                                value={m.category || 'Other'} 
-                                onChange={e => updateTplMedField(i, 'category', e.target.value)}
-                              >
-                                {CATEGORIES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
-                              </select>
-                            </td>
-                            <td>
-                              <select 
-                                className="form-select form-select-sm" 
-                                value={m.unit || 'Tablet'} 
-                                onChange={e => updateTplMedField(i, 'unit', e.target.value)}
-                              >
-                                {UNITS.map(u => <option key={u}>{u}</option>)}
-                              </select>
-                            </td>
-                            <td>
-                              <input 
-                                className="form-input form-input-sm" 
-                                value={m.strength || ''} 
-                                onChange={e => updateTplMedField(i, 'strength', e.target.value)} 
-                                placeholder="e.g. 500mg"
-                              />
-                            </td>
-                            <td>
-                              <DoseSelector 
-                                value={m.dose || '1-0-1'} 
-                                onChange={v => updateTplMedField(i, 'dose', v)} 
-                              />
-                            </td>
-                            <td>
-                              <DurationSelect 
-                                value={m.duration || '5 days'} 
-                                onChange={v => updateTplMedField(i, 'duration', v)} 
-                              />
-                            </td>
-                            <td>
-                              <input 
-                                className="form-input form-input-sm" 
-                                value={m.instructions || m.customInstruction || ''} 
-                                onChange={e => {
-                                  updateTplMedField(i, 'instructions', e.target.value);
-                                  updateTplMedField(i, 'customInstruction', e.target.value);
-                                }} 
-                                placeholder="After food"
-                              />
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <button 
-                                type="button" 
-                                className="btn btn-ghost btn-sm" 
-                                style={{ color: 'var(--red)', padding: '4px' }} 
-                                onClick={() => removeTplMed(i)}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 )}
               </div>
+
+              {/* Medicine Rows (OPD Pattern) */}
+              {tplForm.medicines.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "24px",
+                    color: "var(--text-muted)",
+                    fontSize: "0.84rem",
+                    border: "1px dashed var(--border)",
+                    borderRadius: 8,
+                    marginBottom: 16,
+                  }}
+                >
+                  Search and add medicines above
+                </div>
+              ) : (
+                <div style={{ marginBottom: 16 }}>
+                  <div
+                    className="med-row-header"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "2.2fr 1.1fr 1.1fr 2.5fr auto",
+                      gap: 8,
+                      padding: "4px 6px",
+                      fontSize: "0.7rem",
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span>Medicine</span>
+                    <span>Dose</span>
+                    <span>Duration</span>
+                    <span>Instructions</span>
+                    <span></span>
+                  </div>
+                  <datalist id="tpl-dose-options">
+                    {DOSE_OPTIONS.map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
+                  <datalist id="tpl-duration-options">
+                    {DURATION_OPTIONS.map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
+                  {tplForm.medicines.map((m, i) => (
+                    <div key={i} className="med-row">
+                      <div className="med-row-field">
+                        <span
+                          className="med-row-field-label"
+                          style={{ display: "none" }}
+                        >
+                          Medicine Name
+                        </span>
+                        <input
+                          className="form-input"
+                          placeholder="Medicine Name"
+                          value={m.name}
+                          onChange={(e) => updateTplMedField(i, "name", e.target.value)}
+                        />
+                        {(m.strength || m.unit || (m.category && m.category !== 'Other')) && (
+                          <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                            {m.strength && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                {m.strength}
+                              </span>
+                            )}
+                            {m.unit && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                {m.unit}
+                              </span>
+                            )}
+                            {m.category && m.category !== 'Other' && (
+                              <span className="badge badge-teal" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                                {m.category}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="med-row-field">
+                        <span
+                          className="med-row-field-label"
+                          style={{ display: "none" }}
+                        >
+                          Dose
+                        </span>
+                        <DoseSelector
+                          value={m.dose || '1-0-1'}
+                          onChange={(v) => updateTplMedField(i, "dose", v)}
+                        />
+                      </div>
+                      <div className="med-row-field">
+                        <span
+                          className="med-row-field-label"
+                          style={{ display: "none" }}
+                        >
+                          Duration
+                        </span>
+                        <DurationSelect
+                          value={m.duration || '5 days'}
+                          onChange={(v) => updateTplMedField(i, "duration", v)}
+                        />
+                      </div>
+
+                      <div className="med-row-field">
+                        <span
+                          className="med-row-field-label"
+                          style={{ display: "none" }}
+                        >
+                          Instructions
+                        </span>
+                        <InstructionPicker
+                          instructionKeys={m.instructionKeys}
+                          customInstruction={m.customInstruction || m.instructions}
+                          languages={m.instructionLangs}
+                          onChange={({
+                            instructionKeys,
+                            customInstruction,
+                            languages,
+                            formattedText,
+                          }) => {
+                            setTplForm((prev) => ({
+                              ...prev,
+                              medicines: prev.medicines.map((item, idx) =>
+                                idx === i
+                                  ? {
+                                      ...item,
+                                      instructions: formattedText,
+                                      instructionKeys,
+                                      customInstruction,
+                                      instructionLangs: languages,
+                                    }
+                                  : item
+                              ),
+                            }));
+                          }}
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          marginTop: 2,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: "var(--red)" }}
+                          onClick={() => removeTplMed(i)}
+                        >
+                          <Trash2 size={15} />{" "}
+                          <span className="mobile-only-inline">
+                            Remove Medicine
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Notes & Advice</label>

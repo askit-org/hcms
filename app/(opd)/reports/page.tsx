@@ -17,12 +17,17 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useReports, useIpdAdmissions } from '@/lib/hooks/useQueries';
+import { useReports, useIpdAdmissions, useSettings } from '@/lib/hooks/useQueries';
+import { useAuth } from '@/lib/hooks/useAuth';
 import PageTransition from '@/components/PageTransition';
 import type { Patient, IpdAdmission, Visit } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const { data: settings } = useSettings();
+  const clinicName = user?.clinicName || settings?.clinicName || 'Hospital Clinic';
+
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -325,14 +330,55 @@ export default function ReportsPage() {
 
   return (
     <PageTransition>
-      <div className="page-header">
+      {/* ─── PRINT-ONLY OFFICIAL REPORT HEADER ─── */}
+      <div className="print-only" style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2.5px solid #0f172a', paddingBottom: 10, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img src="/icons/logo.png" alt="HCMS Logo" width={42} height={42} style={{ width: 42, height: 42, objectFit: 'contain' }} />
+            <div>
+              <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0 0 2px 0', color: '#0f172a', letterSpacing: '-0.3px' }}>
+                {clinicName}
+              </h1>
+              <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 500 }}>
+                {settings?.address || 'Healthcare Management & Clinical Operations'}
+                {settings?.phone ? ` · Ph: ${settings.phone}` : ''}
+              </div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ display: 'inline-block', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 8px', fontSize: '0.72rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Official Clinical Activity Report
+            </span>
+            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 4 }}>
+              Generated: <strong>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong> at {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '8px 12px', fontSize: '0.76rem', color: '#334155' }}>
+          <div>
+            <span style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>Reporting Period</span>
+            <strong>{new Date(startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong> to <strong>{new Date(endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
+          </div>
+          <div>
+            <span style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>Department Scope</span>
+            <strong>{activityTab === 'ALL' ? 'All Activities (OPD & IPD)' : activityTab === 'IPD' ? 'IPD Inpatient Admissions Only' : 'OPD Consultations Only'}</strong>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>Total Encounters in Period</span>
+            <strong style={{ fontSize: '0.9rem', color: '#0d9488' }}>{totalEncountersCount} Encounters</strong> ({filteredOpdVisits.length} OPD · {totalIpdCount} IPD)
+          </div>
+        </div>
+      </div>
+
+      <div className="page-header no-print">
         <div>
           <div className="page-title">Reports &amp; Hospital Analytics</div>
           <div className="page-subtitle">
             Comprehensive OPD consultations, IPD admissions, bed utilization and clinical activity
           </div>
         </div>
-        <div className="flex-wrap-header-actions">
+        <div className="flex-wrap-header-actions no-print">
           <button className="btn btn-secondary" onClick={exportCSV}>
             <Download size={15} /> Export {activityTab === 'ALL' ? 'Combined CSV' : `${activityTab} CSV`}
           </button>
@@ -343,7 +389,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Date Range & Global Search Filter */}
-      <div className="card card-sm" style={{ marginBottom: 16 }}>
+      <div className="card card-sm no-print" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 0 }}>
             <label className="form-label" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>
@@ -410,6 +456,7 @@ export default function ReportsPage() {
 
       {/* Department Tabs Bar */}
       <div
+        className="no-print"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -420,6 +467,7 @@ export default function ReportsPage() {
         }}
       >
         <div
+          className="no-print"
           style={{
             display: 'inline-flex',
             background: 'var(--surface-2)',
@@ -563,7 +611,7 @@ export default function ReportsPage() {
               >
                 {filteredAdmissions.length} Admissions
               </span>
-              <Link href="/ipd" className="btn btn-secondary btn-xs">
+              <Link href="/ipd" className="btn btn-secondary btn-xs no-print">
                 Ward Floor Plan →
               </Link>
             </div>
@@ -589,7 +637,7 @@ export default function ReportsPage() {
                     <th>Stay &amp; Rounds</th>
                     <th>Financials (Charges / Paid / Due)</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th className="no-print">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -695,7 +743,7 @@ export default function ReportsPage() {
                           </span>
                         </td>
 
-                        <td style={{ whiteSpace: 'nowrap' }}>
+                        <td className="no-print" style={{ whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <Link
                               href={`/patients/${adm.patientId}`}
@@ -707,7 +755,6 @@ export default function ReportsPage() {
                             <Link
                               href={`/ipd/${adm.id}/print`}
                               className="btn btn-secondary btn-xs"
-                              target="_blank"
                               title="Print Statement / Slip"
                             >
                               <Printer size={12} /> Slip
@@ -783,7 +830,7 @@ export default function ReportsPage() {
                     <th>BP / Pulse</th>
                     <th>Billing Status</th>
                     <th>Follow-up</th>
-                    <th>Action</th>
+                    <th className="no-print">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -835,8 +882,8 @@ export default function ReportsPage() {
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
                         </td>
-                        <td>
-                          <Link href={`/visits/${v.id}/print`} className="btn btn-ghost btn-xs" target="_blank" title="Print Prescription">
+                        <td className="no-print">
+                          <Link href={`/visits/${v.id}/print`} className="btn btn-ghost btn-xs" title="Print Prescription">
                             <Printer size={12} />
                           </Link>
                         </td>

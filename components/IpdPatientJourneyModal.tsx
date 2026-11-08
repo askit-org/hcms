@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   X,
   Bed,
@@ -54,6 +55,7 @@ export default function IpdPatientJourneyModal({
   onDeleteAdmission,
   onDeleteDayLog,
 }: IpdPatientJourneyModalProps) {
+  const router = useRouter();
   const patient = admission.patient;
   const isDischarged = admission.status === 'DISCHARGED';
   const dayLogs = useMemo(() => {
@@ -288,15 +290,17 @@ export default function IpdPatientJourneyModal({
 
           {/* Header Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <a
-              href={`/ipd/${admission.id}/print`}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                router.push(`/ipd/${admission.id}/print`);
+              }}
               className="btn btn-secondary btn-sm"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Printer size={14} /> Print Statement
-            </a>
+            </button>
 
             <button
               type="button"

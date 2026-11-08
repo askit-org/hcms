@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   Pill,
@@ -86,6 +87,7 @@ export default function IpdDischargeModal({
   admission,
   onSuccess,
 }: IpdDischargeModalProps) {
+  const router = useRouter();
   const { user } = useAuth();
   const { data: settings } = useSettings();
   const { discharge } = useIpdMutations();
@@ -499,7 +501,8 @@ export default function IpdDischargeModal({
   };
 
   const handlePrint = () => {
-    window.open(`/ipd/${admission.id}/print`, "_blank");
+    onClose();
+    router.push(`/ipd/${admission.id}/print`);
   };
 
   const handleWhatsAppShare = () => {
