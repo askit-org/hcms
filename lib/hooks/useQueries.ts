@@ -243,6 +243,9 @@ export function useVisitMutations() {
       qc.invalidateQueries({ queryKey: keys.dashboard() });
       qc.invalidateQueries({ queryKey: keys.followups() });
       qc.invalidateQueries({ queryKey: keys.patients() });
+      qc.invalidateQueries({ queryKey: keys.pendingDues() });
+      qc.invalidateQueries({ queryKey: keys.bills() });
+      qc.invalidateQueries({ queryKey: keys.billForVisit(String(id)) });
     },
   });
 
