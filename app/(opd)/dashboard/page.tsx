@@ -948,7 +948,6 @@ export default function DashboardPage() {
                           <Link
                             href={`/ipd/${adm.id}/print`}
                             className="btn btn-ghost btn-xs"
-                            target="_blank"
                             title="Print Sheet"
                             style={{ padding: "3px 6px" }}
                           >
