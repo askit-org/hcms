@@ -15,11 +15,13 @@ import {
   CheckCircle2,
   Printer,
   ExternalLink,
+  PieChart,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useReports, useIpdAdmissions, useSettings } from '@/lib/hooks/useQueries';
 import { useAuth } from '@/lib/hooks/useAuth';
 import PageTransition from '@/components/PageTransition';
+import VisualAnalyticsBoard from '@/components/VisualAnalyticsBoard';
 import type { Patient, IpdAdmission, Visit } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
 
@@ -36,6 +38,7 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [query, setQuery] = useState('');
   const [activityTab, setActivityTab] = useState<'ALL' | 'OPD' | 'IPD'>('ALL');
+  const [viewMode, setViewMode] = useState<'ANALYTICS' | 'RECORDS'>('ANALYTICS');
 
   // Custom debouncing hook
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -45,12 +48,12 @@ export default function ReportsPage() {
   }, [query]);
 
   // Fetch OPD reports & IPD admissions
-  const { data: visitPage, isLoading: loadingVisits } = useReports(startDate, endDate);
+  const { data: visitPage, isLoading: loadingVisits, refetch: refetchVisits } = useReports(startDate, endDate);
   const visits = visitPage?.data ?? [];
   const totalInRange = visitPage?.meta.total ?? 0;
   const isTruncated = totalInRange > visits.length;
 
-  const { data: allIpdAdmissions = [], isLoading: loadingIpd } = useIpdAdmissions();
+  const { data: allIpdAdmissions = [], isLoading: loadingIpd, refetch: refetchIpd } = useIpdAdmissions();
   const isLoading = loadingVisits || loadingIpd;
 
   // Patient lookup map
@@ -379,16 +382,72 @@ export default function ReportsPage() {
           </div>
         </div>
         <div className="flex-wrap-header-actions no-print">
-          <button className="btn btn-secondary" onClick={exportCSV}>
-            <Download size={15} /> Export {activityTab === 'ALL' ? 'Combined CSV' : `${activityTab} CSV`}
-          </button>
-          <button className="btn btn-secondary" onClick={exportPDF}>
-            <FileText size={15} /> Print Report
-          </button>
+          {viewMode === 'RECORDS' && (
+            <>
+              <button className="btn btn-secondary" onClick={exportCSV}>
+                <Download size={15} /> Export {activityTab === 'ALL' ? 'Combined CSV' : `${activityTab} CSV`}
+              </button>
+              <button className="btn btn-secondary" onClick={exportPDF}>
+                <FileText size={15} /> Print Report
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Date Range & Global Search Filter */}
+      {/* Top View Mode Switcher: Visual Analytics & Charts vs. Tabular Records */}
+      <div
+        className="no-print"
+        style={{
+          display: 'flex',
+          gap: 6,
+          marginBottom: 18,
+          background: 'var(--surface-1)',
+          padding: 4,
+          borderRadius: 10,
+          border: '1px solid var(--border)',
+          width: 'fit-content',
+        }}
+      >
+        <button
+          type="button"
+          className={`btn btn-sm ${viewMode === 'ANALYTICS' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setViewMode('ANALYTICS')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+        >
+          <PieChart size={16} /> Visual Analytics &amp; Charts Board
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${viewMode === 'RECORDS' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setViewMode('RECORDS')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+        >
+          <BarChart3 size={16} /> Encounter Records &amp; Tables
+        </button>
+      </div>
+
+      {viewMode === 'ANALYTICS' ? (
+        <div className="no-print">
+          <VisualAnalyticsBoard
+            visits={visits}
+            admissions={allIpdAdmissions}
+            patMap={patMap}
+            startDate={startDate}
+            endDate={endDate}
+            onDateRangeChange={(s, e) => {
+              setStartDate(s);
+              setEndDate(e);
+            }}
+            onRefreshData={() => {
+              refetchVisits();
+              refetchIpd();
+            }}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Date Range & Global Search Filter */}
       <div className="card card-sm no-print" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 0 }}>
@@ -895,6 +954,8 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </PageTransition>
   );

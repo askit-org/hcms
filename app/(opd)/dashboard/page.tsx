@@ -620,6 +620,61 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* ─── VISUAL ANALYTICS & REVENUE CHARTS LAUNCHPAD ─── */}
+      <div
+        className="card card-sm"
+        style={{
+          marginBottom: 20,
+          background: "linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%)",
+          border: "1px solid var(--border)",
+          padding: "16px 20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: "rgba(59, 130, 246, 0.12)",
+              color: "var(--primary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <TrendingUp size={22} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "0.98rem", display: "flex", alignItems: "center", gap: 8 }}>
+              Hospital Financial &amp; Activity Analytics Suite
+              <span className="badge badge-teal" style={{ fontSize: "0.68rem" }}>
+                Interactive Pie &amp; Bar Charts
+              </span>
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2 }}>
+              Inspect day-wise, monthly &amp; yearly earnings, pending dues recovery, and patient mix with instant drill-down modals.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Link
+            href="/reports"
+            className="btn btn-primary btn-sm"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}
+          >
+            Open Visual Analytics Board <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+
       {/* ─── WORKSPACE (Unified Responsive Clinical Hub) ─── */}
       <div className="dashboard-main-grid">
           {/* Left Column: Today's OPD Consultations Queue */}
