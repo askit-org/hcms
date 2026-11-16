@@ -1,7 +1,17 @@
 "use client";
 
-import { useState, useId } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useRef, useState } from "react";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  ChartEvent,
+  ActiveElement,
+} from "chart.js";
+import { Doughnut } from "react-chartjs-2";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 export interface DonutSlice {
   id: string;
@@ -20,51 +30,10 @@ export interface InteractiveDonutChartProps {
   totalLabel?: string;
   totalFormatted?: string;
   size?: number;
-  innerRadiusRatio?: number; // 0 for pie, ~0.65 for donut
+  innerRadiusRatio?: number;
   onSliceClick?: (slice: DonutSlice) => void;
   emptyMessage?: string;
   showLegend?: boolean;
-}
-
-function polarToCartesian(
-  centerX: number,
-  centerY: number,
-  radius: number,
-  angleInDegrees: number
-) {
-  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
-  return {
-    x: centerX + radius * Math.cos(angleInRadians),
-    y: centerY + radius * Math.sin(angleInRadians),
-  };
-}
-
-function describeDonutSegment(
-  cx: number,
-  cy: number,
-  rInner: number,
-  rOuter: number,
-  startAngle: number,
-  endAngle: number
-) {
-  // Clamp angle delta to avoid 360-degree SVG full circle arc collapse
-  const delta = Math.min(Math.max(endAngle - startAngle, 0.001), 359.999);
-  const actualEndAngle = startAngle + delta;
-
-  const p1 = polarToCartesian(cx, cy, rOuter, actualEndAngle);
-  const p2 = polarToCartesian(cx, cy, rOuter, startAngle);
-  const p3 = polarToCartesian(cx, cy, rInner, startAngle);
-  const p4 = polarToCartesian(cx, cy, rInner, actualEndAngle);
-
-  const largeArcFlag = delta > 180 ? 1 : 0;
-
-  return [
-    `M ${p2.x} ${p2.y}`,
-    `A ${rOuter} ${rOuter} 0 ${largeArcFlag} 1 ${p1.x} ${p1.y}`,
-    `L ${p4.x} ${p4.y}`,
-    `A ${rInner} ${rInner} 0 ${largeArcFlag} 0 ${p3.x} ${p3.y}`,
-    "Z",
-  ].join(" ");
 }
 
 export default function InteractiveDonutChart({
@@ -74,39 +43,91 @@ export default function InteractiveDonutChart({
   totalLabel = "Total",
   totalFormatted,
   size = 280,
-  innerRadiusRatio = 0.65,
   onSliceClick,
   emptyMessage = "No data available for this timeframe",
   showLegend = true,
 }: InteractiveDonutChartProps) {
-  const chartId = useId();
-  const [hoveredSliceId, setHoveredSliceId] = useState<string | null>(null);
+  const chartRef = useRef<any>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const validData = data.filter((d) => d.value > 0);
-  const totalValue = validData.reduce((acc, curr) => acc + curr.value, 0);
+  const validData = useMemo(() => data.filter((d) => d.value > 0), [data]);
+  const totalValue = useMemo(
+    () => validData.reduce((acc, curr) => acc + curr.value, 0),
+    [validData]
+  );
 
-  const cx = size / 2;
-  const cy = size / 2;
-  const outerR = size * 0.44;
-  const innerR = outerR * innerRadiusRatio;
-
-  // Compute angles for each segment
-  let currentAngle = 0;
-  const slicesWithAngles = validData.map((slice) => {
-    const sliceAngle = totalValue > 0 ? (slice.value / totalValue) * 360 : 0;
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + sliceAngle;
-    currentAngle += sliceAngle;
-    const percent = totalValue > 0 ? (slice.value / totalValue) * 100 : 0;
+  const chartData = useMemo(() => {
     return {
-      ...slice,
-      startAngle,
-      endAngle,
-      percent,
+      labels: validData.map((d) => d.label),
+      datasets: [
+        {
+          data: validData.map((d) => d.value),
+          backgroundColor: validData.map((d) => d.color),
+          hoverBackgroundColor: validData.map((d) => d.color),
+          borderWidth: 2,
+          borderColor: "rgba(17, 24, 39, 0.8)",
+          hoverBorderColor: "#ffffff",
+          hoverBorderWidth: 2,
+          borderRadius: 4,
+          spacing: validData.length > 1 ? 3 : 0,
+        },
+      ],
     };
-  });
+  }, [validData]);
 
-  const activeSlice = slicesWithAngles.find((s) => s.id === hoveredSliceId);
+  const chartOptions = useMemo(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: "74%",
+      animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: 800,
+        easing: "easeOutQuart" as const,
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          enabled: true,
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          titleColor: "#f8fafc",
+          bodyColor: "#94a3b8",
+          borderColor: "rgba(255, 255, 255, 0.12)",
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 8,
+          boxPadding: 4,
+          callbacks: {
+            label: function (context: any) {
+              const slice = validData[context.dataIndex];
+              const val = slice?.formattedValue || context.parsed;
+              const pct = totalValue > 0 ? ((context.parsed / totalValue) * 100).toFixed(1) : "0";
+              return ` ${slice?.label || ""}: ${val} (${pct}%)`;
+            },
+          },
+        },
+      },
+      onHover: (_: ChartEvent, elements: ActiveElement[]) => {
+        if (elements && elements.length > 0) {
+          setHoveredIndex(elements[0].index);
+        } else {
+          setHoveredIndex(null);
+        }
+      },
+      onClick: (_: ChartEvent, elements: ActiveElement[]) => {
+        if (elements && elements.length > 0 && onSliceClick) {
+          const idx = elements[0].index;
+          const slice = validData[idx];
+          if (slice) onSliceClick(slice);
+        }
+      },
+    };
+  }, [validData, totalValue, onSliceClick]);
+
+  const activeSlice = hoveredIndex !== null ? validData[hoveredIndex] : null;
 
   return (
     <div
@@ -115,15 +136,19 @@ export default function InteractiveDonutChart({
         flexDirection: "column",
         alignItems: "center",
         width: "100%",
+        maxWidth: "100%",
       }}
     >
+      {/* Title & Subtitle */}
       {(title || subtitle) && (
-        <div style={{ textAlign: "center", marginBottom: 12, width: "100%" }}>
+        <div style={{ textAlign: "center", marginBottom: 14, width: "100%" }}>
           {title && (
-            <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{title}</div>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+              {title}
+            </div>
           )}
           {subtitle && (
-            <div style={{ fontSize: "0.76rem", color: "var(--text-muted)" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
               {subtitle}
             </div>
           )}
@@ -133,7 +158,7 @@ export default function InteractiveDonutChart({
       {totalValue === 0 ? (
         <div
           style={{
-            height: size,
+            height: Math.min(size, 220),
             width: "100%",
             display: "flex",
             alignItems: "center",
@@ -141,244 +166,174 @@ export default function InteractiveDonutChart({
             flexDirection: "column",
             gap: 8,
             color: "var(--text-muted)",
-            fontSize: "0.84rem",
-            background: "var(--surface-1)",
-            borderRadius: 12,
+            fontSize: "0.82rem",
+            background: "rgba(255, 255, 255, 0.02)",
+            borderRadius: 14,
             border: "1px dashed var(--border)",
           }}
         >
-          <div style={{ fontSize: "1.8rem", opacity: 0.5 }}>📊</div>
+          <div style={{ fontSize: "1.6rem", opacity: 0.5 }}>📊</div>
           <div>{emptyMessage}</div>
         </div>
       ) : (
         <div
           style={{
             position: "relative",
-            width: size,
-            height: size,
+            width: "100%",
+            maxWidth: size,
+            aspectRatio: "1 / 1",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <svg
-            width={size}
-            height={size}
-            viewBox={`0 0 ${size} ${size}`}
-            style={{ overflow: "visible" }}
+          <Doughnut ref={chartRef} data={chartData} options={chartOptions as any} />
+
+          {/* Clean Flat Center Readout */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              textAlign: "center",
+              padding: "0 20px",
+            }}
           >
-            <defs>
-              <filter id={`shadow-${chartId}`} x="-10%" y="-10%" width="120%" height="120%">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.25" />
-              </filter>
-            </defs>
-
-            {slicesWithAngles.map((slice) => {
-              const isHovered = hoveredSliceId === slice.id;
-              // Expand active slice slightly outward
-              const midAngle = (slice.startAngle + slice.endAngle) / 2;
-              const shift = isHovered ? 5 : 0;
-              const shiftOffset = polarToCartesian(0, 0, shift, midAngle);
-
-              const path = describeDonutSegment(
-                cx,
-                cy,
-                innerR,
-                isHovered ? outerR + 4 : outerR,
-                slice.startAngle,
-                slice.endAngle
-              );
-
-              return (
-                <g
-                  key={slice.id}
-                  transform={`translate(${shiftOffset.x}, ${shiftOffset.y})`}
+            {activeSlice ? (
+              <div>
+                <div
                   style={{
-                    transition: "transform 0.18s ease-out",
-                    cursor: onSliceClick ? "pointer" : "default",
+                    fontSize: "0.68rem",
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    fontWeight: 700,
                   }}
-                  onMouseEnter={() => setHoveredSliceId(slice.id)}
-                  onMouseLeave={() => setHoveredSliceId(null)}
-                  onClick={() => onSliceClick && onSliceClick(slice)}
                 >
-                  <path
-                    d={path}
-                    fill={slice.color}
-                    opacity={
-                      hoveredSliceId === null || isHovered ? 1 : 0.65
-                    }
-                    filter={isHovered ? `url(#shadow-${chartId})` : undefined}
-                    stroke="var(--surface-card, #1e2230)"
-                    strokeWidth={slicesWithAngles.length > 1 ? 2 : 0}
-                    style={{ transition: "all 0.18s ease-out" }}
-                  />
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Center Callout Readout for Donut */}
-          {innerRadiusRatio > 0.4 && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-                textAlign: "center",
-                padding: "0 14px",
-              }}
-            >
-              <AnimatePresence mode="wait">
-                {activeSlice ? (
-                  <motion.div
-                    key={`slice-${activeSlice.id}`}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "0.72rem",
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        fontWeight: 600,
-                        maxWidth: innerR * 1.6,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {activeSlice.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "1.1rem",
-                        fontWeight: 800,
-                        color: activeSlice.color,
-                        lineHeight: 1.2,
-                        marginTop: 2,
-                      }}
-                    >
-                      {activeSlice.formattedValue || activeSlice.value}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.74rem",
-                        fontWeight: 700,
-                        color: "var(--text-secondary)",
-                        marginTop: 2,
-                      }}
-                    >
-                      {activeSlice.percent.toFixed(1)}%
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="total-readout"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "0.7rem",
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {totalLabel}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "1.15rem",
-                        fontWeight: 800,
-                        color: "var(--text-primary)",
-                        lineHeight: 1.2,
-                        marginTop: 2,
-                      }}
-                    >
-                      {totalFormatted || totalValue.toLocaleString("en-IN")}
-                    </div>
-                    {onSliceClick && (
-                      <div
-                        style={{
-                          fontSize: "0.68rem",
-                          color: "var(--primary)",
-                          fontWeight: 600,
-                          marginTop: 3,
-                        }}
-                      >
-                        Click slice to inspect
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+                  {activeSlice.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: "1.25rem",
+                    fontWeight: 800,
+                    color: activeSlice.color,
+                    marginTop: 2,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {activeSlice.formattedValue || activeSlice.value.toLocaleString("en-IN")}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    color: "var(--text-secondary)",
+                    marginTop: 2,
+                  }}
+                >
+                  {totalValue > 0 ? ((activeSlice.value / totalValue) * 100).toFixed(1) : 0}% of total
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    fontSize: "0.68rem",
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    fontWeight: 700,
+                  }}
+                >
+                  {totalLabel}
+                </div>
+                <div
+                  style={{
+                    fontSize: "1.3rem",
+                    fontWeight: 800,
+                    color: "var(--text-primary)",
+                    marginTop: 2,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {totalFormatted || totalValue.toLocaleString("en-IN")}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.68rem",
+                    color: "var(--text-muted)",
+                    marginTop: 3,
+                  }}
+                >
+                  Hover or click
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Legend & Slice Summary Pills */}
-      {showLegend && totalValue > 0 && (
+      {/* Clean Aesthetic Pill Legend */}
+      {showLegend && validData.length > 0 && (
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
-            gap: 8,
             justifyContent: "center",
+            gap: "8px 10px",
             marginTop: 14,
-            maxWidth: size + 80,
+            width: "100%",
           }}
         >
-          {slicesWithAngles.map((slice) => {
-            const isHovered = hoveredSliceId === slice.id;
+          {validData.map((slice, idx) => {
+            const isHovered = hoveredIndex === idx;
+            const pct = totalValue > 0 ? ((slice.value / totalValue) * 100).toFixed(0) : "0";
             return (
               <button
-                key={slice.id}
                 type="button"
+                key={slice.id}
                 onClick={() => onSliceClick && onSliceClick(slice)}
-                onMouseEnter={() => setHoveredSliceId(slice.id)}
-                onMouseLeave={() => setHoveredSliceId(null)}
+                onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseLeave={() => setHoveredIndex(null)}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "4px 10px",
+                  padding: "4px 9px",
                   borderRadius: 20,
-                  fontSize: "0.75rem",
                   background: isHovered
-                    ? "var(--surface-3)"
-                    : "var(--surface-1)",
-                  border: isHovered
-                    ? `1.5px solid ${slice.color}`
-                    : "1px solid var(--border)",
-                  color: "var(--text-primary)",
+                    ? "rgba(255, 255, 255, 0.08)"
+                    : "rgba(255, 255, 255, 0.03)",
+                  border: `1px solid ${isHovered ? slice.color : "rgba(255, 255, 255, 0.07)"}`,
                   cursor: onSliceClick ? "pointer" : "default",
                   transition: "all 0.15s ease",
+                  fontSize: "0.74rem",
+                  color: "var(--text-primary)",
                 }}
               >
                 <span
                   style={{
-                    width: 9,
-                    height: 9,
+                    width: 8,
+                    height: 8,
                     borderRadius: "50%",
-                    background: slice.color,
+                    backgroundColor: slice.color,
                     flexShrink: 0,
                   }}
                 />
-                <span style={{ fontWeight: 600 }}>{slice.label}:</span>
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {slice.formattedValue || slice.value} ({slice.percent.toFixed(0)}%)
+                <span style={{ fontWeight: 600 }}>{slice.label}</span>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: slice.color,
+                    fontSize: "0.7rem",
+                    marginLeft: 2,
+                  }}
+                >
+                  {pct}%
                 </span>
               </button>
             );
