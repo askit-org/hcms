@@ -28,6 +28,7 @@ import {
   Building,
   AlertCircle,
   CheckCircle2,
+  BookmarkPlus,
 } from "lucide-react";
 import { useProviderStore } from "@/lib/providers";
 import {
@@ -70,6 +71,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import CreateBillModal from "@/components/CreateBillModal";
 import IpdDayLogModal from "@/components/IpdDayLogModal";
 import SettingsIpdRooms from "@/components/SettingsIpdRooms";
+import SaveTemplateModal from "@/components/SaveTemplateModal";
 
 const QUICK_COMPLAINTS = [
   "Fever",
@@ -124,6 +126,7 @@ export default function NewVisitForm() {
   const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [savedVisitInfo, setSavedVisitInfo] = useState<{
     id: string;
     date: string;
@@ -2318,20 +2321,34 @@ export default function NewVisitForm() {
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: 12,
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
             <div className="card-title" style={{ marginBottom: 0 }}>
               Diagnosis & Treatment
             </div>
-            {templates.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowTemplateModal(true)}
-              >
-                <Pill size={14} /> Select Template
-              </button>
-            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {rxMeds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  title="Save currently prescribed medicines as a template"
+                >
+                  <BookmarkPlus size={14} /> Save as Template
+                </button>
+              )}
+              {templates.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowTemplateModal(true)}
+                >
+                  <Pill size={14} /> Select Template
+                </button>
+              )}
+            </div>
           </div>
           <div className="form-grid form-grid-2">
             <div className="form-group">
@@ -2723,8 +2740,42 @@ export default function NewVisitForm() {
           className="card"
           style={{ marginBottom: 16, position: "relative", zIndex: 40 }}
         >
-          <div className="card-title" style={{ marginBottom: 12 }}>
-            Prescription
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 12,
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <div className="card-title" style={{ marginBottom: 0 }}>
+              Prescription
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {rxMeds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  title="Store currently prescribed medicines as a reusable template"
+                  style={{ display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  <BookmarkPlus size={13} /> Save as Template
+                </button>
+              )}
+              {templates.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setShowTemplateModal(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  <FileText size={13} /> Apply Template
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Medicine Search */}
@@ -3519,6 +3570,15 @@ export default function NewVisitForm() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Save Prescription as Template Modal */}
+      <SaveTemplateModal
+        isOpen={showSaveTemplateModal}
+        onClose={() => setShowSaveTemplateModal(false)}
+        initialDiagnosis={form.diagnosis}
+        initialNotes={form.prescriptionNotes}
+        medicines={rxMeds}
+      />
 
       {/* Exit / Unsaved Confirmation Modal */}
       <AnimatePresence>
