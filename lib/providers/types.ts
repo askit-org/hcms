@@ -85,7 +85,8 @@ export type AppModel =
   | 'FOLLOWUPS'
   | 'REPORTS'
   | 'SETTINGS'
-  | 'STAFF';
+  | 'STAFF'
+  | 'QUEUE';
 
 export interface ModelPermission {
   model: AppModel;
@@ -271,6 +272,7 @@ export interface DashboardStats {
   followUpsToday: number;
   upcomingFollowUps: number;
   activeInpatientsCount?: number;
+  activeQueueCount?: number;
   todayIpdAdmissionsCount?: number;
   activeInpatients?: Array<{ admission: IpdAdmission; patient: Patient | undefined }>;
   recentVisits: Array<{ visit: Visit; patient: Patient | undefined }>;
@@ -509,10 +511,17 @@ export interface QueueEntry {
   id: string;
   tokenNo: number;
   patientId: string;
-  patientName: string;
-  mobile: string;
-  queuedAt: string;
+  patientName?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  mobile?: string | null;
+  reason?: string | null;
+  category?: string;
+  priority?: string;
+  queuedAt?: string;
   status: QueueStatus;
+  estimatedTurn?: string;
+  inRoomSince?: string;
   [key: string]: unknown;
 }
 

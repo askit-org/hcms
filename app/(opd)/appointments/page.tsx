@@ -397,7 +397,6 @@ export default function AppointmentsPage() {
   }, [dbQueue]);
 
   const queue: QueueItem[] = useMemo(() => {
-    if (localQueue.length > 0) return localQueue;
     if (Array.isArray(dbQueue)) return dbQueue as QueueItem[];
     return localQueue;
   }, [dbQueue, localQueue]);
@@ -602,37 +601,20 @@ export default function AppointmentsPage() {
   // Enqueue patient onto Live Queue
   const handleEnqueuePatient = async (patient: CanvasPatient) => {
     const newTokenNo = maxTokenNo + 1;
-    const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const isFirstInQueue = waitingList.length === 0 && !nowServing;
 
     try {
-      // Name/age/gender/mobile are taken from the patient record server-side
+      // Enqueue to server database
       await enqueueMut.mutateAsync({
         patientId: patient.patientId,
         reason: patient.reason,
         category: patient.category,
       });
-    } catch (_) {
-      const newQueueItem: QueueItem = {
-        id: `q-${Date.now()}`,
-        tokenNo: newTokenNo,
-        patientId: patient.patientId,
-        patientName: patient.name,
-        age: patient.age,
-        gender: patient.gender,
-        mobile: patient.mobile,
-        reason: patient.reason,
-        category: patient.category,
-        status: isFirstInQueue ? 'NOW_SERVING' : waitingList.length === 0 ? 'NEXT_IN_LINE' : 'WAITING',
-        priority: patient.category === 'Emergency' ? 'EMERGENCY' : 'NORMAL',
-        queuedAt: nowStr,
-        estimatedTurn: isFirstInQueue ? 'In Session' : `~${nowStr}`,
-      };
-      setLocalQueue((prev) => [...prev, newQueueItem]);
+      setCanvasPatients((prev) => prev.filter((c) => c.patientId !== patient.patientId));
+      await refetchQueue();
+      toast(`${patient.name} enqueued into Queue as Token #${newTokenNo}!`, 'success');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to enqueue patient into live queue.'), 'error');
     }
-
-    setCanvasPatients((prev) => prev.filter((c) => c.patientId !== patient.patientId));
-    toast(`${patient.name} enqueued into Queue as Token #${newTokenNo}!`, 'success');
   };
 
   // Call Next FIFO Patient
@@ -646,47 +628,20 @@ export default function AppointmentsPage() {
 
     try {
       await callNextMut.mutateAsync();
-    } catch (_) {
-      setLocalQueue((prevQueue) => {
-        const updated: QueueItem[] = prevQueue.map((item) => {
-          if (item.status === 'NOW_SERVING') {
-            return { ...item, status: 'COMPLETED' as const };
-          }
-          if (item.id === nextPatient.id) {
-            return {
-              ...item,
-              status: 'NOW_SERVING' as const,
-              inRoomSince: 'Just Called',
-              estimatedTurn: 'In Session',
-            };
-          }
-          return item;
-        });
-
-        const firstWaitingIndex = updated.findIndex((x) => x.status === 'WAITING');
-        if (firstWaitingIndex !== -1) {
-          updated[firstWaitingIndex] = { ...updated[firstWaitingIndex], status: 'NEXT_IN_LINE' as const };
-        }
-
-        return updated;
-      });
+      await refetchQueue();
+      toast(`Called Token #${nextPatient.tokenNo} (${nextPatient.patientName}) for Consultation`, 'success');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to call next patient.'), 'error');
     }
-
-    toast(`Called Token #${nextPatient.tokenNo} (${nextPatient.patientName}) for Consultation`, 'success');
   };
 
   // Doctor Action: Start Visit & Navigate to /visits/new?patientId=...
   const handleStartVisitAndNavigate = async (item: QueueItem) => {
     try {
       await updateStatusMut.mutateAsync({ id: item.id, status: 'NOW_SERVING', inRoomSince: 'Just Started' });
-    } catch (_) {
-      setLocalQueue((prev) =>
-        prev.map((q) => {
-          if (q.status === 'NOW_SERVING') return { ...q, status: 'COMPLETED' };
-          if (q.id === item.id) return { ...q, status: 'NOW_SERVING', inRoomSince: 'Just Started', estimatedTurn: 'In Session' };
-          return q;
-        })
-      );
+      await refetchQueue();
+    } catch (err: any) {
+      console.warn('Could not update queue status prior to navigating:', err);
     }
     toast(`Starting visit for Token #${item.tokenNo} (${item.patientName})...`, 'success');
     router.push(`/visits/new?patientId=${item.patientId}`);
@@ -698,20 +653,21 @@ export default function AppointmentsPage() {
       await updateStatusMut.mutateAsync({ id, status: 'COMPLETED' });
       await removeMut.mutateAsync(id);
       await refetchQueue();
-    } catch (_) {
-      setLocalQueue((prev) => prev.filter((q) => q.id !== id));
+      toast(`✅ Marked appointment completed for ${name}!`, 'success');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to complete appointment.'), 'error');
     }
-    toast(`✅ Marked appointment completed for ${name}!`, 'success');
   };
 
   // Remove patient from queue
   const handleRemoveFromQueue = async (id: string, name: string) => {
     try {
       await removeMut.mutateAsync(id);
-    } catch (_) {
-      setLocalQueue((prev) => prev.filter((q) => q.id !== id));
+      await refetchQueue();
+      toast(`Removed ${name} from queue.`, 'info');
+    } catch (err: any) {
+      toast(getErrorMessage(err, 'Failed to remove patient from queue.'), 'error');
     }
-    toast(`Removed ${name} from queue.`, 'info');
   };
 
   // Drag & drop handlers

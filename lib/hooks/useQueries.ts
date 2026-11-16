@@ -703,13 +703,17 @@ export function useQueue() {
     enabled: isAuthenticated && !!token,
     staleTime: 0,
     refetchOnMount: 'always',
+    refetchInterval: 8000,
   });
 }
 
 export function useQueueMutations() {
   const qc = useQueryClient();
   const provider = useProviderStore((s) => s.provider);
-  const invalidate = () => qc.invalidateQueries({ queryKey: keys.queue() });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: keys.queue() });
+    qc.invalidateQueries({ queryKey: keys.dashboard() });
+  };
 
   const enqueue = useMutation({
     mutationFn: (payload: EnqueueInput) => provider.enqueue(payload),

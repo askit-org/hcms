@@ -357,7 +357,11 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
 
       // Check if patient is in queue and dequeue
       if (Array.isArray(dbQueue)) {
-        const queuedPatient = dbQueue.find((q: any) => q.patientId === selectedPatient!.patientId);
+        const queuedPatient = dbQueue.find(
+          (q: any) =>
+            q.patientId === selectedPatient!.patientId ||
+            q.patientId === selectedPatient!.id,
+        );
         if (queuedPatient) {
           try {
             await updateStatusMut.mutateAsync({ id: queuedPatient.id, status: 'COMPLETED' });

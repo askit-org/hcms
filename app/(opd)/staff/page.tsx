@@ -40,6 +40,7 @@ import type { AppRole, AppModel } from "@/lib/providers/types";
 
 const MODEL_NAMES: Record<AppModel, string> = {
   PATIENTS: "Patients",
+  QUEUE: "Appointments & Queue",
   VISITS: "OPD Visits & Rx",
   FOLLOWUPS: "Follow-ups",
   MEDICINES: "Medicines",
