@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, Pill, Save, X, Search, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Pill, Save, X, Search, FileText, BookmarkPlus } from 'lucide-react';
 import { useMedicines, useTemplates, useMedicineMutations, useTemplateMutations } from '@/lib/hooks/useQueries';
 import type { Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
 import { toast } from '@/components/Toast';
@@ -11,6 +11,7 @@ import DoseSelector, { DoseDisplay, DurationSelect, DURATION_OPTIONS } from '@/c
 import InstructionPicker from '@/components/InstructionPicker';
 import { parseDoseToWords } from '@/lib/medicationInstructions';
 import ConfirmModal from '@/components/ConfirmModal';
+import SaveTemplateModal from '@/components/SaveTemplateModal';
 
 const DOSE_OPTIONS = [
   '1-0-1',
@@ -53,6 +54,12 @@ export default function PrescriptionPage() {
   const [editTpl, setEditTpl] = useState<Template | null>(null);
   const [savingMed, setSavingMed] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
+
+  // Direct template creation from selected medicines
+  const [selectedMedIds, setSelectedMedIds] = useState<number[]>([]);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateMedsToSave, setTemplateMedsToSave] = useState<PrescribedMedicine[]>([]);
+  const [initialTemplateName, setInitialTemplateName] = useState<string>('');
 
   const [confirmModalState, setConfirmModalState] = useState<{
     isOpen: boolean;
@@ -282,24 +289,81 @@ export default function PrescriptionPage() {
     return acc;
   }, {} as Record<string, Medicine[]>);
 
+  const handleCreateTemplateFromSelected = () => {
+    const selectedMeds = medicines.filter(m => typeof m.id === 'number' && selectedMedIds.includes(m.id));
+    if (selectedMeds.length === 0) {
+      toast('Please select at least one medicine to create a template.', 'error');
+      return;
+    }
+    const prescribedList: PrescribedMedicine[] = selectedMeds.map(m => ({
+      medicineId: m.id,
+      name: m.name,
+      category: m.category || 'Other',
+      strength: m.strength || '',
+      unit: m.unit || 'Tablet',
+      dose: m.defaultDose || '1-0-1',
+      duration: m.defaultDuration || '5 days',
+      instructions: m.instructions || 'After food',
+      instructionKeys: [],
+      customInstruction: m.instructions || '',
+      instructionLangs: ['en', 'hi'],
+    }));
+    setTemplateMedsToSave(prescribedList);
+    setInitialTemplateName(selectedMeds.length === 1 ? `${selectedMeds[0].name} Regimen` : '');
+    setShowSaveTemplateModal(true);
+  };
+
+  const handleQuickCreateTemplateFromMed = (m: Medicine) => {
+    const prescribedItem: PrescribedMedicine = {
+      medicineId: m.id,
+      name: m.name,
+      category: m.category || 'Other',
+      strength: m.strength || '',
+      unit: m.unit || 'Tablet',
+      dose: m.defaultDose || '1-0-1',
+      duration: m.defaultDuration || '5 days',
+      instructions: m.instructions || 'After food',
+      instructionKeys: [],
+      customInstruction: m.instructions || '',
+      instructionLangs: ['en', 'hi'],
+    };
+    setTemplateMedsToSave([prescribedItem]);
+    setInitialTemplateName(`${m.name} Protocol`);
+    setShowSaveTemplateModal(true);
+  };
+
+  const toggleSelectMed = (id: number) => {
+    setSelectedMedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filtered
+      .map(m => m.id)
+      .filter((id): id is number => typeof id === 'number');
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedMedIds.includes(id));
+    if (allSelected) {
+      setSelectedMedIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedMedIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
   return (
     <PageTransition>
       <div className="page-header">
         <div>
-          <div className="page-title">Prescription & Medicines Directory</div>
+          <div className="page-title">Prescription &amp; Medicines Directory</div>
           <div className="page-subtitle">{medicines.length} medicines · {templates.length} prescription templates</div>
         </div>
-        <div className="flex-wrap-header-actions">
-          {tab === 'medicines' && (
-            <button className="btn btn-primary" onClick={handleOpenAddMed}>
-              <Plus size={16} /> Add Medicine
-            </button>
-          )}
-          {tab === 'templates' && (
-            <button className="btn btn-primary" onClick={handleOpenAddTpl}>
-              <Plus size={16} /> New Template
-            </button>
-          )}
+        <div className="flex-wrap-header-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleOpenAddTpl} title="Create a new prescription template">
+            <BookmarkPlus size={16} /> New Template
+          </button>
+          <button className="btn btn-primary" onClick={handleOpenAddMed} title="Add medicine to catalog">
+            <Plus size={16} /> Add Medicine
+          </button>
         </div>
       </div>
 
@@ -332,6 +396,52 @@ export default function PrescriptionPage() {
             </div>
           </div>
 
+          {/* Quick Template Creation Selection Bar */}
+          {selectedMedIds.length > 0 && (
+            <div
+              className="card card-sm"
+              style={{
+                background: "var(--accent-glow, rgba(13, 148, 136, 0.12))",
+                borderColor: "var(--accent, #0d9488)",
+                marginBottom: 14,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 10,
+                padding: "10px 16px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <BookmarkPlus size={18} style={{ color: "var(--accent)" }} />
+                <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>
+                  {selectedMedIds.length} medicine{selectedMedIds.length === 1 ? "" : "s"} selected
+                </span>
+                <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                  (Store directly as prescription template)
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setSelectedMedIds([])}
+                >
+                  Clear Selection
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleCreateTemplateFromSelected}
+                  style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <BookmarkPlus size={14} />
+                  <span>Create Template from Selected ({selectedMedIds.length})</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {filtered.length === 0 ? (
             <div className="empty-state">
               <Pill />
@@ -352,9 +462,21 @@ export default function PrescriptionPage() {
                   <table className="data-table">
                     <thead>
                       <tr>
+                        <th style={{ width: 40, textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={
+                              filtered.length > 0 &&
+                              filtered.every(m => typeof m.id === 'number' && selectedMedIds.includes(m.id))
+                            }
+                            onChange={toggleSelectAllFiltered}
+                            title="Select / deselect all filtered medicines"
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </th>
                         <th>Medicine Name</th>
                         <th>Category</th>
-                        <th>Strength & Form</th>
+                        <th>Strength &amp; Form</th>
                         <th>Default Dose</th>
                         <th>Default Duration</th>
                         <th>Default Instruction</th>
@@ -363,7 +485,22 @@ export default function PrescriptionPage() {
                     </thead>
                     <tbody>
                       {meds.map(m => (
-                        <tr key={m.id}>
+                        <tr
+                          key={m.id}
+                          style={{
+                            background: typeof m.id === 'number' && selectedMedIds.includes(m.id)
+                              ? "rgba(13, 148, 136, 0.06)"
+                              : undefined,
+                          }}
+                        >
+                          <td style={{ textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={typeof m.id === 'number' && selectedMedIds.includes(m.id)}
+                              onChange={() => typeof m.id === 'number' && toggleSelectMed(m.id)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </td>
                           <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{m.name}</td>
                           <td><span className="badge badge-teal" style={{ fontSize: '0.72rem' }}>{m.category || 'Other'}</span></td>
                           <td style={{ color: 'var(--text-secondary)' }}>
@@ -374,10 +511,19 @@ export default function PrescriptionPage() {
                           <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{m.instructions || 'After food'}</td>
                           <td>
                             <div style={{ display: 'flex', gap: 6 }}>
-                              <button className="btn btn-ghost btn-sm" onClick={() => handleOpenEditMed(m)}>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => handleQuickCreateTemplateFromMed(m)}
+                                title={`Create template with ${m.name}`}
+                                style={{ color: "var(--accent)" }}
+                              >
+                                <BookmarkPlus size={14} />
+                              </button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => handleOpenEditMed(m)} title="Edit medicine">
                                 <Edit2 size={14} />
                               </button>
-                              <button className="btn btn-danger btn-sm" onClick={() => attemptDeleteMed(m)}>
+                              <button className="btn btn-danger btn-sm" onClick={() => attemptDeleteMed(m)} title="Delete medicine">
                                 <Trash2 size={14} />
                               </button>
                             </div>
@@ -804,6 +950,20 @@ export default function PrescriptionPage() {
           </div>
         </div>
       )}
+      {/* Quick Template Creation Confirmation Modal */}
+      <SaveTemplateModal
+        isOpen={showSaveTemplateModal}
+        onClose={() => {
+          setShowSaveTemplateModal(false);
+          setTemplateMedsToSave([]);
+        }}
+        initialName={initialTemplateName}
+        medicines={templateMedsToSave}
+        onSuccess={() => {
+          setSelectedMedIds([]);
+          setTab('templates');
+        }}
+      />
       <ConfirmModal
         {...confirmModalState}
         onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}

@@ -28,6 +28,9 @@ import {
   Building,
   AlertCircle,
   CheckCircle2,
+  BookmarkPlus,
+  Tag,
+  UserPlus,
 } from "lucide-react";
 import { useProviderStore } from "@/lib/providers";
 import {
@@ -70,6 +73,8 @@ import ConfirmModal from "@/components/ConfirmModal";
 import CreateBillModal from "@/components/CreateBillModal";
 import IpdDayLogModal from "@/components/IpdDayLogModal";
 import SettingsIpdRooms from "@/components/SettingsIpdRooms";
+import SaveTemplateModal from "@/components/SaveTemplateModal";
+import CreateCategoryModal from "@/components/CreateCategoryModal";
 
 const QUICK_COMPLAINTS = [
   "Fever",
@@ -114,6 +119,8 @@ export default function NewVisitForm() {
   const router = useRouter();
   const sp = useSearchParams();
   const prePatientId = sp.get("patientId") || "";
+  const paramCategory = (sp.get("category") || "").trim();
+  const initialCategory = paramCategory || "OPD";
 
   const [patientQuery, setPatientQuery] = useState("");
   const [patientResults, setPatientResults] = useState<Patient[]>([]);
@@ -124,6 +131,8 @@ export default function NewVisitForm() {
   const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
   const [savedVisitInfo, setSavedVisitInfo] = useState<{
     id: string;
     date: string;
@@ -135,7 +144,7 @@ export default function NewVisitForm() {
   const [visitDate, setVisitDate] = useState<string>(todayISO);
 
   const [form, setForm] = useState({
-    category: "",
+    category: initialCategory,
     chiefComplaints: "",
     diagnosis: "",
     bp: "",
@@ -167,8 +176,32 @@ export default function NewVisitForm() {
   const { updateStatus: updateStatusMut, removeFromQueue: removeMut } =
     useQueueMutations();
 
+  // Custom categories defined by the clinic
+  const customCategories = useMemo(() => {
+    return categoryOptions
+      .map((o) => o.value?.trim())
+      .filter(
+        (v): v is string =>
+          !!v &&
+          !["OPD", "IPD", "Emergency"].includes(v) &&
+          v.toUpperCase() !== "IPD" &&
+          v.toUpperCase() !== "OPD" &&
+          v.toUpperCase() !== "EMERGENCY"
+      );
+  }, [categoryOptions]);
+
   // IPD Encounter Integration State
-  const [isIpdAdmission, setIsIpdAdmission] = useState(false);
+  const [isIpdAdmission, setIsIpdAdmission] = useState(
+    initialCategory.toUpperCase() === "IPD"
+  );
+
+  // Sync category if URL parameter changes
+  useEffect(() => {
+    if (paramCategory) {
+      set("category", paramCategory);
+      setIsIpdAdmission(paramCategory.toUpperCase() === "IPD");
+    }
+  }, [paramCategory]);
   const [ipdForm, setIpdForm] = useState({
     bedOrRoom: "",
     customBedText: "",
@@ -465,12 +498,18 @@ export default function NewVisitForm() {
   };
 
   // Load pre-selected patient if URL param exists
+  const { data: preloadedPatient, isLoading: loadingPrePatient } =
+    usePatient(prePatientId);
+
   useEffect(() => {
-    if (!prePatientId) return;
-    provider.getPatient(prePatientId).then((p) => {
-      if (p) setSelectedPatient(p);
-    });
-  }, [prePatientId, provider]);
+    if (preloadedPatient) {
+      setSelectedPatient(preloadedPatient);
+    } else if (prePatientId) {
+      provider.getPatient(prePatientId).then((p) => {
+        if (p) setSelectedPatient(p);
+      });
+    }
+  }, [prePatientId, preloadedPatient, provider]);
 
   // Patient search
   useEffect(() => {
@@ -833,15 +872,56 @@ export default function NewVisitForm() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Patient Selection */}
+        {/* Patient Selection Card (Step 1) */}
         <div
           className="card"
           style={{ marginBottom: 16, position: "relative", zIndex: 50 }}
         >
-          <div className="card-title" style={{ marginBottom: 12 }}>
-            Patient
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <div className="card-title" style={{ margin: 0 }}>
+              {selectedPatient ? "Patient Information" : "Select Patient"}
+            </div>
+            {!selectedPatient && (
+              <span
+                className="badge badge-blue"
+                style={{ fontSize: "0.74rem", fontWeight: 600 }}
+              >
+                Step 1 of 2 · Required
+              </span>
+            )}
           </div>
-          {selectedPatient ? (
+
+          {prePatientId && !selectedPatient && loadingPrePatient ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "24px 16px",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  border: "2px solid var(--border)",
+                  borderTopColor: "var(--primary)",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+              <span style={{ fontSize: "0.88rem" }}>Loading patient details…</span>
+            </div>
+          ) : selectedPatient ? (
             <div>
               <div
                 style={{
@@ -1151,24 +1231,87 @@ export default function NewVisitForm() {
               <div
                 style={{
                   textAlign: "center",
-                  marginTop: 8,
-                  fontSize: "0.8rem",
+                  marginTop: 10,
+                  fontSize: "0.82rem",
                   color: "var(--text-muted)",
                 }}
               >
                 Patient not found?{" "}
                 <Link
                   href="/patients/new"
-                  style={{ color: "var(--accent-light)" }}
+                  style={{ color: "var(--accent-light)", fontWeight: 600 }}
                 >
                   Register new patient
                 </Link>
+              </div>
+
+              {/* Informative Guidance banner when no patient is chosen */}
+              <div
+                style={{
+                  marginTop: 18,
+                  padding: "24px 20px",
+                  background: "var(--surface-1)",
+                  border: "1px dashed var(--border)",
+                  borderRadius: 12,
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    background: "rgba(59, 130, 246, 0.1)",
+                    color: "var(--primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <UserPlus size={24} />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "0.95rem",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Select or Search a Patient
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.82rem",
+                      color: "var(--text-muted)",
+                      marginTop: 4,
+                      maxWidth: 420,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Search an existing patient above or register a new one to unlock the visit category, clinical charting, vitals, and prescription tools.
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Visit Details & Encounter Type */}
+        {/* Subsequent Visit Charting Sections - Revealed only after patient selection */}
+        <AnimatePresence>
+          {selectedPatient && (
+            <motion.div
+              key="visit-charting-section"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+            >
+              {/* Visit Details & Encounter Type */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div
             style={{
@@ -1203,7 +1346,7 @@ export default function NewVisitForm() {
             )}
           </div>
 
-          {/* Interactive Encounter Mode Selector Cards */}
+          {/* Interactive Encounter Mode / Category Selector Cards */}
           <div
             style={{
               display: "grid",
@@ -1212,6 +1355,7 @@ export default function NewVisitForm() {
               marginBottom: 16,
             }}
           >
+            {/* OPD Consultation Card */}
             <button
               type="button"
               onClick={() => {
@@ -1226,11 +1370,11 @@ export default function NewVisitForm() {
                 borderRadius: 10,
                 textAlign: "left",
                 border:
-                  !isIpdAdmission && form.category !== "Emergency"
+                  !isIpdAdmission && (form.category === "OPD" || !form.category)
                     ? "2px solid var(--primary)"
                     : "1px solid var(--border)",
                 background:
-                  !isIpdAdmission && form.category !== "Emergency"
+                  !isIpdAdmission && (form.category === "OPD" || !form.category)
                     ? "rgba(59, 130, 246, 0.08)"
                     : "var(--surface-1)",
                 cursor: "pointer",
@@ -1243,11 +1387,11 @@ export default function NewVisitForm() {
                   height: 36,
                   borderRadius: 8,
                   background:
-                    !isIpdAdmission && form.category !== "Emergency"
+                    !isIpdAdmission && (form.category === "OPD" || !form.category)
                       ? "var(--primary)"
                       : "var(--surface-2)",
                   color:
-                    !isIpdAdmission && form.category !== "Emergency"
+                    !isIpdAdmission && (form.category === "OPD" || !form.category)
                       ? "#fff"
                       : "var(--text-muted)",
                   display: "flex",
@@ -1270,6 +1414,7 @@ export default function NewVisitForm() {
               </div>
             </button>
 
+            {/* IPD Admission Card */}
             <button
               type="button"
               onClick={() => {
@@ -1326,6 +1471,7 @@ export default function NewVisitForm() {
               </div>
             </button>
 
+            {/* Emergency Card */}
             <button
               type="button"
               onClick={() => {
@@ -1380,6 +1526,124 @@ export default function NewVisitForm() {
                   style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}
                 >
                   Casualty / urgent care
+                </div>
+              </div>
+            </button>
+
+            {/* Dynamic Custom Category Cards */}
+            {customCategories.map((cat) => {
+              const isSelected = !isIpdAdmission && form.category === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    set("category", cat);
+                    setIsIpdAdmission(false);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    textAlign: "left",
+                    border: isSelected
+                      ? "2px solid #06b6d4"
+                      : "1px solid var(--border)",
+                    background: isSelected
+                      ? "rgba(6, 182, 212, 0.08)"
+                      : "var(--surface-1)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: isSelected ? "#06b6d4" : "var(--surface-2)",
+                      color: isSelected ? "#fff" : "var(--text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Tag size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>
+                      {cat}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.72rem",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      Custom clinic department
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+
+            {/* + New Category Card */}
+            <button
+              type="button"
+              onClick={() => setShowCreateCategoryModal(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 14px",
+                borderRadius: 10,
+                textAlign: "left",
+                border: "1px dashed var(--border)",
+                background: "transparent",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--primary)";
+                e.currentTarget.style.background = "rgba(59, 130, 246, 0.04)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: "var(--surface-2)",
+                  color: "var(--primary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Plus size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: "0.88rem",
+                    color: "var(--primary)",
+                  }}
+                >
+                  + New Category
+                </div>
+                <div
+                  style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}
+                >
+                  Add custom clinic service
                 </div>
               </div>
             </button>
@@ -1484,45 +1748,28 @@ export default function NewVisitForm() {
               <div style={{ display: "flex", gap: 8 }}>
                 <select
                   className="form-select"
-                  value={form.category}
+                  value={isIpdAdmission ? "IPD" : form.category || "OPD"}
                   onChange={(e) => {
                     const val = e.target.value;
                     set("category", val);
                     setIsIpdAdmission(val === "IPD");
                   }}
                 >
-                  <option value="" disabled>
-                    Select category...
-                  </option>
                   <option value="OPD">OPD</option>
                   <option value="IPD">IPD (Inpatient Admission)</option>
                   <option value="Emergency">Emergency</option>
-                  {categoryOptions
-                    .filter(
-                      (o) =>
-                        !["OPD", "IPD", "Emergency"].includes(o.value) &&
-                        o.value.toUpperCase() !== "IPD",
-                    )
-                    .map((c) => (
-                      <option key={c.id} value={c.value}>
-                        {c.value}
-                      </option>
-                    ))}
+                  {customCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={async () => {
-                    const val = prompt("Enter new category name:");
-                    if (val?.trim()) {
-                      await createOption.mutateAsync({
-                        optionType: "CATEGORY",
-                        value: val.trim(),
-                      });
-                      set("category", val.trim());
-                      toast("Category added", "success");
-                    }
-                  }}
+                  onClick={() => setShowCreateCategoryModal(true)}
+                  title="Add new category"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
                   <Plus size={16} /> New
                 </button>
@@ -2318,20 +2565,34 @@ export default function NewVisitForm() {
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: 12,
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
             <div className="card-title" style={{ marginBottom: 0 }}>
               Diagnosis & Treatment
             </div>
-            {templates.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowTemplateModal(true)}
-              >
-                <Pill size={14} /> Select Template
-              </button>
-            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {rxMeds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  title="Save currently prescribed medicines as a template"
+                >
+                  <BookmarkPlus size={14} /> Save as Template
+                </button>
+              )}
+              {templates.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowTemplateModal(true)}
+                >
+                  <Pill size={14} /> Select Template
+                </button>
+              )}
+            </div>
           </div>
           <div className="form-grid form-grid-2">
             <div className="form-group">
@@ -2723,8 +2984,42 @@ export default function NewVisitForm() {
           className="card"
           style={{ marginBottom: 16, position: "relative", zIndex: 40 }}
         >
-          <div className="card-title" style={{ marginBottom: 12 }}>
-            Prescription
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 12,
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <div className="card-title" style={{ marginBottom: 0 }}>
+              Prescription
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {rxMeds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  title="Store currently prescribed medicines as a reusable template"
+                  style={{ display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  <BookmarkPlus size={13} /> Save as Template
+                </button>
+              )}
+              {templates.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setShowTemplateModal(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  <FileText size={13} /> Apply Template
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Medicine Search */}
@@ -3020,6 +3315,9 @@ export default function NewVisitForm() {
                 : "Save OPD Visit"}
           </button>
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </form>
 
       {/* Bed Configuration Modal */}
@@ -3519,6 +3817,26 @@ export default function NewVisitForm() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Save Prescription as Template Modal */}
+      <SaveTemplateModal
+        isOpen={showSaveTemplateModal}
+        onClose={() => setShowSaveTemplateModal(false)}
+        initialDiagnosis={form.diagnosis}
+        initialNotes={form.prescriptionNotes}
+        medicines={rxMeds}
+      />
+
+      {/* Create Category Modal */}
+      <CreateCategoryModal
+        isOpen={showCreateCategoryModal}
+        onClose={() => setShowCreateCategoryModal(false)}
+        existingCategories={["OPD", "IPD", "Emergency", ...customCategories]}
+        onSuccess={(newCat) => {
+          set("category", newCat);
+          setIsIpdAdmission(false);
+        }}
+      />
 
       {/* Exit / Unsaved Confirmation Modal */}
       <AnimatePresence>

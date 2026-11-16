@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse, Receipt } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Search, Stethoscope, Pill, X, Sun, Moon, Sunrise, HeartPulse, Receipt, BookmarkPlus, FileText } from 'lucide-react';
 import { useProviderStore } from '@/lib/providers';
 import { useMedicines, useMedicineMutations, useVisitMutations, usePatient, useAppOptions, useTemplates, useAppOptionMutations, useQueue, useQueueMutations, useVisit } from '@/lib/hooks/useQueries';
 import type { Patient, Medicine, PrescribedMedicine, Template } from '@/lib/providers/types';
@@ -19,6 +19,8 @@ import { parseDoseToWords } from '@/lib/medicationInstructions';
 import { visitSchema, validateForm } from '@/lib/validations/schemas';
 import ConfirmModal from '@/components/ConfirmModal';
 import CreateBillModal from '@/components/CreateBillModal';
+import SaveTemplateModal from '@/components/SaveTemplateModal';
+import CreateCategoryModal from '@/components/CreateCategoryModal';
 
 
 const QUICK_COMPLAINTS = [
@@ -44,6 +46,8 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
   const [selectedComplaints, setSelectedComplaints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
   const [showBillModal, setShowBillModal] = useState(false);
 
   const [form, setForm] = useState({
@@ -482,14 +486,9 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
               <button 
                 type="button" 
                 className="btn btn-secondary" 
-                onClick={async () => {
-                  const val = prompt('Enter new category name:');
-                  if (val?.trim()) {
-                    await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
-                    set('category', val.trim());
-                    toast('Category added', 'success');
-                  }
-                }}
+                onClick={() => setShowCreateCategoryModal(true)}
+                title="Add new category"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
                 <Plus size={16} /> New
               </button>
@@ -569,13 +568,25 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
 
         {/* Diagnosis & Treatment */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>Diagnosis & Treatment</div>
-            {templates.length > 0 && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTemplateModal(true)}>
-                <Pill size={14} /> Select Template
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {rxMeds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  title="Save currently prescribed medicines as a template"
+                >
+                  <BookmarkPlus size={14} /> Save as Template
+                </button>
+              )}
+              {templates.length > 0 && (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTemplateModal(true)}>
+                  <Pill size={14} /> Select Template
+                </button>
+              )}
+            </div>
           </div>
           <div className="form-grid form-grid-2">
             <div className="form-group">
@@ -641,7 +652,32 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
 
         {/* Prescription */}
         <div className="card" style={{ marginBottom: 16, position: 'relative', zIndex: 40 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>Prescription</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>Prescription</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {rxMeds.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  title="Store currently prescribed medicines as a reusable template"
+                  style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  <BookmarkPlus size={13} /> Save as Template
+                </button>
+              )}
+              {templates.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setShowTemplateModal(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  <FileText size={13} /> Apply Template
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Medicine Search */}
           <div style={{ position: 'relative', zIndex: 100, marginBottom: 14 }}>
@@ -832,6 +868,15 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
         )}
       </AnimatePresence>
 
+      {/* Save Prescription as Template Modal */}
+      <SaveTemplateModal
+        isOpen={showSaveTemplateModal}
+        onClose={() => setShowSaveTemplateModal(false)}
+        initialDiagnosis={form.diagnosis}
+        initialNotes={form.prescriptionNotes}
+        medicines={rxMeds}
+      />
+
       {/* Exit / Unsaved Confirmation Modal */}
       <AnimatePresence>
         {showExitModal && (
@@ -925,6 +970,15 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           }}
         />
       )}
+      {/* Create Category Modal */}
+      <CreateCategoryModal
+        isOpen={showCreateCategoryModal}
+        onClose={() => setShowCreateCategoryModal(false)}
+        existingCategories={['OPD', 'IPD', 'Emergency', ...categoryOptions.map(o => o.value)]}
+        onSuccess={(newCat) => {
+          set('category', newCat);
+        }}
+      />
     </PageTransition>
   );
 }
