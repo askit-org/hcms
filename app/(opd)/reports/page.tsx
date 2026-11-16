@@ -430,8 +430,8 @@ export default function ReportsPage() {
       {viewMode === 'ANALYTICS' ? (
         <div className="no-print">
           <VisualAnalyticsBoard
-            visits={visits}
-            admissions={allIpdAdmissions}
+            visits={filteredVisits}
+            admissions={filteredAdmissions}
             patMap={patMap}
             startDate={startDate}
             endDate={endDate}

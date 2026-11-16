@@ -158,13 +158,12 @@ export default function AnalyticsDrilldownModal({
     const csvContent =
       "data:text/csv;charset=utf-8," +
       [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `analytics_${title.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.csv`
+      `Analytics_Drilldown_${title.replace(/[^a-zA-Z0-9]/g, "_")}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -176,53 +175,53 @@ export default function AnalyticsDrilldownModal({
   return createPortal(
     <AnimatePresence>
       <div
-        className="modal-overlay"
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(0, 0, 0, 0.72)",
-          backdropFilter: "blur(4px)",
+          background: "rgba(0, 0, 0, 0.76)",
+          backdropFilter: "blur(8px)",
           zIndex: 9999,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 16,
+          padding: "12px 10px",
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 16 }}
+          initial={{ opacity: 0, scale: 0.95, y: 14 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 16 }}
+          exit={{ opacity: 0, scale: 0.95, y: 14 }}
           transition={{ duration: 0.2 }}
           style={{
             background: "var(--surface-solid, #151824)",
-            border: "1px solid var(--border)",
-            borderRadius: 16,
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
             width: "100%",
             maxWidth: 1040,
-            maxHeight: "90vh",
+            maxHeight: "92vh",
             display: "flex",
             flexDirection: "column",
-            boxShadow: "0 20px 45px rgba(0,0,0,0.45)",
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.55)",
             overflow: "hidden",
           }}
         >
           {/* Modal Header */}
           <div
             style={{
-              padding: "18px 24px",
+              padding: "16px 20px",
               borderBottom: "1px solid var(--border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
-              background: "var(--surface-1)",
+              background: "rgba(255, 255, 255, 0.03)",
+              flexWrap: "wrap",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 200, flex: 1 }}>
               <span
                 style={{
                   width: 12,
@@ -230,33 +229,35 @@ export default function AnalyticsDrilldownModal({
                   borderRadius: "50%",
                   background: badgeColor,
                   flexShrink: 0,
+                  boxShadow: `0 0 10px ${badgeColor}`,
                 }}
               />
               <div>
                 <div
                   style={{
-                    fontWeight: 700,
-                    fontSize: "1.1rem",
+                    fontWeight: 800,
+                    fontSize: "1.08rem",
                     color: "var(--text-primary)",
+                    letterSpacing: "-0.01em",
                   }}
                 >
                   {title}
                 </div>
                 {subtitle && (
-                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
                     {subtitle}
                   </div>
                 )}
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={handleExportCSV}
                 title="Export this drill-down list to CSV"
-                style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px" }}
               >
                 <Download size={14} /> Export CSV
               </button>
@@ -275,47 +276,47 @@ export default function AnalyticsDrilldownModal({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 12,
-              padding: "14px 24px",
-              background: "var(--surface-2)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))",
+              gap: 10,
+              padding: "12px 20px",
+              background: "rgba(255, 255, 255, 0.02)",
               borderBottom: "1px solid var(--border)",
             }}
           >
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                MATCHING ENCOUNTERS
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                MATCHING PATIENTS
               </span>
-              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
-                {summary.count} Patients
+              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                {summary.count} Encounters
               </span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                TOTAL BILLED AMOUNT
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                TOTAL BILLED
               </span>
-              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)" }}>
+              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
                 ₹{summary.totalBilled.toLocaleString("en-IN")}
               </span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                COLLECTED EARNINGS
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                COLLECTED REVENUE
               </span>
-              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "#10b981" }}>
+              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "#10b981" }}>
                 ₹{summary.totalCollected.toLocaleString("en-IN")}
               </span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                OUTSTANDING DUES
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                PENDING DUES
               </span>
               <span
                 style={{
-                  fontSize: "1.15rem",
+                  fontSize: "1.1rem",
                   fontWeight: 800,
                   color: summary.totalDues > 0 ? "#f59e0b" : "var(--text-secondary)",
                 }}
@@ -328,7 +329,7 @@ export default function AnalyticsDrilldownModal({
           {/* Filters & Search Toolbar */}
           <div
             style={{
-              padding: "12px 24px",
+              padding: "12px 20px",
               borderBottom: "1px solid var(--border)",
               display: "flex",
               justifyContent: "space-between",
@@ -338,9 +339,9 @@ export default function AnalyticsDrilldownModal({
             }}
           >
             {/* Search Box */}
-            <div style={{ position: "relative", minWidth: 260, flex: 1, maxWidth: 380 }}>
+            <div style={{ position: "relative", minWidth: 220, flex: 1, maxWidth: 360 }}>
               <Search
-                size={15}
+                size={14}
                 style={{
                   position: "absolute",
                   left: 10,
@@ -355,13 +356,13 @@ export default function AnalyticsDrilldownModal({
                 placeholder="Search patient, mobile, diagnosis, bed…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={{ paddingLeft: 32, width: "100%" }}
+                style={{ paddingLeft: 30, width: "100%" }}
               />
             </div>
 
             {/* Status Pills & Sort Dropdown */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ display: "inline-flex", background: "var(--surface-1)", borderRadius: 8, padding: 2, border: "1px solid var(--border)" }}>
+              <div style={{ display: "inline-flex", background: "rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 2, border: "1px solid var(--border)" }}>
                 <button
                   type="button"
                   className={`btn btn-xs ${statusFilter === "ALL" ? "btn-primary" : "btn-ghost"}`}
@@ -405,8 +406,8 @@ export default function AnalyticsDrilldownModal({
             </div>
           </div>
 
-          {/* Encounters Table View */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 20px" }}>
+          {/* Encounters Table View (Responsive Horizontally Scrollable) */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 20px" }}>
             {displayedEncounters.length === 0 ? (
               <div
                 style={{
@@ -424,174 +425,176 @@ export default function AnalyticsDrilldownModal({
                 </div>
               </div>
             ) : (
-              <table className="table" style={{ marginTop: 8 }}>
-                <thead>
-                  <tr>
-                    <th>Patient Name &amp; Contact</th>
-                    <th>Category</th>
-                    <th>Date &amp; Time</th>
-                    <th>Diagnosis / Bed</th>
-                    <th style={{ textAlign: "right" }}>Financials (Billed / Paid / Due)</th>
-                    <th style={{ textAlign: "center" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedEncounters.map((enc) => {
-                    const hasDues = enc.balanceDue > 0;
-                    return (
-                      <tr key={`${enc.type}-${enc.id}`}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div
-                              style={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: "50%",
-                                background: enc.type === "IPD" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
-                                color: enc.type === "IPD" ? "#10b981" : "var(--primary)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontWeight: 700,
-                                fontSize: "0.82rem",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {enc.patientName.charAt(0)}
+              <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table className="table" style={{ marginTop: 8, minWidth: 720 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 160 }}>Patient Name &amp; Contact</th>
+                      <th style={{ minWidth: 100 }}>Category</th>
+                      <th style={{ minWidth: 110 }}>Date &amp; Time</th>
+                      <th style={{ minWidth: 130 }}>Diagnosis / Bed</th>
+                      <th style={{ minWidth: 150, textAlign: "right" }}>Financials (Billed / Paid / Due)</th>
+                      <th style={{ minWidth: 110, textAlign: "center" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedEncounters.map((enc) => {
+                      const hasDues = enc.balanceDue > 0;
+                      return (
+                        <tr key={`${enc.type}-${enc.id}`}>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: "50%",
+                                  background: enc.type === "IPD" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                                  color: enc.type === "IPD" ? "#10b981" : "var(--primary)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 800,
+                                  fontSize: "0.82rem",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {enc.patientName.charAt(0)}
+                              </div>
+                              <div>
+                                <Link
+                                  href={`/patients/${enc.patientId}`}
+                                  onClick={onClose}
+                                  style={{
+                                    fontWeight: 700,
+                                    color: "var(--text-primary)",
+                                    textDecoration: "none",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  {enc.patientName}
+                                  <ExternalLink size={11} style={{ opacity: 0.6 }} />
+                                </Link>
+                                <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                                  {enc.patientAge ? `${enc.patientAge}y · ` : ""}
+                                  {enc.patientGender ? `${enc.patientGender} · ` : ""}
+                                  {enc.patientMobile || "No mobile"}
+                                </div>
+                              </div>
                             </div>
-                            <div>
+                          </td>
+
+                          <td>
+                            <span
+                              className={`badge ${
+                                enc.category.toUpperCase() === "EMERGENCY"
+                                  ? "badge-red"
+                                  : enc.category.toUpperCase() === "IPD"
+                                  ? "badge-green"
+                                  : enc.category.toUpperCase() === "OPD"
+                                  ? "badge-blue"
+                                  : "badge-teal"
+                              }`}
+                              style={{ fontWeight: 700, fontSize: "0.72rem" }}
+                            >
+                              {enc.category}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                              {new Date(enc.date).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </div>
+                            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                              {new Date(enc.date).toLocaleTimeString("en-IN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                          </td>
+
+                          <td>
+                            <div style={{ fontSize: "0.82rem", maxWidth: 170, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {enc.diagnosis || enc.status || "—"}
+                            </div>
+                            {enc.bedOrRoom && (
+                              <div style={{ fontSize: "0.72rem", color: "#10b981", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                                <Bed size={12} /> {enc.bedOrRoom}
+                              </div>
+                            )}
+                          </td>
+
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                              ₹{enc.billedAmount.toLocaleString("en-IN")}
+                            </div>
+                            <div style={{ fontSize: "0.72rem", color: "#10b981" }}>
+                              Paid: ₹{enc.paidAmount.toLocaleString("en-IN")}
+                            </div>
+                            {hasDues ? (
+                              <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f59e0b" }}>
+                                Due: ₹{enc.balanceDue.toLocaleString("en-IN")}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                Settled ✓
+                              </div>
+                            )}
+                          </td>
+
+                          <td style={{ textAlign: "center" }}>
+                            <div style={{ display: "inline-flex", gap: 6 }}>
+                              {hasDues && (
+                                <button
+                                  type="button"
+                                  className="btn btn-xs btn-primary"
+                                  onClick={() => setPaymentTarget(enc)}
+                                  title="Record payment for this patient"
+                                  style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                                >
+                                  <Receipt size={12} /> Settle
+                                </button>
+                              )}
+
+                              {hasDues && enc.patientMobile && (
+                                <a
+                                  href={`https://wa.me/91${enc.patientMobile.replace(/\D/g, "")}?text=${encodeURIComponent(
+                                    `Dear ${enc.patientName}, your remaining balance of ₹${enc.balanceDue} for visit on ${new Date(
+                                      enc.date
+                                    ).toLocaleDateString("en-IN")} is pending. Kindly clear your dues at your convenience.`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-xs btn-ghost"
+                                  title="Send WhatsApp Payment Reminder"
+                                  style={{ color: "#22c55e" }}
+                                >
+                                  <MessageCircle size={14} />
+                                </a>
+                              )}
+
                               <Link
                                 href={`/patients/${enc.patientId}`}
                                 onClick={onClose}
-                                style={{
-                                  fontWeight: 700,
-                                  color: "var(--text-primary)",
-                                  textDecoration: "none",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                }}
-                              >
-                                {enc.patientName}
-                                <ExternalLink size={11} style={{ opacity: 0.6 }} />
-                              </Link>
-                              <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
-                                {enc.patientAge ? `${enc.patientAge}y · ` : ""}
-                                {enc.patientGender ? `${enc.patientGender} · ` : ""}
-                                {enc.patientMobile || "No mobile"}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td>
-                          <span
-                            className={`badge ${
-                              enc.category.toUpperCase() === "EMERGENCY"
-                                ? "badge-red"
-                                : enc.category.toUpperCase() === "IPD"
-                                ? "badge-green"
-                                : enc.category.toUpperCase() === "OPD"
-                                ? "badge-blue"
-                                : "badge-teal"
-                            }`}
-                            style={{ fontWeight: 700, fontSize: "0.72rem" }}
-                          >
-                            {enc.category}
-                          </span>
-                        </td>
-
-                        <td>
-                          <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>
-                            {new Date(enc.date).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </div>
-                          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                            {new Date(enc.date).toLocaleTimeString("en-IN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </div>
-                        </td>
-
-                        <td>
-                          <div style={{ fontSize: "0.82rem", maxWidth: 180, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {enc.diagnosis || enc.status || "—"}
-                          </div>
-                          {enc.bedOrRoom && (
-                            <div style={{ fontSize: "0.72rem", color: "#10b981", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2 }}>
-                              <Bed size={12} /> {enc.bedOrRoom}
-                            </div>
-                          )}
-                        </td>
-
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
-                            ₹{enc.billedAmount.toLocaleString("en-IN")}
-                          </div>
-                          <div style={{ fontSize: "0.72rem", color: "#10b981" }}>
-                            Paid: ₹{enc.paidAmount.toLocaleString("en-IN")}
-                          </div>
-                          {hasDues ? (
-                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f59e0b" }}>
-                              Due: ₹{enc.balanceDue.toLocaleString("en-IN")}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                              Settled ✓
-                            </div>
-                          )}
-                        </td>
-
-                        <td style={{ textAlign: "center" }}>
-                          <div style={{ display: "inline-flex", gap: 6 }}>
-                            {hasDues && (
-                              <button
-                                type="button"
-                                className="btn btn-xs btn-primary"
-                                onClick={() => setPaymentTarget(enc)}
-                                title="Record payment for this patient"
-                                style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-                              >
-                                <Receipt size={12} /> Settle
-                              </button>
-                            )}
-
-                            {hasDues && enc.patientMobile && (
-                              <a
-                                href={`https://wa.me/91${enc.patientMobile.replace(/\D/g, "")}?text=${encodeURIComponent(
-                                  `Dear ${enc.patientName}, your remaining balance of ₹${enc.balanceDue} for visit on ${new Date(
-                                    enc.date
-                                  ).toLocaleDateString("en-IN")} is pending. Kindly clear your dues at your convenience.`
-                                )}`}
-                                target="_blank"
-                                rel="noreferrer"
                                 className="btn btn-xs btn-ghost"
-                                title="Send WhatsApp Payment Reminder"
-                                style={{ color: "#22c55e" }}
+                                title="Open Patient Profile"
                               >
-                                <MessageCircle size={14} />
-                              </a>
-                            )}
-
-                            <Link
-                              href={`/patients/${enc.patientId}`}
-                              onClick={onClose}
-                              className="btn btn-xs btn-ghost"
-                              title="Open Patient Profile"
-                            >
-                              <User size={13} />
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                <User size={13} />
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </motion.div>
