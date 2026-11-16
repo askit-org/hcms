@@ -20,6 +20,7 @@ import { visitSchema, validateForm } from '@/lib/validations/schemas';
 import ConfirmModal from '@/components/ConfirmModal';
 import CreateBillModal from '@/components/CreateBillModal';
 import SaveTemplateModal from '@/components/SaveTemplateModal';
+import CreateCategoryModal from '@/components/CreateCategoryModal';
 
 
 const QUICK_COMPLAINTS = [
@@ -46,6 +47,7 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
   const [saving, setSaving] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
   const [showBillModal, setShowBillModal] = useState(false);
 
   const [form, setForm] = useState({
@@ -484,14 +486,9 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
               <button 
                 type="button" 
                 className="btn btn-secondary" 
-                onClick={async () => {
-                  const val = prompt('Enter new category name:');
-                  if (val?.trim()) {
-                    await createOption.mutateAsync({ optionType: 'CATEGORY', value: val.trim() });
-                    set('category', val.trim());
-                    toast('Category added', 'success');
-                  }
-                }}
+                onClick={() => setShowCreateCategoryModal(true)}
+                title="Add new category"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
                 <Plus size={16} /> New
               </button>
@@ -973,6 +970,15 @@ export default function EditVisitForm({ visitId }: { visitId: string }) {
           }}
         />
       )}
+      {/* Create Category Modal */}
+      <CreateCategoryModal
+        isOpen={showCreateCategoryModal}
+        onClose={() => setShowCreateCategoryModal(false)}
+        existingCategories={['OPD', 'IPD', 'Emergency', ...categoryOptions.map(o => o.value)]}
+        onSuccess={(newCat) => {
+          set('category', newCat);
+        }}
+      />
     </PageTransition>
   );
 }

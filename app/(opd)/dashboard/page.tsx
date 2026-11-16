@@ -1063,8 +1063,19 @@ export default function DashboardPage() {
                                     ({patient.age}y / {patient.gender})
                                   </span>
                                 )}
-                                <span className="badge badge-blue" style={{ fontSize: "0.68rem" }}>
-                                  OPD
+                                <span
+                                  className={`badge ${
+                                    (visit.category || "OPD").toUpperCase() === "EMERGENCY"
+                                      ? "badge-red"
+                                      : (visit.category || "OPD").toUpperCase() === "IPD"
+                                      ? "badge-purple"
+                                      : (visit.category || "OPD").toUpperCase() === "OPD"
+                                      ? "badge-blue"
+                                      : "badge-teal"
+                                  }`}
+                                  style={{ fontSize: "0.68rem" }}
+                                >
+                                  {visit.category || "OPD"}
                                 </span>
                               </div>
 

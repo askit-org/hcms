@@ -743,7 +743,11 @@ export default function PatientsPage() {
                             <Eye size={14} />
                           </Link>
                           <Link
-                            href={`/visits/new?patientId=${p.patientId}`}
+                            href={
+                              category !== "All"
+                                ? `/visits/new?patientId=${p.patientId}&category=${encodeURIComponent(category)}`
+                                : `/visits/new?patientId=${p.patientId}`
+                            }
                             className="btn btn-primary btn-sm"
                             title="New Visit"
                           >

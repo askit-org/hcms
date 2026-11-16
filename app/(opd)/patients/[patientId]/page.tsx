@@ -179,6 +179,26 @@ export default function PatientDetailPage({
     [visits],
   );
 
+  const [categoryFilter, setCategoryFilter] = useState("All");
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>();
+    opdVisits.forEach((v) => {
+      const cat = (v.category || "OPD").trim();
+      if (cat) cats.add(cat);
+    });
+    return Array.from(cats);
+  }, [opdVisits]);
+
+  const displayedOpdVisits = useMemo(() => {
+    if (categoryFilter === "All") return opdVisits;
+    return opdVisits.filter(
+      (v) =>
+        (v.category || "OPD").trim().toLowerCase() ===
+        categoryFilter.trim().toLowerCase(),
+    );
+  }, [opdVisits, categoryFilter]);
+
   // Automatically show IPD Stays tab if patient has inpatient stays but no OPD visits
   useEffect(() => {
     if (opdVisits.length === 0 && ipdAdmissions.length > 0) {
@@ -1354,7 +1374,7 @@ export default function PatientDetailPage({
                 onClick={() => handleSetVisitFilter("OPD")}
               >
                 <Stethoscope size={15} />
-                <span>OPD Consultations</span>
+                <span>Clinical Visits &amp; Consultations</span>
                 <span
                   style={{
                     background:
@@ -1417,7 +1437,11 @@ export default function PatientDetailPage({
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {visitFilter === "OPD" ? (
                 <Link
-                  href={`/visits/new?patientId=${patientId}`}
+                  href={
+                    categoryFilter !== "All"
+                      ? `/visits/new?patientId=${patientId}&category=${encodeURIComponent(categoryFilter)}`
+                      : `/visits/new?patientId=${patientId}`
+                  }
                   className="btn btn-primary btn-sm"
                   style={{
                     display: "inline-flex",
@@ -1425,7 +1449,10 @@ export default function PatientDetailPage({
                     gap: 6,
                   }}
                 >
-                  <Plus size={15} /> New OPD Visit
+                  <Plus size={15} />{" "}
+                  {categoryFilter !== "All"
+                    ? `New ${categoryFilter} Visit`
+                    : "New Visit"}
                 </Link>
               ) : (
                 <Link
@@ -1446,11 +1473,60 @@ export default function PatientDetailPage({
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════ */}
-          {/* TAB 1: OPD CONSULTATIONS VIEW                                      */}
+          {/* TAB 1: CLINICAL VISITS & CONSULTATIONS VIEW                         */}
           {/* ═══════════════════════════════════════════════════════════════════ */}
           {visitFilter === "OPD" && (
             <div>
-              {opdVisits.length === 0 ? (
+              {/* Category Filter Pills */}
+              {availableCategories.length > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: 14,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.78rem",
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Category:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter("All")}
+                    className={`btn btn-xs ${categoryFilter === "All" ? "btn-primary" : "btn-ghost"}`}
+                    style={{ borderRadius: 20, padding: "3px 12px" }}
+                  >
+                    All ({opdVisits.length})
+                  </button>
+                  {availableCategories.map((cat) => {
+                    const count = opdVisits.filter(
+                      (v) =>
+                        (v.category || "OPD").trim().toLowerCase() ===
+                        cat.trim().toLowerCase(),
+                    ).length;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setCategoryFilter(cat)}
+                        className={`btn btn-xs ${categoryFilter === cat ? "btn-primary" : "btn-ghost"}`}
+                        style={{ borderRadius: 20, padding: "3px 12px" }}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {displayedOpdVisits.length === 0 ? (
                 <div className="empty-state" style={{ padding: "48px 16px" }}>
                   <Stethoscope
                     size={40}
@@ -1459,16 +1535,26 @@ export default function PatientDetailPage({
                       margin: "0 auto 12px",
                     }}
                   />
-                  <h4>No OPD Consultations Recorded</h4>
+                  <h4>
+                    {categoryFilter !== "All"
+                      ? `No ${categoryFilter} Visits Recorded`
+                      : "No Clinical Consultations Recorded"}
+                  </h4>
                   <p>
-                    This patient has no recorded outpatient consultations yet.
+                    {categoryFilter !== "All"
+                      ? `This patient has no visits recorded under "${categoryFilter}".`
+                      : "This patient has no recorded outpatient consultations yet."}
                   </p>
                   <div style={{ marginTop: 14 }}>
                     <Link
-                      href={`/visits/new?patientId=${patientId}`}
+                      href={
+                        categoryFilter !== "All"
+                          ? `/visits/new?patientId=${patientId}&category=${encodeURIComponent(categoryFilter)}`
+                          : `/visits/new?patientId=${patientId}`
+                      }
                       className="btn btn-primary btn-sm"
                     >
-                      <Plus size={15} /> Start First OPD Consultation
+                      <Plus size={15} /> Start {categoryFilter !== "All" ? categoryFilter : "First"} Visit
                     </Link>
                   </div>
                 </div>
@@ -1476,7 +1562,7 @@ export default function PatientDetailPage({
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 12 }}
                 >
-                  {opdVisits.map((v) => {
+                  {displayedOpdVisits.map((v) => {
                     const isCardOpen = activeVisit?.id === v.id;
                     const isToday =
                       new Date(v.date).toDateString() ===
@@ -1515,7 +1601,7 @@ export default function PatientDetailPage({
                               })}
                               {isToday && (
                                 <span
-                                  className="badge badge-green"
+                                   className="badge badge-green"
                                   style={{ marginLeft: 8 }}
                                 >
                                   Today
@@ -1533,10 +1619,18 @@ export default function PatientDetailPage({
                               }}
                             >
                               <span
-                                className="badge badge-blue"
+                                className={`badge ${
+                                  (v.category || "OPD").toUpperCase() === "EMERGENCY"
+                                    ? "badge-red"
+                                    : (v.category || "OPD").toUpperCase() === "IPD"
+                                    ? "badge-purple"
+                                    : (v.category || "OPD").toUpperCase() === "OPD"
+                                    ? "badge-blue"
+                                    : "badge-teal"
+                                }`}
                                 style={{ fontWeight: 700 }}
                               >
-                                OPD
+                                {v.category || "OPD"}
                               </span>
                               {v.bill ? (
                                 hasDues ? (

@@ -279,13 +279,13 @@ export default function ReportsPage() {
     const opdRows = filteredVisits.map((v) => {
       const p = patMap.get(v.patientId);
       return [
-        v.category === 'IPD' ? 'IPD Visit' : 'OPD Visit',
+        v.category === 'IPD' ? 'IPD Visit' : `${v.category || 'OPD'} Visit`,
         new Date(v.date).toLocaleString('en-IN'),
         v.id,
         p?.name || '',
         p?.age || '',
         p?.mobile || '',
-        v.category === 'IPD' ? 'Inpatient' : 'Outpatient',
+        v.category === 'IPD' ? 'Inpatient' : (v.category || 'Outpatient'),
         v.diagnosis || '',
         v.followUpDate ? `F/U: ${new Date(v.followUpDate).toLocaleDateString('en-IN')}` : '—',
         v.bill?.totalAmount || 0,
