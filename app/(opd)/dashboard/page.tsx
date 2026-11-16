@@ -23,6 +23,9 @@ import {
   Sparkles,
   Edit2,
   Phone,
+  Clock,
+  Users,
+  PlayCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -32,6 +35,8 @@ import {
   useIpdAdmissions,
   useSettings,
   useReports,
+  useQueue,
+  useQueueMutations,
 } from "@/lib/hooks/useQueries";
 import { useAuth } from "@/lib/hooks/useAuth";
 import PageTransition from "@/components/PageTransition";
@@ -42,7 +47,7 @@ import CreateBillModal from "@/components/CreateBillModal";
 import IpdDayLogModal from "@/components/IpdDayLogModal";
 import IpdDischargeModal from "@/components/IpdDischargeModal";
 import IpdPatientJourneyModal from "@/components/IpdPatientJourneyModal";
-import type { Patient, Visit, IpdAdmission } from "@/lib/providers/types";
+import type { Patient, Visit, IpdAdmission, QueueEntry } from "@/lib/providers/types";
 import { toast } from "@/components/Toast";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -61,6 +66,70 @@ export default function DashboardPage() {
   const { data: pendingDuesData, refetch: refetchDues } = usePendingDues();
   const { data: allIpdAdmissions = [], refetch: refetchIpd } = useIpdAdmissions();
   const { updateFollowUpStatus } = useVisitMutations();
+
+  // Live OPD Queue query & mutations
+  const { data: dbQueue = [], refetch: refetchQueue } = useQueue();
+  const { callNext: callNextMut, updateStatus: updateStatusMut } = useQueueMutations();
+
+  const queueItems: QueueEntry[] = useMemo(() => {
+    return Array.isArray(dbQueue) ? (dbQueue as QueueEntry[]) : [];
+  }, [dbQueue]);
+
+  const nowServingPatient = useMemo(() => {
+    return queueItems.find(
+      (q) => q.status === "NOW_SERVING" || q.status === "IN_SESSION"
+    );
+  }, [queueItems]);
+
+  const waitingQueuePatients = useMemo(() => {
+    return queueItems.filter(
+      (q) => q.status === "WAITING" || q.status === "NEXT_IN_LINE"
+    );
+  }, [queueItems]);
+
+  const totalActiveQueue = (nowServingPatient ? 1 : 0) + waitingQueuePatients.length;
+
+  const [opdTab, setOpdTab] = useState<"LIVE_QUEUE" | "VISITS">("LIVE_QUEUE");
+
+  const handleStartConsultationFromDashboard = async (item: QueueEntry) => {
+    try {
+      await updateStatusMut.mutateAsync({
+        id: item.id,
+        status: "NOW_SERVING",
+        inRoomSince: "Just Started",
+      });
+      await refetchQueue();
+    } catch (err) {
+      console.warn("Could not update queue status before navigation:", err);
+    }
+    toast(`Calling Token #${item.tokenNo} (${item.patientName || "Patient"})...`, "success");
+    router.push(`/visits/new?patientId=${item.patientId}`);
+  };
+
+  const handleCallNextFromDashboard = async () => {
+    if (waitingQueuePatients.length === 0) {
+      toast("No patients currently waiting in queue.", "info");
+      return;
+    }
+    const nextItem = waitingQueuePatients[0];
+    try {
+      await callNextMut.mutateAsync();
+      await refetchQueue();
+      toast(`Called Token #${nextItem.tokenNo} (${nextItem.patientName || "Patient"}) for consultation!`, "success");
+    } catch (err) {
+      toast(getErrorMessage(err, "Failed to call next patient"), "error");
+    }
+  };
+
+  const handleCompleteNowServing = async (id: string, name?: string) => {
+    try {
+      await updateStatusMut.mutateAsync({ id, status: "COMPLETED" });
+      await refetchQueue();
+      toast(`Marked consultation completed for ${name || "patient"}!`, "success");
+    } catch (err) {
+      toast(getErrorMessage(err, "Failed to complete queue item"), "error");
+    }
+  };
 
   // Month-to-Date (MTD) Range & Query
   const now = useMemo(() => new Date(), []);
@@ -433,7 +502,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 4: Today's OPD Consultations */}
+        {/* Card 4: Today's OPD Consultations & Live Queue */}
         <div
           className="kpi-card"
           style={{ "--kpi-accent": "var(--accent)", "--kpi-bg": "var(--accent-glow)", cursor: "pointer" } as React.CSSProperties}
@@ -446,9 +515,31 @@ export default function DashboardPage() {
           <div className="kpi-header">
             <span
               className="kpi-tag"
-              style={{ background: "var(--accent-glow)", color: "var(--accent)" }}
+              style={{
+                background: totalActiveQueue > 0 ? "rgba(16, 185, 129, 0.15)" : "var(--accent-glow)",
+                color: totalActiveQueue > 0 ? "#10b981" : "var(--accent)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+              }}
             >
-              OUTPATIENT
+              {totalActiveQueue > 0 ? (
+                <>
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: "#10b981",
+                      display: "inline-block",
+                      boxShadow: "0 0 8px #10b981",
+                    }}
+                  />
+                  {totalActiveQueue} WAITING IN QUEUE
+                </>
+              ) : (
+                "OUTPATIENT"
+              )}
             </span>
             <div className="kpi-icon-wrap">
               <Activity size={20} />
@@ -456,11 +547,13 @@ export default function DashboardPage() {
           </div>
           <div>
             <div className="kpi-value" style={{ color: "var(--accent)" }}>
-              {s.todayTotal}
+              {totalActiveQueue > 0 ? `${totalActiveQueue} Waiting` : s.todayTotal}
             </div>
-            <div className="kpi-label">Today's OPD Visits</div>
+            <div className="kpi-label">
+              {totalActiveQueue > 0 ? "Active Patient Queue" : "Today's OPD Visits"}
+            </div>
             <div className="kpi-sub">
-              {s.todayNew} new · {s.todayReturning} returning
+              {s.todayTotal} visits charted · {s.todayNew} new · {s.todayReturning} ret
             </div>
           </div>
         </div>
@@ -541,6 +634,7 @@ export default function DashboardPage() {
               gap: 14,
             }}
           >
+            {/* OPD Header & View Tabs */}
             <div
               style={{
                 display: "flex",
@@ -555,193 +649,501 @@ export default function DashboardPage() {
               <div>
                 <div style={{ fontWeight: 800, fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
                   <Stethoscope size={18} style={{ color: "var(--accent)" }} />
-                  <span>Today's OPD Consultations</span>
-                  <span className="badge badge-blue" style={{ fontSize: "0.72rem" }}>
-                    {todayVisitsList.length} patients
-                  </span>
+                  <span>OPD Clinic &amp; Consultation Hub</span>
                 </div>
                 <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
-                  Outpatient consultations &amp; clinical charting for today
+                  Live patient queue &amp; outpatient clinical charting for today
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                {/* Filter Pills */}
+              {/* View Switcher Tabs & Actions */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <div
                   style={{
                     display: "inline-flex",
                     background: "var(--surface-2)",
-                    padding: 2,
+                    padding: 3,
                     borderRadius: 8,
-                    gap: 2,
+                    gap: 3,
                   }}
                 >
-                  {(["ALL", "PAID", "DUES", "UNBILLED"] as const).map((filter) => (
-                    <button
-                      key={filter}
-                      type="button"
+                  <button
+                    type="button"
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.74rem",
+                      fontWeight: opdTab === "LIVE_QUEUE" ? 700 : 500,
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      background: opdTab === "LIVE_QUEUE" ? "var(--accent)" : "transparent",
+                      color: opdTab === "LIVE_QUEUE" ? "#ffffff" : "var(--text-secondary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                    onClick={() => setOpdTab("LIVE_QUEUE")}
+                  >
+                    {totalActiveQueue > 0 && (
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: opdTab === "LIVE_QUEUE" ? "#ffffff" : "#10b981",
+                          display: "inline-block",
+                        }}
+                      />
+                    )}
+                    <span>Live Queue</span>
+                    <span
                       style={{
-                        padding: "3px 8px",
-                        fontSize: "0.72rem",
-                        fontWeight: opdFilter === filter ? 700 : 500,
-                        borderRadius: 6,
-                        border: "none",
-                        cursor: "pointer",
-                        background: opdFilter === filter ? "var(--accent)" : "transparent",
-                        color: opdFilter === filter ? "#ffffff" : "var(--text-secondary)",
+                        fontSize: "0.68rem",
+                        padding: "1px 5px",
+                        borderRadius: 10,
+                        background: opdTab === "LIVE_QUEUE" ? "rgba(255,255,255,0.25)" : "var(--surface-card)",
                       }}
-                      onClick={() => setOpdFilter(filter)}
                     >
-                      {filter === "ALL"
-                        ? "All"
-                        : filter === "PAID"
-                        ? "Paid"
-                        : filter === "DUES"
-                        ? "With Dues"
-                        : "Unbilled"}
-                    </button>
-                  ))}
+                      {totalActiveQueue}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.74rem",
+                      fontWeight: opdTab === "VISITS" ? 700 : 500,
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      background: opdTab === "VISITS" ? "var(--accent)" : "transparent",
+                      color: opdTab === "VISITS" ? "#ffffff" : "var(--text-secondary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                    onClick={() => setOpdTab("VISITS")}
+                  >
+                    <span>Charted Consultations</span>
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        padding: "1px 5px",
+                        borderRadius: 10,
+                        background: opdTab === "VISITS" ? "rgba(255,255,255,0.25)" : "var(--surface-card)",
+                      }}
+                    >
+                      {todayVisitsList.length}
+                    </span>
+                  </button>
                 </div>
 
-                <Link href="/visits/new" className="btn btn-primary btn-xs" style={{ whiteSpace: "nowrap" }}>
-                  <Plus size={12} /> New Visit
-                </Link>
+                {opdTab === "LIVE_QUEUE" ? (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {waitingQueuePatients.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleCallNextFromDashboard}
+                        className="btn btn-secondary btn-xs"
+                        style={{ whiteSpace: "nowrap" }}
+                        title="Call the next patient in queue"
+                      >
+                        <PlayCircle size={12} /> Call Next
+                      </button>
+                    )}
+                    <Link
+                      href="/appointments"
+                      className="btn btn-ghost btn-xs"
+                      style={{ whiteSpace: "nowrap", fontSize: "0.72rem" }}
+                      title="Open full appointments and queue board"
+                    >
+                      Full Queue Board &rarr;
+                    </Link>
+                    <Link href="/visits/new" className="btn btn-primary btn-xs" style={{ whiteSpace: "nowrap" }}>
+                      <Plus size={12} /> Direct Visit
+                    </Link>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    {/* Filter Pills */}
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        background: "var(--surface-2)",
+                        padding: 2,
+                        borderRadius: 8,
+                        gap: 2,
+                      }}
+                    >
+                      {(["ALL", "PAID", "DUES", "UNBILLED"] as const).map((filter) => (
+                        <button
+                          key={filter}
+                          type="button"
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "0.72rem",
+                            fontWeight: opdFilter === filter ? 700 : 500,
+                            borderRadius: 6,
+                            border: "none",
+                            cursor: "pointer",
+                            background: opdFilter === filter ? "var(--accent)" : "transparent",
+                            color: opdFilter === filter ? "#ffffff" : "var(--text-secondary)",
+                          }}
+                          onClick={() => setOpdFilter(filter)}
+                        >
+                          {filter === "ALL"
+                            ? "All"
+                            : filter === "PAID"
+                            ? "Paid"
+                            : filter === "DUES"
+                            ? "With Dues"
+                            : "Unbilled"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <Link href="/visits/new" className="btn btn-primary btn-xs" style={{ whiteSpace: "nowrap" }}>
+                      <Plus size={12} /> New Visit
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* OPD Patient Cards List */}
-            {filteredTodayVisits.length === 0 ? (
-              <div className="empty-state" style={{ padding: "36px 12px" }}>
-                <Stethoscope size={32} style={{ color: "var(--text-muted)", margin: "0 auto 8px" }} />
-                <h4 style={{ margin: "4px 0" }}>No OPD Consultations in this View</h4>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                  {todayVisitsList.length === 0
-                    ? "Your outpatient clinic queue is clear. Click below to begin a consultation."
-                    : "No visits matched the selected filter."}
-                </p>
-                <div style={{ marginTop: 12 }}>
-                  <Link href="/visits/new" className="btn btn-primary btn-sm">
-                    <Plus size={14} /> Start Consultation
-                  </Link>
-                </div>
-              </div>
-            ) : (
+            {/* TAB CONTENT 1: LIVE QUEUE VIEW */}
+            {opdTab === "LIVE_QUEUE" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {filteredTodayVisits.map(({ visit, patient }) => {
-                  const bill = visit.bill;
-                  const hasDues = bill && Number(bill.balanceDue) > 0;
-                  return (
-                    <div key={visit.id} className="patient-queue-item">
-                      <div className="patient-queue-info">
-                        <div
-                          className="followup-avatar"
-                          style={{
-                            width: 38,
-                            height: 38,
-                            fontSize: "0.92rem",
-                            background: "var(--accent-glow)",
-                            color: "var(--accent-light)",
-                          }}
-                        >
-                          {patient?.name?.charAt(0)?.toUpperCase() || "P"}
-                        </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <Link
-                              href={`/patients/${visit.patientId}`}
-                              style={{
-                                fontWeight: 700,
-                                fontSize: "0.92rem",
-                                color: "var(--text-primary)",
-                                textDecoration: "none",
-                              }}
-                            >
-                              {patient?.name || "Patient"}
-                            </Link>
-                            {patient?.age && (
-                              <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
-                                ({patient.age}y / {patient.gender})
-                              </span>
-                            )}
-                            <span className="badge badge-blue" style={{ fontSize: "0.68rem" }}>
-                              OPD
-                            </span>
-                          </div>
-
-                          <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
-                            {patient?.mobile}
-                            {visit.diagnosis ? ` · Dx: ${visit.diagnosis}` : ""}
-                          </div>
-
-                          {/* Vitals Strip */}
-                          {(visit.bp || visit.pulse || visit.temp || visit.spo2) && (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                              {visit.bp && <span className="badge badge-red" style={{ fontSize: "0.68rem" }}>BP: {visit.bp}</span>}
-                              {visit.pulse && <span className="badge badge-blue" style={{ fontSize: "0.68rem" }}>P: {visit.pulse}</span>}
-                              {visit.temp && <span className="badge badge-amber" style={{ fontSize: "0.68rem" }}>{visit.temp}°F</span>}
-                              {visit.spo2 && <span className="badge badge-green" style={{ fontSize: "0.68rem" }}>SpO2: {visit.spo2}%</span>}
-                            </div>
-                          )}
-                        </div>
+                {/* Now In Consultation Cabin Highlight Card */}
+                {nowServingPatient && (
+                  <div
+                    style={{
+                      background: "rgba(16, 185, 129, 0.06)",
+                      border: "1.5px solid #10b981",
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: "50%",
+                          background: "#10b981",
+                          color: "#ffffff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 800,
+                          fontSize: "1rem",
+                          flexShrink: 0,
+                        }}
+                      >
+                        #{nowServingPatient.tokenNo}
                       </div>
-
-                      {/* Billing Badge & Actions */}
-                      <div className="patient-queue-actions">
-                        {bill ? (
-                          hasDues ? (
-                            <span className="badge badge-red" style={{ fontSize: "0.72rem" }}>
-                              Due ₹{bill.balanceDue}
-                            </span>
-                          ) : (
-                            <span className="badge badge-green" style={{ fontSize: "0.72rem" }}>
-                              Paid ₹{bill.paidAmount}
-                            </span>
-                          )
-                        ) : (
-                          <span className="badge badge-amber" style={{ fontSize: "0.72rem" }}>
-                            Unbilled
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span
+                            className="badge badge-green"
+                            style={{ fontSize: "0.68rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} />
+                            IN CONSULTATION CABIN NOW
                           </span>
-                        )}
-
-                        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                          <Link
-                            href={`/visits/${visit.id}/print`}
-                            className="btn btn-ghost btn-xs"
-                            title="Print Rx / Bill"
-                          >
-                            <Printer size={13} />
-                          </Link>
-                          <Link
-                            href={`/visits/${visit.id}/edit`}
-                            className="btn btn-secondary btn-xs"
-                            title="Edit Consultation"
-                          >
-                            <Edit2 size={12} />
-                          </Link>
-                          {hasDues && (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-xs"
-                              onClick={() =>
-                                setActivePaymentModal({
-                                  billId: bill.id,
-                                  billNumber: bill.billNumber,
-                                  patientName: patient?.name || "Patient",
-                                  balanceDue: Number(bill.balanceDue),
-                                  totalAmount: Number(bill.totalAmount),
-                                  paidAmount: Number(bill.paidAmount),
-                                })
-                              }
-                            >
-                              Settle Due
-                            </button>
+                          <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+                            {nowServingPatient.patientName || "Patient"}
+                          </span>
+                          {(nowServingPatient.age || nowServingPatient.gender) && (
+                            <span style={{ fontSize: "0.76rem", color: "var(--text-muted)" }}>
+                              ({nowServingPatient.age ? `${nowServingPatient.age}y` : ""}
+                              {nowServingPatient.age && nowServingPatient.gender ? " / " : ""}
+                              {nowServingPatient.gender || ""})
+                            </span>
                           )}
+                        </div>
+                        <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 3 }}>
+                          {nowServingPatient.mobile && <span>{nowServingPatient.mobile} · </span>}
+                          <span>Reason: {nowServingPatient.reason || "General Consultation"}</span>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => router.push(`/visits/new?patientId=${nowServingPatient.patientId}`)}
+                        style={{ fontWeight: 700 }}
+                      >
+                        <Stethoscope size={13} /> Continue Charting
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleCompleteNowServing(nowServingPatient.id, nowServingPatient.patientName || undefined)}
+                        title="Mark consultation completed"
+                      >
+                        <CheckCircle2 size={13} /> Finished
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Waiting Queue Patient Cards */}
+                {waitingQueuePatients.length > 0 ? (
+                  waitingQueuePatients.map((item, idx) => {
+                    const isNext = idx === 0 && !nowServingPatient;
+                    return (
+                      <div
+                        key={item.id}
+                        className="patient-queue-item"
+                        style={{
+                          borderLeft: isNext ? "4px solid var(--accent)" : undefined,
+                        }}
+                      >
+                        <div className="patient-queue-info">
+                          <div
+                            className="followup-avatar"
+                            style={{
+                              width: 38,
+                              height: 38,
+                              fontSize: "0.85rem",
+                              fontWeight: 800,
+                              background: isNext ? "var(--accent-glow)" : "var(--surface-2)",
+                              color: isNext ? "var(--accent)" : "var(--text-secondary)",
+                            }}
+                          >
+                            #{item.tokenNo}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <Link
+                                href={`/patients/${item.patientId}`}
+                                style={{
+                                  fontWeight: 700,
+                                  fontSize: "0.92rem",
+                                  color: "var(--text-primary)",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                {item.patientName || "Patient"}
+                              </Link>
+                              {(item.age || item.gender) && (
+                                <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                                  ({item.age ? `${item.age}y` : ""}
+                                  {item.age && item.gender ? " / " : ""}
+                                  {item.gender || ""})
+                                </span>
+                              )}
+                              <span
+                                className={`badge ${
+                                  item.category === "Emergency"
+                                    ? "badge-red"
+                                    : item.category === "Walk-in"
+                                    ? "badge-amber"
+                                    : "badge-blue"
+                                }`}
+                                style={{ fontSize: "0.68rem" }}
+                              >
+                                {item.category || "Consultation"}
+                              </span>
+                              {isNext && (
+                                <span className="badge badge-green" style={{ fontSize: "0.68rem", fontWeight: 700 }}>
+                                  NEXT IN LINE
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
+                              {item.mobile && <span>{item.mobile} · </span>}
+                              <span>{item.reason ? `Reason: ${item.reason}` : "General Outpatient"}</span>
+                              {item.queuedAt && (
+                                <span style={{ marginLeft: 6, color: "var(--text-muted)" }}>
+                                  · Queued at {item.queuedAt}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Call Patient & Start Consultation Action */}
+                        <div className="patient-queue-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleStartConsultationFromDashboard(item)}
+                            style={{ fontWeight: 700, gap: 6 }}
+                          >
+                            <Stethoscope size={13} />
+                            <span>Call &amp; Start Visit</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : !nowServingPatient ? (
+                  <div className="empty-state" style={{ padding: "36px 12px" }}>
+                    <Users size={32} style={{ color: "var(--text-muted)", margin: "0 auto 8px" }} />
+                    <h4 style={{ margin: "4px 0" }}>OPD Queue is Clear</h4>
+                    <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", maxWidth: 440, margin: "0 auto" }}>
+                      No patients are waiting in the queue right now. Patients added by the receptionist in Appointments &amp; Queue will appear here instantly.
+                    </p>
+                    <div style={{ marginTop: 14, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                      <Link href="/appointments" className="btn btn-secondary btn-sm">
+                        <Users size={13} /> Appointments &amp; Queue Board
+                      </Link>
+                      <Link href="/visits/new" className="btn btn-primary btn-sm">
+                        <Plus size={13} /> Start Direct Visit
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
               </div>
+            )}
+
+            {/* TAB CONTENT 2: CHARTED CONSULTATIONS VIEW */}
+            {opdTab === "VISITS" && (
+              <>
+                {filteredTodayVisits.length === 0 ? (
+                  <div className="empty-state" style={{ padding: "36px 12px" }}>
+                    <Stethoscope size={32} style={{ color: "var(--text-muted)", margin: "0 auto 8px" }} />
+                    <h4 style={{ margin: "4px 0" }}>No OPD Consultations in this View</h4>
+                    <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                      {todayVisitsList.length === 0
+                        ? "No consultation visits have been completed today yet."
+                        : "No visits matched the selected filter."}
+                    </p>
+                    <div style={{ marginTop: 12 }}>
+                      <Link href="/visits/new" className="btn btn-primary btn-sm">
+                        <Plus size={14} /> Start Consultation
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {filteredTodayVisits.map(({ visit, patient }) => {
+                      const bill = visit.bill;
+                      const hasDues = bill && Number(bill.balanceDue) > 0;
+                      return (
+                        <div key={visit.id} className="patient-queue-item">
+                          <div className="patient-queue-info">
+                            <div
+                              className="followup-avatar"
+                              style={{
+                                width: 38,
+                                height: 38,
+                                fontSize: "0.92rem",
+                                background: "var(--accent-glow)",
+                                color: "var(--accent-light)",
+                              }}
+                            >
+                              {patient?.name?.charAt(0)?.toUpperCase() || "P"}
+                            </div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <Link
+                                  href={`/patients/${visit.patientId}`}
+                                  style={{
+                                    fontWeight: 700,
+                                    fontSize: "0.92rem",
+                                    color: "var(--text-primary)",
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  {patient?.name || "Patient"}
+                                </Link>
+                                {patient?.age && (
+                                  <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                                    ({patient.age}y / {patient.gender})
+                                  </span>
+                                )}
+                                <span className="badge badge-blue" style={{ fontSize: "0.68rem" }}>
+                                  OPD
+                                </span>
+                              </div>
+
+                              <div style={{ fontSize: "0.76rem", color: "var(--text-muted)", marginTop: 2 }}>
+                                {patient?.mobile}
+                                {visit.diagnosis ? ` · Dx: ${visit.diagnosis}` : ""}
+                              </div>
+
+                              {/* Vitals Strip */}
+                              {(visit.bp || visit.pulse || visit.temp || visit.spo2) && (
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                                  {visit.bp && <span className="badge badge-red" style={{ fontSize: "0.68rem" }}>BP: {visit.bp}</span>}
+                                  {visit.pulse && <span className="badge badge-blue" style={{ fontSize: "0.68rem" }}>P: {visit.pulse}</span>}
+                                  {visit.temp && <span className="badge badge-amber" style={{ fontSize: "0.68rem" }}>{visit.temp}°F</span>}
+                                  {visit.spo2 && <span className="badge badge-green" style={{ fontSize: "0.68rem" }}>SpO2: {visit.spo2}%</span>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Billing Badge & Actions */}
+                          <div className="patient-queue-actions">
+                            {bill ? (
+                              hasDues ? (
+                                <span className="badge badge-red" style={{ fontSize: "0.72rem" }}>
+                                  Due ₹{bill.balanceDue}
+                                </span>
+                              ) : (
+                                <span className="badge badge-green" style={{ fontSize: "0.72rem" }}>
+                                  Paid ₹{bill.paidAmount}
+                                </span>
+                              )
+                            ) : (
+                              <span className="badge badge-amber" style={{ fontSize: "0.72rem" }}>
+                                Unbilled
+                              </span>
+                            )}
+
+                            <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                              <Link
+                                href={`/visits/${visit.id}/print`}
+                                className="btn btn-ghost btn-xs"
+                                title="Print Rx / Bill"
+                              >
+                                <Printer size={13} />
+                              </Link>
+                              <Link
+                                href={`/visits/${visit.id}/edit`}
+                                className="btn btn-secondary btn-xs"
+                                title="Edit Consultation"
+                              >
+                                <Edit2 size={12} />
+                              </Link>
+                              {hasDues && (
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-xs"
+                                  onClick={() =>
+                                    setActivePaymentModal({
+                                      billId: bill.id,
+                                      billNumber: bill.billNumber,
+                                      patientName: patient?.name || "Patient",
+                                      balanceDue: Number(bill.balanceDue),
+                                      totalAmount: Number(bill.totalAmount),
+                                      paidAmount: Number(bill.paidAmount),
+                                    })
+                                  }
+                                >
+                                  Settle Due
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

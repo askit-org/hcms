@@ -716,7 +716,9 @@ export default function NewVisitForm() {
       // Check if patient is in queue and dequeue
       if (Array.isArray(dbQueue)) {
         const queuedPatient = dbQueue.find(
-          (q: any) => q.patientId === selectedPatient!.patientId,
+          (q: any) =>
+            q.patientId === selectedPatient!.patientId ||
+            q.patientId === selectedPatient!.id,
         );
         if (queuedPatient) {
           try {

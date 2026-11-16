@@ -14,7 +14,7 @@ export function isPlatformAdminUser(user: AuthUser | null | undefined): boolean 
 
 const ROUTE_MODEL_MAP: Record<string, AppModel> = {
   '/dashboard': 'PATIENTS', // Dashboard accessible to all authenticated users
-  '/appointments': 'PATIENTS',
+  '/appointments': 'QUEUE',
   '/patients': 'PATIENTS',
   '/visits': 'VISITS',
   '/prescription': 'VISITS',
@@ -47,14 +47,20 @@ export function usePermissions() {
     if (isPlatformAdmin) return false; // no clinic data access
     if (isSuperAdmin) return true;
 
-    // Receptionist role override: Only access to Patients (read & create) and Follow-ups (read)
+    // Receptionist role permissions: full Queue management, Patient registration/editing, and Visits/Followups viewing
     if (roleCode === 'RECEPTIONIST' || user?.roleName?.toLowerCase().includes('receptionist')) {
-      if (model === 'PATIENTS') {
-        return action === 'canRead' || action === 'canCreate';
+      if (model === 'QUEUE') {
+        return true;
       }
-      if (model === 'FOLLOWUPS') {
+      if (model === 'PATIENTS') {
+        return action === 'canRead' || action === 'canCreate' || action === 'canUpdate';
+      }
+      if (model === 'VISITS' || model === 'FOLLOWUPS') {
         return action === 'canRead';
       }
+      // Check any explicit permission granted to this role in user.permissions
+      const perm = userPermissions.find((p) => p.model === model);
+      if (perm) return !!perm[action];
       return false;
     }
 
