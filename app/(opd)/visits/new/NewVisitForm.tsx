@@ -1196,38 +1196,51 @@ export default function NewVisitForm() {
               )}
             </div>
           ) : (
-            <div style={{ position: "relative", zIndex: 100 }}>
-              <div className="search-input-wrap">
-                <span className="s-icon">
-                  <Search />
-                </span>
-                <input
-                  className="search-input"
-                  placeholder="Search patient by name or mobile…"
-                  value={patientQuery}
-                  onChange={(e) => setPatientQuery(e.target.value)}
-                />
-              </div>
-              {patientResults.length > 0 && (
-                <div className="search-dropdown">
-                  {patientResults.map((p) => (
-                    <div
-                      key={p.id}
-                      className="search-result"
-                      onClick={() => {
-                        setSelectedPatient(p);
-                        setPatientQuery("");
-                        setPatientResults([]);
-                      }}
-                    >
-                      <div className="sr-name">{p.name}</div>
-                      <div className="sr-meta">
-                        {p.mobile} · {p.gender}, {p.age}y
-                      </div>
-                    </div>
-                  ))}
+            <div>
+              {/* Dedicated Search Input & Directly Attached Dropdown */}
+              <div style={{ position: "relative", zIndex: 100 }}>
+                <div className="search-input-wrap">
+                  <span className="s-icon">
+                    <Search />
+                  </span>
+                  <input
+                    className="search-input"
+                    placeholder="Search patient by name or mobile…"
+                    value={patientQuery}
+                    onChange={(e) => setPatientQuery(e.target.value)}
+                  />
                 </div>
-              )}
+                {patientResults.length > 0 && (
+                  <div
+                    className="search-dropdown"
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 4px)",
+                      left: 0,
+                      right: 0,
+                      zIndex: 99999,
+                    }}
+                  >
+                    {patientResults.map((p) => (
+                      <div
+                        key={p.id}
+                        className="search-result"
+                        onClick={() => {
+                          setSelectedPatient(p);
+                          setPatientQuery("");
+                          setPatientResults([]);
+                        }}
+                      >
+                        <div className="sr-name">{p.name}</div>
+                        <div className="sr-meta">
+                          {p.mobile} · {p.gender}, {p.age}y
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div
                 style={{
                   textAlign: "center",

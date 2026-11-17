@@ -276,48 +276,85 @@ export default function AnalyticsDrilldownModal({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
               gap: 10,
               padding: "12px 20px",
               background: "rgba(255, 255, 255, 0.02)",
               borderBottom: "1px solid var(--border)",
             }}
           >
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
-                MATCHING PATIENTS
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                background: "rgba(255, 255, 255, 0.02)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.03em" }}>
+                MATCHING ENCOUNTERS
               </span>
-              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
+              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)", marginTop: 2 }}>
                 {summary.count} Encounters
               </span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                background: "rgba(255, 255, 255, 0.02)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.03em" }}>
                 TOTAL BILLED
               </span>
-              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
+              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--text-primary)", marginTop: 2 }}>
                 ₹{summary.totalBilled.toLocaleString("en-IN")}
               </span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                background: "rgba(255, 255, 255, 0.02)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.03em" }}>
                 COLLECTED REVENUE
               </span>
-              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "#10b981" }}>
+              <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "#10b981", marginTop: 2 }}>
                 ₹{summary.totalCollected.toLocaleString("en-IN")}
               </span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                background: "rgba(255, 255, 255, 0.02)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.03em" }}>
                 PENDING DUES
               </span>
               <span
                 style={{
-                  fontSize: "1.1rem",
+                  fontSize: "1.15rem",
                   fontWeight: 800,
+                  marginTop: 2,
                   color: summary.totalDues > 0 ? "#f59e0b" : "var(--text-secondary)",
                 }}
               >
@@ -425,176 +462,367 @@ export default function AnalyticsDrilldownModal({
                 </div>
               </div>
             ) : (
-              <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <table className="table" style={{ marginTop: 8, minWidth: 720 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ minWidth: 160 }}>Patient Name &amp; Contact</th>
-                      <th style={{ minWidth: 100 }}>Category</th>
-                      <th style={{ minWidth: 110 }}>Date &amp; Time</th>
-                      <th style={{ minWidth: 130 }}>Diagnosis / Bed</th>
-                      <th style={{ minWidth: 150, textAlign: "right" }}>Financials (Billed / Paid / Due)</th>
-                      <th style={{ minWidth: 110, textAlign: "center" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayedEncounters.map((enc) => {
-                      const hasDues = enc.balanceDue > 0;
-                      return (
-                        <tr key={`${enc.type}-${enc.id}`}>
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: "50%",
-                                  background: enc.type === "IPD" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
-                                  color: enc.type === "IPD" ? "#10b981" : "var(--primary)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontWeight: 800,
-                                  fontSize: "0.82rem",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {enc.patientName.charAt(0)}
+              <>
+                {/* ─── DESKTOP / TABLET DATA TABLE (MIN-WIDTH 840PX) ─── */}
+                <div className="drilldown-table-wrap">
+                  <table
+                    className="table"
+                    style={{
+                      marginTop: 8,
+                      width: "100%",
+                      minWidth: 840,
+                      tableLayout: "fixed",
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th style={{ width: "26%", minWidth: 190 }}>Patient &amp; Contact</th>
+                        <th style={{ width: "11%", minWidth: 90 }}>Category</th>
+                        <th style={{ width: "14%", minWidth: 110 }}>Date &amp; Time</th>
+                        <th style={{ width: "18%", minWidth: 150 }}>Diagnosis / Bed</th>
+                        <th style={{ width: "18%", minWidth: 150, textAlign: "right" }}>Financials (Billed / Paid / Due)</th>
+                        <th style={{ width: "13%", minWidth: 100, textAlign: "center" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayedEncounters.map((enc) => {
+                        const hasDues = enc.balanceDue > 0;
+                        return (
+                          <tr key={`tbl-${enc.type}-${enc.id}`}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: "50%",
+                                    background: enc.type === "IPD" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                                    color: enc.type === "IPD" ? "#10b981" : "var(--primary)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontWeight: 800,
+                                    fontSize: "0.82rem",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {enc.patientName.charAt(0)}
+                                </div>
+                                <div style={{ minWidth: 0, overflow: "hidden" }}>
+                                  <Link
+                                    href={`/patients/${enc.patientId}`}
+                                    onClick={onClose}
+                                    style={{
+                                      fontWeight: 700,
+                                      color: "var(--text-primary)",
+                                      textDecoration: "none",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      maxWidth: "100%",
+                                    }}
+                                  >
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {enc.patientName}
+                                    </span>
+                                    <ExternalLink size={11} style={{ opacity: 0.6, flexShrink: 0 }} />
+                                  </Link>
+                                  <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {enc.patientAge ? `${enc.patientAge}y · ` : ""}
+                                    {enc.patientGender ? `${enc.patientGender} · ` : ""}
+                                    {enc.patientMobile || "No mobile"}
+                                  </div>
+                                </div>
                               </div>
-                              <div>
+                            </td>
+
+                            <td>
+                              <span
+                                className={`badge ${
+                                  enc.category.toUpperCase() === "EMERGENCY"
+                                    ? "badge-red"
+                                    : enc.category.toUpperCase() === "IPD"
+                                    ? "badge-green"
+                                    : enc.category.toUpperCase() === "OPD"
+                                    ? "badge-blue"
+                                    : "badge-teal"
+                                }`}
+                                style={{ fontWeight: 700, fontSize: "0.72rem" }}
+                              >
+                                {enc.category}
+                              </span>
+                            </td>
+
+                            <td>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                                {new Date(enc.date).toLocaleDateString("en-IN", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                                {new Date(enc.date).toLocaleTimeString("en-IN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                            </td>
+
+                            <td>
+                              <div style={{ fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={enc.diagnosis}>
+                                {enc.diagnosis || enc.status || "—"}
+                              </div>
+                              {enc.bedOrRoom && (
+                                <div style={{ fontSize: "0.72rem", color: "#10b981", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                                  <Bed size={12} /> {enc.bedOrRoom}
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                                ₹{enc.billedAmount.toLocaleString("en-IN")}
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: "#10b981" }}>
+                                Paid: ₹{enc.paidAmount.toLocaleString("en-IN")}
+                              </div>
+                              {hasDues ? (
+                                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f59e0b" }}>
+                                  Due: ₹{enc.balanceDue.toLocaleString("en-IN")}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                  Settled ✓
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ textAlign: "center" }}>
+                              <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
+                                {hasDues && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-primary"
+                                    onClick={() => setPaymentTarget(enc)}
+                                    title="Record payment for this patient"
+                                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                                  >
+                                    <Receipt size={12} /> Settle
+                                  </button>
+                                )}
+
+                                {hasDues && enc.patientMobile && (
+                                  <a
+                                    href={`https://wa.me/91${enc.patientMobile.replace(/\D/g, "")}?text=${encodeURIComponent(
+                                      `Dear ${enc.patientName}, your remaining balance of ₹${enc.balanceDue} for visit on ${new Date(
+                                        enc.date
+                                      ).toLocaleDateString("en-IN")} is pending. Kindly clear your dues at your convenience.`
+                                    )}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-xs btn-ghost"
+                                    title="Send WhatsApp Payment Reminder"
+                                    style={{ color: "#22c55e" }}
+                                  >
+                                    <MessageCircle size={14} />
+                                  </a>
+                                )}
+
                                 <Link
                                   href={`/patients/${enc.patientId}`}
                                   onClick={onClose}
-                                  style={{
-                                    fontWeight: 700,
-                                    color: "var(--text-primary)",
-                                    textDecoration: "none",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                  }}
-                                >
-                                  {enc.patientName}
-                                  <ExternalLink size={11} style={{ opacity: 0.6 }} />
-                                </Link>
-                                <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
-                                  {enc.patientAge ? `${enc.patientAge}y · ` : ""}
-                                  {enc.patientGender ? `${enc.patientGender} · ` : ""}
-                                  {enc.patientMobile || "No mobile"}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td>
-                            <span
-                              className={`badge ${
-                                enc.category.toUpperCase() === "EMERGENCY"
-                                  ? "badge-red"
-                                  : enc.category.toUpperCase() === "IPD"
-                                  ? "badge-green"
-                                  : enc.category.toUpperCase() === "OPD"
-                                  ? "badge-blue"
-                                  : "badge-teal"
-                              }`}
-                              style={{ fontWeight: 700, fontSize: "0.72rem" }}
-                            >
-                              {enc.category}
-                            </span>
-                          </td>
-
-                          <td>
-                            <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>
-                              {new Date(enc.date).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </div>
-                            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                              {new Date(enc.date).toLocaleTimeString("en-IN", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                          </td>
-
-                          <td>
-                            <div style={{ fontSize: "0.82rem", maxWidth: 170, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {enc.diagnosis || enc.status || "—"}
-                            </div>
-                            {enc.bedOrRoom && (
-                              <div style={{ fontSize: "0.72rem", color: "#10b981", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 2 }}>
-                                <Bed size={12} /> {enc.bedOrRoom}
-                              </div>
-                            )}
-                          </td>
-
-                          <td style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
-                              ₹{enc.billedAmount.toLocaleString("en-IN")}
-                            </div>
-                            <div style={{ fontSize: "0.72rem", color: "#10b981" }}>
-                              Paid: ₹{enc.paidAmount.toLocaleString("en-IN")}
-                            </div>
-                            {hasDues ? (
-                              <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f59e0b" }}>
-                                Due: ₹{enc.balanceDue.toLocaleString("en-IN")}
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                                Settled ✓
-                              </div>
-                            )}
-                          </td>
-
-                          <td style={{ textAlign: "center" }}>
-                            <div style={{ display: "inline-flex", gap: 6 }}>
-                              {hasDues && (
-                                <button
-                                  type="button"
-                                  className="btn btn-xs btn-primary"
-                                  onClick={() => setPaymentTarget(enc)}
-                                  title="Record payment for this patient"
-                                  style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-                                >
-                                  <Receipt size={12} /> Settle
-                                </button>
-                              )}
-
-                              {hasDues && enc.patientMobile && (
-                                <a
-                                  href={`https://wa.me/91${enc.patientMobile.replace(/\D/g, "")}?text=${encodeURIComponent(
-                                    `Dear ${enc.patientName}, your remaining balance of ₹${enc.balanceDue} for visit on ${new Date(
-                                      enc.date
-                                    ).toLocaleDateString("en-IN")} is pending. Kindly clear your dues at your convenience.`
-                                  )}`}
-                                  target="_blank"
-                                  rel="noreferrer"
                                   className="btn btn-xs btn-ghost"
-                                  title="Send WhatsApp Payment Reminder"
-                                  style={{ color: "#22c55e" }}
+                                  title="Open Patient Profile"
                                 >
-                                  <MessageCircle size={14} />
-                                </a>
-                              )}
+                                  <User size={13} />
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
+                {/* ─── MOBILE CARD VIEW (SCREENS < 768PX) ─── */}
+                <div className="drilldown-cards-wrap" style={{ marginTop: 10 }}>
+                  {displayedEncounters.map((enc) => {
+                    const hasDues = enc.balanceDue > 0;
+                    return (
+                      <div
+                        key={`m-card-${enc.type}-${enc.id}`}
+                        style={{
+                          background: "rgba(255, 255, 255, 0.03)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 12,
+                          padding: "12px 14px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                        }}
+                      >
+                        {/* Top: Avatar, Name & Badge */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                background: enc.type === "IPD" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                                color: enc.type === "IPD" ? "#10b981" : "var(--primary)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontWeight: 800,
+                                fontSize: "0.85rem",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {enc.patientName.charAt(0)}
+                            </div>
+                            <div>
                               <Link
                                 href={`/patients/${enc.patientId}`}
                                 onClick={onClose}
-                                className="btn btn-xs btn-ghost"
-                                title="Open Patient Profile"
+                                style={{
+                                  fontWeight: 700,
+                                  color: "var(--text-primary)",
+                                  textDecoration: "none",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: "0.92rem",
+                                }}
                               >
-                                <User size={13} />
+                                {enc.patientName}
+                                <ExternalLink size={11} style={{ opacity: 0.6 }} />
                               </Link>
+                              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                                {enc.patientAge ? `${enc.patientAge}y · ` : ""}
+                                {enc.patientGender ? `${enc.patientGender} · ` : ""}
+                                {enc.patientMobile || "No mobile"}
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+
+                          <span
+                            className={`badge ${
+                              enc.category.toUpperCase() === "EMERGENCY"
+                                ? "badge-red"
+                                : enc.category.toUpperCase() === "IPD"
+                                ? "badge-green"
+                                : enc.category.toUpperCase() === "OPD"
+                                ? "badge-blue"
+                                : "badge-teal"
+                            }`}
+                            style={{ fontWeight: 700, fontSize: "0.7rem" }}
+                          >
+                            {enc.category}
+                          </span>
+                        </div>
+
+                        {/* Details: Diagnosis & Date */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.76rem", color: "var(--text-secondary)", flexWrap: "wrap", gap: 4 }}>
+                          <div>
+                            <span style={{ color: "var(--text-muted)" }}>Diagnosis: </span>
+                            <span style={{ fontWeight: 600 }}>{enc.diagnosis || enc.status || "—"}</span>
+                            {enc.bedOrRoom && (
+                              <span style={{ color: "#10b981", marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 2 }}>
+                                <Bed size={11} /> {enc.bedOrRoom}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                            {new Date(enc.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}{" "}
+                            {new Date(enc.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+
+                        {/* Financial Mini Strip */}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr 1fr",
+                            gap: 6,
+                            background: "rgba(0, 0, 0, 0.25)",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            textAlign: "center",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>BILLED</div>
+                            <div style={{ fontSize: "0.84rem", fontWeight: 800, marginTop: 1 }}>
+                              ₹{enc.billedAmount.toLocaleString("en-IN")}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>PAID</div>
+                            <div style={{ fontSize: "0.84rem", fontWeight: 800, color: "#10b981", marginTop: 1 }}>
+                              ₹{enc.paidAmount.toLocaleString("en-IN")}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>BALANCE</div>
+                            <div
+                              style={{
+                                fontSize: "0.84rem",
+                                fontWeight: 800,
+                                marginTop: 1,
+                                color: hasDues ? "#f59e0b" : "#10b981",
+                              }}
+                            >
+                              {hasDues ? `₹${enc.balanceDue.toLocaleString("en-IN")}` : "Settled ✓"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, alignItems: "center" }}>
+                          {hasDues && (
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-primary"
+                              onClick={() => setPaymentTarget(enc)}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                            >
+                              <Receipt size={12} /> Settle Bill
+                            </button>
+                          )}
+
+                          {hasDues && enc.patientMobile && (
+                            <a
+                              href={`https://wa.me/91${enc.patientMobile.replace(/\D/g, "")}?text=${encodeURIComponent(
+                                `Dear ${enc.patientName}, your remaining balance of ₹${enc.balanceDue} for visit on ${new Date(
+                                  enc.date
+                                ).toLocaleDateString("en-IN")} is pending. Kindly clear your dues at your convenience.`
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-xs btn-ghost"
+                              style={{ color: "#22c55e", display: "inline-flex", alignItems: "center", gap: 3 }}
+                            >
+                              <MessageCircle size={13} /> WhatsApp
+                            </a>
+                          )}
+
+                          <Link
+                            href={`/patients/${enc.patientId}`}
+                            onClick={onClose}
+                            className="btn btn-xs btn-ghost"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
+                          >
+                            <User size={13} /> View
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         </motion.div>

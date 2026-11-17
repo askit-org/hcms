@@ -20,6 +20,8 @@ import {
   Package,
   ShieldCheck,
   Bed,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProviderStore } from "@/lib/providers";
@@ -263,6 +265,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [navConfirmTarget, setNavConfirmTarget] = useState<string | null>(null);
   const [showOnboardingPlans, setShowOnboardingPlans] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("hcms_sidebar_collapsed");
+      if (saved === "true") setSidebarCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("hcms_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleSidebarCollapsed();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [toggleSidebarCollapsed]);
 
   // The platform operator (AMAN) has no clinic subscription and never sees the plan lock
   const subLock = isPlatformAdmin
@@ -377,35 +408,65 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className={`sidebar ${mobileMenuOpen ? "open" : ""}`}>
-        <Link
-          href={defaultHome}
-          className="logo-wrap"
-          style={{ textDecoration: "none", display: "block" }}
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="logo-row">
-            <div className="logo-icon">
-              <img
-                src="/icons/logo.png"
-                alt="HCMS Logo"
-                width={36}
-                height={36}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  borderRadius: 8,
-                }}
-              />
-            </div>
-            <div className="logo-text">
-              <h2>HCMS</h2>
-              <p>Clinic Management</p>
-            </div>
+      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileMenuOpen ? "open" : ""}`}>
+        <div className="logo-wrap">
+          <div
+            className="logo-row"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: sidebarCollapsed ? "center" : "space-between",
+              width: "100%",
+            }}
+          >
+            <Link
+              href={defaultHome}
+              style={{
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                minWidth: 0,
+              }}
+              onClick={() => setMobileMenuOpen(false)}
+              title={clinicName}
+            >
+              <div className="logo-icon">
+                <img
+                  src="/icons/logo.png"
+                  alt="HCMS Logo"
+                  width={36}
+                  height={36}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    borderRadius: 8,
+                  }}
+                />
+              </div>
+              {!sidebarCollapsed && (
+                <div className="logo-text">
+                  <h2>HCMS</h2>
+                  <p>Clinic Management</p>
+                </div>
+              )}
+            </Link>
+
+            {!sidebarCollapsed && (
+              <button
+                type="button"
+                className="sidebar-collapse-btn no-print"
+                onClick={toggleSidebarCollapsed}
+                title="Collapse Sidebar (Ctrl+B)"
+                aria-label="Collapse Sidebar"
+              >
+                <PanelLeftClose size={16} />
+              </button>
+            )}
           </div>
-          <div className="clinic-tagline">{clinicName}</div>
-        </Link>
+          {!sidebarCollapsed && <div className="clinic-tagline">{clinicName}</div>}
+        </div>
 
         <nav className="nav-scroll">
           {groups.map((g) => {
@@ -435,6 +496,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       className={`nav-item ${active ? "active" : ""}`}
+                      title={sidebarCollapsed ? item.label : undefined}
                       onClick={(e) => {
                         e.preventDefault();
                         setMobileMenuOpen(false);
@@ -446,7 +508,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       }}
                     >
                       <item.icon />
-                      {item.label}
+                      <span className="nav-label">{item.label}</span>
                       {item.href === "/followup" && followUpCount > 0 && (
                         <span className="nav-badge">{followUpCount}</span>
                       )}
@@ -459,18 +521,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="sidebar-footer">
-          <DateTime />
+          {!sidebarCollapsed && <DateTime />}
           <button
             className="btn btn-ghost btn-sm"
             style={{
               width: "100%",
-              justifyContent: "flex-start",
+              justifyContent: sidebarCollapsed ? "center" : "flex-start",
               color: "var(--text-secondary)",
-              marginTop: 8,
+              marginTop: sidebarCollapsed ? 0 : 8,
             }}
             onClick={() => logout()}
+            title={sidebarCollapsed ? "Log Out" : undefined}
           >
-            <LogOut size={16} style={{ marginRight: 8 }} /> Log Out
+            <LogOut size={16} style={sidebarCollapsed ? {} : { marginRight: 8 }} />
+            <span className="logout-text">Log Out</span>
           </button>
         </div>
       </aside>
@@ -482,12 +546,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header className="topbar">
           <button
             className="btn-icon"
-            style={{ display: "none" }} // Hidden by default, shown via CSS on small screens, BUT CSS does logic differently. Let's just render it and use CSS or conditional rendering
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Toggle Menu"
             id="mobile-menu-btn"
           >
             <Menu size={20} />
+          </button>
+
+          <button
+            type="button"
+            className="sidebar-desktop-toggle no-print"
+            onClick={toggleSidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
 
           <div

@@ -22,6 +22,7 @@ import {
   Banknote,
   RotateCcw,
   Sparkles,
+  LayoutDashboard,
 } from "lucide-react";
 import InteractiveDonutChart, {
   DonutSlice,
@@ -74,6 +75,9 @@ export default function VisualAnalyticsBoard({
     metadata?: any;
     color: string;
   } | null>(null);
+
+  type AnalyticsTab = "OVERVIEW" | "FINANCIALS" | "DEPARTMENTS" | "DEMOGRAPHICS" | "ALL";
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>("OVERVIEW");
 
   // Compute number of days in selected period
   const dateRangeDays = useMemo(() => {
@@ -273,9 +277,204 @@ export default function VisualAnalyticsBoard({
     </div>
   );
 
+  // Reusable Clinical & Inpatient card components
+  const renderTopDiagnosesCard = () => (
+    <div
+      className="card"
+      style={{
+        padding: "18px 20px",
+        background: "var(--surface-1)",
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <HeartPulse size={17} style={{ color: "#ec4899" }} />
+        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
+          Top Diagnoses &amp; Presenting Complaints
+        </div>
+      </div>
+      {summary.demographics.topDiagnoses.length === 0 ? (
+        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", padding: "16px 0", textAlign: "center" }}>
+          No diagnoses recorded in this reporting period.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {summary.demographics.topDiagnoses.slice(0, 6).map((dx, i) => {
+            const maxCount = summary.demographics.topDiagnoses[0]?.count || 1;
+            const pct = (dx.count / maxCount) * 100;
+            return (
+              <div key={dx.name}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.78rem",
+                    marginBottom: 4,
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                    {i + 1}. {dx.name}
+                  </span>
+                  <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
+                    {dx.count} {dx.count === 1 ? "case" : "cases"}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    height: 6,
+                    background: "rgba(255, 255, 255, 0.05)",
+                    borderRadius: 3,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${pct}%`,
+                      background: "#ec4899",
+                      borderRadius: 3,
+                      transition: "width 0.3s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderDemographicsCard = () => (
+    <div
+      className="card"
+      style={{
+        padding: "18px 20px",
+        background: "var(--surface-1)",
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <Users size={17} style={{ color: "#06b6d4" }} />
+        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
+          Patient Age &amp; Gender Demographics
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Gender Breakdown */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.76rem", marginBottom: 4 }}>
+            <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Gender Distribution</span>
+            <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
+              {summary.demographics.maleCount} Male · {summary.demographics.femaleCount} Female
+            </span>
+          </div>
+          <div style={{ height: 8, display: "flex", borderRadius: 4, overflow: "hidden", background: "rgba(255, 255, 255, 0.06)" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${summary.totalEncounters > 0 ? (summary.demographics.maleCount / summary.totalEncounters) * 100 : 0}%`,
+                background: "#3b82f6",
+              }}
+              title="Male"
+            />
+            <div
+              style={{
+                height: "100%",
+                width: `${summary.totalEncounters > 0 ? (summary.demographics.femaleCount / summary.totalEncounters) * 100 : 0}%`,
+                background: "#ec4899",
+              }}
+              title="Female"
+            />
+          </div>
+        </div>
+
+        {/* Age Brackets */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Pediatric (0-14y)</div>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#38bdf8", marginTop: 2 }}>
+              {summary.demographics.ageBrackets.pediatric}
+            </div>
+          </div>
+          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Youth (15-24y)</div>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#a855f7", marginTop: 2 }}>
+              {summary.demographics.ageBrackets.youth}
+            </div>
+          </div>
+          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Adults (25-59y)</div>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#10b981", marginTop: 2 }}>
+              {summary.demographics.ageBrackets.adult}
+            </div>
+          </div>
+          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Seniors (60y+)</div>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#f59e0b", marginTop: 2 }}>
+              {summary.demographics.ageBrackets.senior}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderInpatientMetricsCard = () => (
+    <div
+      className="card"
+      style={{
+        padding: "18px 20px",
+        background: "var(--surface-1)",
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <Activity size={17} style={{ color: "#10b981" }} />
+        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
+          Hospital &amp; Inpatient Metrics
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Currently Admitted (IPD)</span>
+          <span style={{ fontWeight: 800, color: "#10b981", fontSize: "0.92rem" }}>
+            {summary.activeInpatientsCount} Inpatients
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Average Length of Stay (ALOS)</span>
+          <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.92rem" }}>
+            {summary.averageLengthOfStay} Days
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Patient Retention Ratio</span>
+          <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: "0.92rem" }}>
+            {summary.returningPatientRatio}%
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Daily Encounter Velocity</span>
+          <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.92rem" }}>
+            {summary.dailyAverageEncounters} / day
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* ─── GLOBAL REPORTING PERIOD BAR (GLASSMORPHIC) ─── */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* ─── GLOBAL REPORTING PERIOD TOOLBAR ─── */}
       <div
         className="card card-sm"
         style={{
@@ -283,18 +482,17 @@ export default function VisualAnalyticsBoard({
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
-          gap: 14,
-          background: "rgba(255, 255, 255, 0.03)",
-          backdropFilter: "blur(12px)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          padding: "14px 18px",
-          borderRadius: 14,
+          gap: 12,
+          background: "var(--surface-1)",
+          border: "1px solid var(--border)",
+          padding: "12px 16px",
+          borderRadius: 12,
         }}
       >
-        {/* Quick Period Presets with Glowing Active Pills */}
+        {/* Quick Period Presets */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--text-muted)", marginRight: 4 }}>
-            REPORTING SCOPE:
+          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--text-muted)", marginRight: 2, letterSpacing: "0.04em" }}>
+            SCOPE:
           </span>
           {[
             { id: "today", label: "Today" },
@@ -311,20 +509,14 @@ export default function VisualAnalyticsBoard({
                 onClick={() => applyPreset(preset.id as any)}
                 style={{
                   border: "none",
-                  borderRadius: 8,
-                  padding: "5px 12px",
+                  borderRadius: 6,
+                  padding: "4px 10px",
                   fontSize: "0.76rem",
-                  fontWeight: isActive ? 800 : 600,
+                  fontWeight: isActive ? 700 : 500,
                   cursor: "pointer",
-                  transition: "all 0.18s ease",
-                  background: isActive
-                    ? "linear-gradient(135deg, var(--primary) 0%, #2563eb 100%)"
-                    : "rgba(255, 255, 255, 0.04)",
+                  transition: "all 0.15s ease",
+                  background: isActive ? "var(--primary)" : "rgba(255, 255, 255, 0.04)",
                   color: isActive ? "#ffffff" : "var(--text-secondary)",
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderColor: isActive ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.06)",
-                  boxShadow: isActive ? "0 4px 14px rgba(59, 130, 246, 0.35)" : "none",
                 }}
               >
                 {preset.label}
@@ -333,9 +525,9 @@ export default function VisualAnalyticsBoard({
           })}
         </div>
 
-        {/* Date Inputs & Status Badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem" }}>
+        {/* Date Inputs & Refresh */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem" }}>
             <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>From:</span>
             <input
               type="date"
@@ -343,11 +535,7 @@ export default function VisualAnalyticsBoard({
               value={startDate}
               max={endDate}
               onChange={(e) => onDateRangeChange(e.target.value, endDate)}
-              style={{
-                width: 135,
-                background: "rgba(255, 255, 255, 0.04)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-              }}
+              style={{ width: 130, padding: "3px 8px", fontSize: "0.78rem" }}
             />
             <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>To:</span>
             <input
@@ -356,11 +544,7 @@ export default function VisualAnalyticsBoard({
               value={endDate}
               min={startDate}
               onChange={(e) => onDateRangeChange(startDate, e.target.value)}
-              style={{
-                width: 135,
-                background: "rgba(255, 255, 255, 0.04)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-              }}
+              style={{ width: 130, padding: "3px 8px", fontSize: "0.78rem" }}
             />
           </div>
 
@@ -373,10 +557,10 @@ export default function VisualAnalyticsBoard({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 5,
-                borderRadius: 8,
-                padding: "6px 10px",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
+                gap: 4,
+                borderRadius: 6,
+                padding: "5px 9px",
+                border: "1px solid var(--border)",
               }}
             >
               <RotateCcw size={13} /> Refresh
@@ -385,51 +569,99 @@ export default function VisualAnalyticsBoard({
         </div>
       </div>
 
-      {/* ─── EXECUTIVE METRICS CARDS ROW (3D GLASS STYLE) ─── */}
+      {/* ─── EXECUTIVE SECTION TABS (UNCLUTTERED ENTERPRISE NAVIGATION) ─── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "var(--surface-1)",
+          padding: "4px",
+          borderRadius: 10,
+          border: "1px solid var(--border)",
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {[
+          { id: "OVERVIEW", label: "Executive Overview", icon: LayoutDashboard },
+          { id: "FINANCIALS", label: "Financials & Revenue", icon: Wallet },
+          { id: "DEPARTMENTS", label: "Departments & IPD", icon: Bed },
+          { id: "DEMOGRAPHICS", label: "Demographics & Clinical", icon: Users },
+          { id: "ALL", label: "All Analytics", icon: BarChart3 },
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as AnalyticsTab)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 8,
+                fontSize: "0.78rem",
+                fontWeight: isActive ? 700 : 500,
+                border: "none",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
+                background: isActive ? "var(--primary)" : "transparent",
+                color: isActive ? "#ffffff" : "var(--text-secondary)",
+              }}
+            >
+              <Icon size={14} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ─── EXECUTIVE METRICS CARDS ROW (FLAT ENTERPRISE CARDS) ─── */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-          gap: 16,
+          gap: 14,
         }}
       >
         {/* Card 1: Gross Billing */}
         <div
           className="card"
           style={{
-            padding: "18px 20px",
-            borderLeft: "4px solid var(--primary)",
-            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.07)",
-            borderRadius: 14,
-            boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)",
+            padding: "16px 18px",
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.74rem", fontWeight: 800, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
               TOTAL GROSS BILLING
             </span>
             <div
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: "rgba(59, 130, 246, 0.15)",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(59, 130, 246, 0.12)",
                 color: "var(--primary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <TrendingUp size={18} />
+              <TrendingUp size={16} />
             </div>
           </div>
-          <div style={{ fontSize: "1.55rem", fontWeight: 900, marginTop: 8, color: "var(--text-primary)" }}>
+          <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
             ₹{summary.totalBilled.toLocaleString("en-IN")}
           </div>
-          <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginTop: 4 }}>
-            Across {summary.totalEncounters} clinical visits &amp; admissions
+          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
+            {summary.totalEncounters} total encounters in period
           </div>
         </div>
 
@@ -437,15 +669,12 @@ export default function VisualAnalyticsBoard({
         <div
           className="card"
           style={{
-            padding: "18px 20px",
-            borderLeft: "4px solid #10b981",
-            background: "linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.07)",
-            borderRadius: 14,
+            padding: "16px 18px",
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
             cursor: "pointer",
-            boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)",
-            transition: "transform 0.18s ease",
+            transition: "all 0.18s ease",
           }}
           onClick={() =>
             setDrilldownTarget({
@@ -457,46 +686,43 @@ export default function VisualAnalyticsBoard({
           }
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.74rem", fontWeight: 800, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
               COLLECTED REVENUE
             </span>
             <div
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: "rgba(16, 185, 129, 0.15)",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(16, 185, 129, 0.12)",
                 color: "#10b981",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Wallet size={18} />
+              <Wallet size={16} />
             </div>
           </div>
-          <div style={{ fontSize: "1.55rem", fontWeight: 900, marginTop: 8, color: "#10b981" }}>
+          <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, color: "#10b981", letterSpacing: "-0.02em" }}>
             ₹{summary.totalCollected.toLocaleString("en-IN")}
           </div>
-          <div style={{ fontSize: "0.74rem", color: "var(--text-secondary)", marginTop: 4 }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 4 }}>
             {summary.collectionRate.toFixed(1)}% recovery rate ·{" "}
             <span style={{ color: "var(--primary)", fontWeight: 700 }}>Inspect →</span>
           </div>
         </div>
 
-        {/* Card 3: Pending Dues */}
+        {/* Card 3: Outstanding Dues */}
         <div
           className="card"
           style={{
-            padding: "18px 20px",
-            borderLeft: `4px solid ${summary.totalPendingDues > 0 ? "#f59e0b" : "var(--border)"}`,
-            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.07)",
-            borderRadius: 14,
+            padding: "16px 18px",
+            background: "var(--surface-1)",
+            border: `1px solid ${summary.totalPendingDues > 0 ? "rgba(245, 158, 11, 0.3)" : "var(--border)"}`,
+            borderRadius: 12,
             cursor: "pointer",
-            boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)",
-            transition: "transform 0.18s ease",
+            transition: "all 0.18s ease",
           }}
           onClick={() =>
             setDrilldownTarget({
@@ -508,421 +734,277 @@ export default function VisualAnalyticsBoard({
           }
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.74rem", fontWeight: 800, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
               OUTSTANDING DUES
             </span>
             <div
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: "rgba(245, 158, 11, 0.15)",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(245, 158, 11, 0.12)",
                 color: "#f59e0b",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <AlertCircle size={18} />
+              <AlertCircle size={16} />
             </div>
           </div>
-          <div style={{ fontSize: "1.55rem", fontWeight: 900, marginTop: 8, color: summary.totalPendingDues > 0 ? "#f59e0b" : "inherit" }}>
+          <div
+            style={{
+              fontSize: "1.6rem",
+              fontWeight: 800,
+              marginTop: 6,
+              color: summary.totalPendingDues > 0 ? "#f59e0b" : "inherit",
+              letterSpacing: "-0.02em",
+            }}
+          >
             ₹{summary.totalPendingDues.toLocaleString("en-IN")}
           </div>
-          <div style={{ fontSize: "0.74rem", color: "var(--text-secondary)", marginTop: 4 }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 4 }}>
             Pending balance ·{" "}
             <span style={{ color: "var(--primary)", fontWeight: 700 }}>Inspect &amp; Settle →</span>
           </div>
         </div>
 
-        {/* Card 4: Patients Volume & ARPU */}
+        {/* Card 4: Patients & ARPU */}
         <div
           className="card"
           style={{
-            padding: "18px 20px",
-            borderLeft: "4px solid #06b6d4",
-            background: "linear-gradient(135deg, rgba(6, 182, 212, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.07)",
-            borderRadius: 14,
-            boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)",
+            padding: "16px 18px",
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.74rem", fontWeight: 800, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
               PATIENT VOLUME &amp; ARPU
             </span>
             <div
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: "rgba(6, 182, 212, 0.15)",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(6, 182, 212, 0.12)",
                 color: "#06b6d4",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Users size={18} />
+              <Users size={16} />
             </div>
           </div>
-          <div style={{ fontSize: "1.55rem", fontWeight: 900, marginTop: 8 }}>
+          <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, letterSpacing: "-0.02em" }}>
             {summary.uniquePatientsCount} <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>Patients</span>
           </div>
-          <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginTop: 4 }}>
-            ₹{summary.arpu.toLocaleString("en-IN")} avg revenue / patient · {summary.dailyAverageEncounters}/day
+          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
+            ₹{summary.arpu.toLocaleString("en-IN")} ARPU · {summary.dailyAverageEncounters}/day
           </div>
         </div>
       </div>
 
-      {/* ─── ROW 1: HOSPITAL REVENUE TIMELINE (LOCALIZED CONTROLS) ─── */}
-      <div
-        className="card"
-        style={{
-          padding: "22px 24px",
-          background: "rgba(255, 255, 255, 0.03)",
-          backdropFilter: "blur(12px)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          borderRadius: 16,
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
-        }}
-      >
-        <InteractiveBarChart
-          title={`Hospital Revenue & Trajectory (${timelineGranularity === "day" ? "Day-by-Day" : timelineGranularity === "month" ? `${timelineYear} Monthly Timeline` : "Multi-Year Trajectory"})`}
-          subtitle="Collected Cash/UPI (Green) vs. Unpaid Balance (Amber). Click any bar to inspect underlying encounters."
-          series={[
-            { key: "collected", label: "Collected Cash/UPI", color: "#10b981" },
-            { key: "dues", label: "Unpaid Balance", color: "#f59e0b" },
-          ]}
-          data={summary.timelineBars}
-          height={290}
-          stacked={true}
-          valuePrefix="₹"
-          onBarClick={handleBarClick}
-          headerControls={timelineControls}
-        />
-      </div>
+      {/* ─── TAB CONTENT AREA ─── */}
 
-      {/* ─── ROW 2: FINANCIAL FLOW & PAYMENT METHODS DONUTS ─── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
-          gap: 20,
-        }}
-      >
-        {/* Earnings vs Remaining Dues 3D Donut */}
+      {/* HOSPITAL REVENUE TRAJECTORY BAR CHART (Visible on Overview, Financials, All) */}
+      {(activeTab === "OVERVIEW" || activeTab === "FINANCIALS" || activeTab === "ALL") && (
         <div
           className="card"
           style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.16)",
+            padding: "18px 20px",
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
           }}
         >
-          <InteractiveDonutChart
-            title="Earnings vs. Remaining Dues"
-            subtitle="Gross billings realized vs. uncollected patient balance"
-            data={summary.financialDonut}
-            totalLabel="Gross Billed"
-            totalFormatted={`₹${summary.totalBilled.toLocaleString("en-IN")}`}
-            size={260}
-            onSliceClick={(slice) => handleSliceClick(slice, "Financial Dues")}
+          <InteractiveBarChart
+            title={`Hospital Revenue & Trajectory (${timelineGranularity === "day" ? "Day-by-Day" : timelineGranularity === "month" ? `${timelineYear} Monthly Timeline` : "Multi-Year Trajectory"})`}
+            subtitle="Collected Cash/UPI (Green) vs. Unpaid Balance (Amber). Click any bar to inspect underlying encounters."
+            series={[
+              { key: "collected", label: "Collected Cash/UPI", color: "#10b981" },
+              { key: "dues", label: "Unpaid Balance", color: "#f59e0b" },
+            ]}
+            data={summary.timelineBars}
+            height={280}
+            stacked={true}
+            valuePrefix="₹"
+            onBarClick={handleBarClick}
+            headerControls={timelineControls}
           />
         </div>
+      )}
 
-        {/* Payment Channels & Digital Receipts 3D Donut */}
-        <div
-          className="card"
-          style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.16)",
-          }}
-        >
-          <InteractiveDonutChart
-            title="Payment Channels & Collection Modes"
-            subtitle="Breakdown between physical Cash, instant UPI / QR, and outstanding balance"
-            data={summary.paymentChannelDonut}
-            totalLabel="Collections"
-            totalFormatted={`₹${summary.totalCollected.toLocaleString("en-IN")}`}
-            size={260}
-            onSliceClick={(slice) => handleSliceClick(slice, "Payment Channel")}
-          />
-        </div>
-      </div>
-
-      {/* ─── ROW 3: DEPARTMENT / CATEGORY MIX & BILL STATUS ─── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
-          gap: 20,
-        }}
-      >
-        {/* Visit Category Distribution Donut */}
-        <div
-          className="card"
-          style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.16)",
-          }}
-        >
-          <InteractiveDonutChart
-            title="Hospital Encounters by Department / Category"
-            subtitle="Distribution between OPD, IPD Inpatients, Emergency, Daycare, and Custom departments"
-            data={summary.categoryDonut}
-            totalLabel="Total Visits"
-            totalFormatted={`${summary.totalEncounters} Encounters`}
-            size={260}
-            onSliceClick={(slice) => handleSliceClick(slice, "Department Category")}
-          />
-        </div>
-
-        {/* Bill Status & Settlement Donut */}
-        <div
-          className="card"
-          style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.16)",
-          }}
-        >
-          <InteractiveDonutChart
-            title="Invoice Settlement & Compliance"
-            subtitle="Patient bills categorized into fully settled, partially paid, or completely unpaid"
-            data={summary.billStatusDonut}
-            totalLabel="Total Bills"
-            totalFormatted={`${summary.totalEncounters} Invoices`}
-            size={260}
-            onSliceClick={(slice) => handleSliceClick(slice, "Bill Status")}
-          />
-        </div>
-      </div>
-
-      {/* ─── ROW 4: CLINICAL, INPATIENT & DEMOGRAPHIC INTELLIGENCE ─── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
-          gap: 20,
-        }}
-      >
-        {/* Top Diagnoses & Complaints */}
-        <div
-          className="card"
-          style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <HeartPulse size={18} style={{ color: "#ec4899" }} />
-            <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>
-              Top Diagnoses &amp; Presenting Complaints
+      {/* ─── TAB 1: EXECUTIVE OVERVIEW ─── */}
+      {activeTab === "OVERVIEW" && (
+        <>
+          {/* Key Visual Donuts Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <InteractiveDonutChart
+                title="Earnings vs. Remaining Dues"
+                subtitle="Gross billings realized vs. uncollected patient balance"
+                data={summary.financialDonut}
+                totalLabel="Gross Billed"
+                totalFormatted={`₹${summary.totalBilled.toLocaleString("en-IN")}`}
+                size={240}
+                onSliceClick={(slice) => handleSliceClick(slice, "Financial Dues")}
+              />
             </div>
-          </div>
-          {summary.demographics.topDiagnoses.length === 0 ? (
-            <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", padding: "16px 0" }}>
-              No diagnoses recorded in this reporting period.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-              {summary.demographics.topDiagnoses.map((dx, i) => {
-                const maxCount = summary.demographics.topDiagnoses[0]?.count || 1;
-                const pct = (dx.count / maxCount) * 100;
-                return (
-                  <div key={dx.name}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.8rem",
-                        marginBottom: 4,
-                      }}
-                    >
-                      <span style={{ fontWeight: 700 }}>
-                        {i + 1}. {dx.name}
-                      </span>
-                      <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
-                        {dx.count} {dx.count === 1 ? "case" : "cases"}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: 7,
-                        background: "rgba(255, 255, 255, 0.06)",
-                        borderRadius: 4,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${pct}%`,
-                          background: "linear-gradient(90deg, #ec4899, #8b5cf6)",
-                          borderRadius: 4,
-                          transition: "width 0.3s ease",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-        {/* Gender & Age Demographics */}
-        <div
-          className="card"
-          style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <Users size={18} style={{ color: "#06b6d4" }} />
-            <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>
-              Patient Age &amp; Gender Demographics
+            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <InteractiveDonutChart
+                title="Hospital Encounters by Department"
+                subtitle="Distribution between OPD, IPD, Emergency, Daycare, and Custom"
+                data={summary.categoryDonut}
+                totalLabel="Total Visits"
+                totalFormatted={`${summary.totalEncounters} Encounters`}
+                size={240}
+                onSliceClick={(slice) => handleSliceClick(slice, "Department Category")}
+              />
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {/* Gender Bars */}
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", marginBottom: 4 }}>
-                <span style={{ fontWeight: 600 }}>Male vs. Female</span>
-                <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
-                  {summary.demographics.maleCount}M · {summary.demographics.femaleCount}F
-                </span>
-              </div>
-              <div style={{ height: 8, display: "flex", borderRadius: 4, overflow: "hidden", background: "rgba(255, 255, 255, 0.06)" }}>
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${summary.totalEncounters > 0 ? (summary.demographics.maleCount / summary.totalEncounters) * 100 : 0}%`,
-                    background: "#3b82f6",
-                  }}
-                  title="Male"
-                />
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${summary.totalEncounters > 0 ? (summary.demographics.femaleCount / summary.totalEncounters) * 100 : 0}%`,
-                    background: "#ec4899",
-                  }}
-                  title="Female"
-                />
-              </div>
-            </div>
+          {/* Operational & Clinical Pulse Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+            {renderTopDiagnosesCard()}
+            {renderInpatientMetricsCard()}
+          </div>
+        </>
+      )}
 
-            {/* Age Brackets Grid */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
-                marginTop: 6,
-              }}
-            >
-              <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Pediatric (0-14y)</div>
-                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#38bdf8", marginTop: 2 }}>
-                  {summary.demographics.ageBrackets.pediatric}
-                </div>
-              </div>
-              <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Youth (15-24y)</div>
-                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#a855f7", marginTop: 2 }}>
-                  {summary.demographics.ageBrackets.youth}
-                </div>
-              </div>
-              <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Adults (25-59y)</div>
-                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#10b981", marginTop: 2 }}>
-                  {summary.demographics.ageBrackets.adult}
-                </div>
-              </div>
-              <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Seniors (60y+)</div>
-                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#f59e0b", marginTop: 2 }}>
-                  {summary.demographics.ageBrackets.senior}
-                </div>
-              </div>
-            </div>
+      {/* ─── TAB 2: FINANCIALS & REVENUE ─── */}
+      {activeTab === "FINANCIALS" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 16 }}>
+          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <InteractiveDonutChart
+              title="Earnings vs. Remaining Dues"
+              subtitle="Gross billings realized vs. uncollected patient balance"
+              data={summary.financialDonut}
+              totalLabel="Gross Billed"
+              totalFormatted={`₹${summary.totalBilled.toLocaleString("en-IN")}`}
+              size={240}
+              onSliceClick={(slice) => handleSliceClick(slice, "Financial Dues")}
+            />
+          </div>
+
+          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <InteractiveDonutChart
+              title="Payment Channels & Collection Modes"
+              subtitle="Breakdown between physical Cash, instant UPI / QR, and outstanding balance"
+              data={summary.paymentChannelDonut}
+              totalLabel="Collections"
+              totalFormatted={`₹${summary.totalCollected.toLocaleString("en-IN")}`}
+              size={240}
+              onSliceClick={(slice) => handleSliceClick(slice, "Payment Channel")}
+            />
+          </div>
+
+          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <InteractiveDonutChart
+              title="Invoice Settlement & Compliance"
+              subtitle="Patient bills categorized into fully settled, partially paid, or completely unpaid"
+              data={summary.billStatusDonut}
+              totalLabel="Total Bills"
+              totalFormatted={`${summary.totalEncounters} Invoices`}
+              size={240}
+              onSliceClick={(slice) => handleSliceClick(slice, "Bill Status")}
+            />
           </div>
         </div>
+      )}
 
-        {/* Hospital Operational & IPD Dynamics */}
-        <div
-          className="card"
-          style={{
-            padding: "20px 24px",
-            background: "rgba(255, 255, 255, 0.03)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: 16,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <Activity size={18} style={{ color: "#10b981" }} />
-            <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>
-              Hospital &amp; Inpatient Metrics
-            </div>
+      {/* ─── TAB 3: DEPARTMENTS & IPD ─── */}
+      {activeTab === "DEPARTMENTS" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <InteractiveDonutChart
+              title="Hospital Encounters by Department / Category"
+              subtitle="Distribution between OPD, IPD Inpatients, Emergency, Daycare, and Custom"
+              data={summary.categoryDonut}
+              totalLabel="Total Visits"
+              totalFormatted={`${summary.totalEncounters} Encounters`}
+              size={240}
+              onSliceClick={(slice) => handleSliceClick(slice, "Department Category")}
+            />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
-              <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Currently Admitted (IPD)</span>
-              <span style={{ fontWeight: 800, color: "#10b981", fontSize: "0.95rem" }}>
-                {summary.activeInpatientsCount} Inpatients
-              </span>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
-              <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Average Length of Stay (ALOS)</span>
-              <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.95rem" }}>
-                {summary.averageLengthOfStay} Days
-              </span>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
-              <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Patient Retention Ratio</span>
-              <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: "0.95rem" }}>
-                {summary.returningPatientRatio}%
-              </span>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>Daily Encounter Velocity</span>
-              <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.95rem" }}>
-                {summary.dailyAverageEncounters} / day
-              </span>
-            </div>
-          </div>
+          {renderInpatientMetricsCard()}
         </div>
-      </div>
+      )}
+
+      {/* ─── TAB 4: DEMOGRAPHICS & CLINICAL ─── */}
+      {activeTab === "DEMOGRAPHICS" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+          {renderTopDiagnosesCard()}
+          {renderDemographicsCard()}
+        </div>
+      )}
+
+      {/* ─── TAB 5: ALL ANALYTICS (FULL COMPREHENSIVE VIEW) ─── */}
+      {activeTab === "ALL" && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <InteractiveDonutChart
+                title="Earnings vs. Remaining Dues"
+                subtitle="Gross billings realized vs. uncollected patient balance"
+                data={summary.financialDonut}
+                totalLabel="Gross Billed"
+                totalFormatted={`₹${summary.totalBilled.toLocaleString("en-IN")}`}
+                size={240}
+                onSliceClick={(slice) => handleSliceClick(slice, "Financial Dues")}
+              />
+            </div>
+
+            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <InteractiveDonutChart
+                title="Payment Channels & Collection Modes"
+                subtitle="Breakdown between physical Cash, instant UPI / QR, and outstanding balance"
+                data={summary.paymentChannelDonut}
+                totalLabel="Collections"
+                totalFormatted={`₹${summary.totalCollected.toLocaleString("en-IN")}`}
+                size={240}
+                onSliceClick={(slice) => handleSliceClick(slice, "Payment Channel")}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <InteractiveDonutChart
+                title="Hospital Encounters by Department / Category"
+                subtitle="Distribution between OPD, IPD Inpatients, Emergency, Daycare, and Custom"
+                data={summary.categoryDonut}
+                totalLabel="Total Visits"
+                totalFormatted={`${summary.totalEncounters} Encounters`}
+                size={240}
+                onSliceClick={(slice) => handleSliceClick(slice, "Department Category")}
+              />
+            </div>
+
+            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <InteractiveDonutChart
+                title="Invoice Settlement & Compliance"
+                subtitle="Patient bills categorized into fully settled, partially paid, or completely unpaid"
+                data={summary.billStatusDonut}
+                totalLabel="Total Bills"
+                totalFormatted={`${summary.totalEncounters} Invoices`}
+                size={240}
+                onSliceClick={(slice) => handleSliceClick(slice, "Bill Status")}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16 }}>
+            {renderTopDiagnosesCard()}
+            {renderDemographicsCard()}
+            {renderInpatientMetricsCard()}
+          </div>
+        </>
+      )}
 
       {/* ─── INTERACTIVE DRILL-DOWN MODAL ─── */}
       {drilldownTarget && (

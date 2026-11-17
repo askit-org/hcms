@@ -42,7 +42,7 @@ export default function InteractiveDonutChart({
   data,
   totalLabel = "Total",
   totalFormatted,
-  size = 280,
+  size = 240,
   onSliceClick,
   emptyMessage = "No data available for this timeframe",
   showLegend = true,
