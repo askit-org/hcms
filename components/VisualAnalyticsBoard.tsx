@@ -183,33 +183,8 @@ export default function VisualAnalyticsBoard({
 
   // Timeline header controls (Day / Month / Year switcher + Year selector)
   const timelineControls = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      {/* Month Year Selector */}
-      {timelineGranularity === "month" && (
-        <select
-          className="form-select form-select-sm"
-          value={timelineYear}
-          onChange={(e) => setTimelineYear(Number(e.target.value))}
-          style={{
-            height: 28,
-            fontSize: "0.75rem",
-            padding: "2px 8px",
-            borderRadius: 6,
-            background: "rgba(255, 255, 255, 0.06)",
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            color: "var(--text-primary)",
-            fontWeight: 700,
-          }}
-        >
-          {[currentYear, currentYear - 1, currentYear - 2].map((yr) => (
-            <option key={yr} value={yr}>
-              {yr}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {/* Segmented Switcher */}
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      {/* Segmented Switcher (Daily / Monthly / Yearly) - Static permanent location */}
       <div
         style={{
           display: "inline-flex",
@@ -225,7 +200,7 @@ export default function VisualAnalyticsBoard({
           style={{
             border: "none",
             borderRadius: 6,
-            padding: "3px 10px",
+            padding: "4px 10px",
             fontSize: "0.74rem",
             fontWeight: 700,
             cursor: "pointer",
@@ -243,7 +218,7 @@ export default function VisualAnalyticsBoard({
           style={{
             border: "none",
             borderRadius: 6,
-            padding: "3px 10px",
+            padding: "4px 10px",
             fontSize: "0.74rem",
             fontWeight: 700,
             cursor: "pointer",
@@ -261,7 +236,7 @@ export default function VisualAnalyticsBoard({
           style={{
             border: "none",
             borderRadius: 6,
-            padding: "3px 10px",
+            padding: "4px 10px",
             fontSize: "0.74rem",
             fontWeight: 700,
             cursor: "pointer",
@@ -274,148 +249,186 @@ export default function VisualAnalyticsBoard({
           Yearly
         </button>
       </div>
+
+      {/* Year Selector - Fixed slot, never unmounts, dimmed when in multi-year mode */}
+      <div style={{ position: "relative", minWidth: 78 }}>
+        <select
+          className="form-select form-select-sm"
+          value={timelineYear}
+          disabled={timelineGranularity === "year"}
+          onChange={(e) => setTimelineYear(Number(e.target.value))}
+          style={{
+            height: 28,
+            fontSize: "0.75rem",
+            padding: "2px 8px",
+            borderRadius: 6,
+            background: timelineGranularity === "year" ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            color: timelineGranularity === "year" ? "var(--text-muted)" : "var(--text-primary)",
+            fontWeight: 700,
+            opacity: timelineGranularity === "year" ? 0.35 : 1,
+            cursor: timelineGranularity === "year" ? "not-allowed" : "pointer",
+            transition: "opacity 0.15s ease",
+          }}
+          title={timelineGranularity === "year" ? "Multi-year trajectory view" : "Filter timeline by year"}
+        >
+          {[currentYear, currentYear - 1, currentYear - 2].map((yr) => (
+            <option key={yr} value={yr}>
+              {yr}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 
   // Reusable Clinical & Inpatient card components
   const renderTopDiagnosesCard = () => (
     <div
-      className="card"
+      className="card h-full flex flex-col justify-between"
       style={{
         padding: "18px 20px",
         background: "var(--surface-1)",
         border: "1px solid var(--border)",
         borderRadius: 12,
+        width: "100%",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <HeartPulse size={17} style={{ color: "#ec4899" }} />
-        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
-          Top Diagnoses &amp; Presenting Complaints
+      <div style={{ width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, width: "100%" }}>
+          <HeartPulse size={17} style={{ color: "#ec4899", flexShrink: 0 }} />
+          <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
+            Top Diagnoses &amp; Presenting Complaints
+          </div>
         </div>
-      </div>
-      {summary.demographics.topDiagnoses.length === 0 ? (
-        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", padding: "16px 0", textAlign: "center" }}>
-          No diagnoses recorded in this reporting period.
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {summary.demographics.topDiagnoses.slice(0, 6).map((dx, i) => {
-            const maxCount = summary.demographics.topDiagnoses[0]?.count || 1;
-            const pct = (dx.count / maxCount) * 100;
-            return (
-              <div key={dx.name}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "0.78rem",
-                    marginBottom: 4,
-                  }}
-                >
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                    {i + 1}. {dx.name}
-                  </span>
-                  <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
-                    {dx.count} {dx.count === 1 ? "case" : "cases"}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    height: 6,
-                    background: "rgba(255, 255, 255, 0.05)",
-                    borderRadius: 3,
-                    overflow: "hidden",
-                  }}
-                >
+        {summary.demographics.topDiagnoses.length === 0 ? (
+          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", padding: "16px 0", textAlign: "center" }}>
+            No diagnoses recorded in this reporting period.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+            {summary.demographics.topDiagnoses.slice(0, 6).map((dx, i) => {
+              const maxCount = summary.demographics.topDiagnoses[0]?.count || 1;
+              const pct = (dx.count / maxCount) * 100;
+              return (
+                <div key={dx.name} style={{ width: "100%" }}>
                   <div
                     style={{
-                      height: "100%",
-                      width: `${pct}%`,
-                      background: "#ec4899",
-                      borderRadius: 3,
-                      transition: "width 0.3s ease",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "0.78rem",
+                      marginBottom: 4,
+                      width: "100%",
                     }}
-                  />
+                  >
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                      {i + 1}. {dx.name}
+                    </span>
+                    <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
+                      {dx.count} {dx.count === 1 ? "case" : "cases"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      height: 6,
+                      background: "rgba(255, 255, 255, 0.05)",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      width: "100%",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${pct}%`,
+                        background: "#ec4899",
+                        borderRadius: 3,
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 
   const renderDemographicsCard = () => (
     <div
-      className="card"
+      className="card h-full flex flex-col justify-between"
       style={{
         padding: "18px 20px",
         background: "var(--surface-1)",
         border: "1px solid var(--border)",
         borderRadius: 12,
+        width: "100%",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <Users size={17} style={{ color: "#06b6d4" }} />
-        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
-          Patient Age &amp; Gender Demographics
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Gender Breakdown */}
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.76rem", marginBottom: 4 }}>
-            <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Gender Distribution</span>
-            <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
-              {summary.demographics.maleCount} Male · {summary.demographics.femaleCount} Female
-            </span>
-          </div>
-          <div style={{ height: 8, display: "flex", borderRadius: 4, overflow: "hidden", background: "rgba(255, 255, 255, 0.06)" }}>
-            <div
-              style={{
-                height: "100%",
-                width: `${summary.totalEncounters > 0 ? (summary.demographics.maleCount / summary.totalEncounters) * 100 : 0}%`,
-                background: "#3b82f6",
-              }}
-              title="Male"
-            />
-            <div
-              style={{
-                height: "100%",
-                width: `${summary.totalEncounters > 0 ? (summary.demographics.femaleCount / summary.totalEncounters) * 100 : 0}%`,
-                background: "#ec4899",
-              }}
-              title="Female"
-            />
+      <div style={{ width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, width: "100%" }}>
+          <Users size={17} style={{ color: "#06b6d4", flexShrink: 0 }} />
+          <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
+            Patient Age &amp; Gender Demographics
           </div>
         </div>
 
-        {/* Age Brackets */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
-          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Pediatric (0-14y)</div>
-            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#38bdf8", marginTop: 2 }}>
-              {summary.demographics.ageBrackets.pediatric}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
+          {/* Gender Breakdown */}
+          <div style={{ width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.76rem", marginBottom: 4, width: "100%" }}>
+              <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Gender Distribution</span>
+              <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>
+                {summary.demographics.maleCount} Male · {summary.demographics.femaleCount} Female
+              </span>
+            </div>
+            <div style={{ height: 8, display: "flex", borderRadius: 4, overflow: "hidden", background: "rgba(255, 255, 255, 0.06)", width: "100%" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: `${summary.totalEncounters > 0 ? (summary.demographics.maleCount / summary.totalEncounters) * 100 : 0}%`,
+                  background: "#3b82f6",
+                }}
+                title="Male"
+              />
+              <div
+                style={{
+                  height: "100%",
+                  width: `${summary.totalEncounters > 0 ? (summary.demographics.femaleCount / summary.totalEncounters) * 100 : 0}%`,
+                  background: "#ec4899",
+                }}
+                title="Female"
+              />
             </div>
           </div>
-          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Youth (15-24y)</div>
-            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#a855f7", marginTop: 2 }}>
-              {summary.demographics.ageBrackets.youth}
+
+          {/* Age Brackets */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4, width: "100%" }}>
+            <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Pediatric (0-14y)</div>
+              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#38bdf8", marginTop: 2 }}>
+                {summary.demographics.ageBrackets.pediatric}
+              </div>
             </div>
-          </div>
-          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Adults (25-59y)</div>
-            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#10b981", marginTop: 2 }}>
-              {summary.demographics.ageBrackets.adult}
+            <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Youth (15-24y)</div>
+              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#a855f7", marginTop: 2 }}>
+                {summary.demographics.ageBrackets.youth}
+              </div>
             </div>
-          </div>
-          <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Seniors (60y+)</div>
-            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#f59e0b", marginTop: 2 }}>
-              {summary.demographics.ageBrackets.senior}
+            <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Adults (25-59y)</div>
+              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#10b981", marginTop: 2 }}>
+                {summary.demographics.ageBrackets.adult}
+              </div>
+            </div>
+            <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Seniors (60y+)</div>
+              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#f59e0b", marginTop: 2 }}>
+                {summary.demographics.ageBrackets.senior}
+              </div>
             </div>
           </div>
         </div>
@@ -425,48 +438,51 @@ export default function VisualAnalyticsBoard({
 
   const renderInpatientMetricsCard = () => (
     <div
-      className="card"
+      className="card h-full flex flex-col justify-between"
       style={{
         padding: "18px 20px",
         background: "var(--surface-1)",
         border: "1px solid var(--border)",
         borderRadius: 12,
+        width: "100%",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <Activity size={17} style={{ color: "#10b981" }} />
-        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
-          Hospital &amp; Inpatient Metrics
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Currently Admitted (IPD)</span>
-          <span style={{ fontWeight: 800, color: "#10b981", fontSize: "0.92rem" }}>
-            {summary.activeInpatientsCount} Inpatients
-          </span>
+      <div style={{ width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, width: "100%" }}>
+          <Activity size={17} style={{ color: "#10b981", flexShrink: 0 }} />
+          <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)" }}>
+            Hospital &amp; Inpatient Metrics
+          </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Average Length of Stay (ALOS)</span>
-          <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.92rem" }}>
-            {summary.averageLengthOfStay} Days
-          </span>
-        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 11, width: "100%" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)", width: "100%" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Currently Admitted (IPD)</span>
+            <span style={{ fontWeight: 800, color: "#10b981", fontSize: "0.92rem" }}>
+              {summary.activeInpatientsCount} Inpatients
+            </span>
+          </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Patient Retention Ratio</span>
-          <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: "0.92rem" }}>
-            {summary.returningPatientRatio}%
-          </span>
-        </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)", width: "100%" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Average Length of Stay (ALOS)</span>
+            <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.92rem" }}>
+              {summary.averageLengthOfStay} Days
+            </span>
+          </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Daily Encounter Velocity</span>
-          <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.92rem" }}>
-            {summary.dailyAverageEncounters} / day
-          </span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 8, borderBottom: "1px solid var(--border)", width: "100%" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Patient Retention Ratio</span>
+            <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: "0.92rem" }}>
+              {summary.returningPatientRatio}%
+            </span>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Daily Encounter Velocity</span>
+            <span style={{ fontWeight: 800, color: "var(--text-primary)", fontSize: "0.92rem" }}>
+              {summary.dailyAverageEncounters} / day
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -621,44 +637,42 @@ export default function VisualAnalyticsBoard({
       </div>
 
       {/* ─── EXECUTIVE METRICS CARDS ROW (FLAT ENTERPRISE CARDS) ─── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-          gap: 14,
-        }}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Card 1: Gross Billing */}
         <div
-          className="card"
+          className="card h-full flex flex-col justify-between"
           style={{
             padding: "16px 18px",
             background: "var(--surface-1)",
             border: "1px solid var(--border)",
             borderRadius: 12,
+            width: "100%",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
-              TOTAL GROSS BILLING
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(59, 130, 246, 0.12)",
-                color: "var(--primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <TrendingUp size={16} />
+          <div style={{ width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
+                TOTAL GROSS BILLING
+              </span>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "rgba(59, 130, 246, 0.12)",
+                  color: "var(--primary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <TrendingUp size={16} />
+              </div>
             </div>
-          </div>
-          <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-            ₹{summary.totalBilled.toLocaleString("en-IN")}
+            <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+              ₹{summary.totalBilled.toLocaleString("en-IN")}
+            </div>
           </div>
           <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
             {summary.totalEncounters} total encounters in period
@@ -667,12 +681,13 @@ export default function VisualAnalyticsBoard({
 
         {/* Card 2: Collected Earnings */}
         <div
-          className="card"
+          className="card h-full flex flex-col justify-between"
           style={{
             padding: "16px 18px",
             background: "var(--surface-1)",
             border: "1px solid var(--border)",
             borderRadius: 12,
+            width: "100%",
             cursor: "pointer",
             transition: "all 0.18s ease",
           }}
@@ -685,27 +700,30 @@ export default function VisualAnalyticsBoard({
             })
           }
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
-              COLLECTED REVENUE
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(16, 185, 129, 0.12)",
-                color: "#10b981",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Wallet size={16} />
+          <div style={{ width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
+                COLLECTED REVENUE
+              </span>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "rgba(16, 185, 129, 0.12)",
+                  color: "#10b981",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Wallet size={16} />
+              </div>
             </div>
-          </div>
-          <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, color: "#10b981", letterSpacing: "-0.02em" }}>
-            ₹{summary.totalCollected.toLocaleString("en-IN")}
+            <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, color: "#10b981", letterSpacing: "-0.02em" }}>
+              ₹{summary.totalCollected.toLocaleString("en-IN")}
+            </div>
           </div>
           <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 4 }}>
             {summary.collectionRate.toFixed(1)}% recovery rate ·{" "}
@@ -715,12 +733,13 @@ export default function VisualAnalyticsBoard({
 
         {/* Card 3: Outstanding Dues */}
         <div
-          className="card"
+          className="card h-full flex flex-col justify-between"
           style={{
             padding: "16px 18px",
             background: "var(--surface-1)",
             border: `1px solid ${summary.totalPendingDues > 0 ? "rgba(245, 158, 11, 0.3)" : "var(--border)"}`,
             borderRadius: 12,
+            width: "100%",
             cursor: "pointer",
             transition: "all 0.18s ease",
           }}
@@ -733,35 +752,38 @@ export default function VisualAnalyticsBoard({
             })
           }
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
-              OUTSTANDING DUES
-            </span>
+          <div style={{ width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
+                OUTSTANDING DUES
+              </span>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "rgba(245, 158, 11, 0.12)",
+                  color: "#f59e0b",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <AlertCircle size={16} />
+              </div>
+            </div>
             <div
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(245, 158, 11, 0.12)",
-                color: "#f59e0b",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                fontSize: "1.6rem",
+                fontWeight: 800,
+                marginTop: 6,
+                color: summary.totalPendingDues > 0 ? "#f59e0b" : "inherit",
+                letterSpacing: "-0.02em",
               }}
             >
-              <AlertCircle size={16} />
+              ₹{summary.totalPendingDues.toLocaleString("en-IN")}
             </div>
-          </div>
-          <div
-            style={{
-              fontSize: "1.6rem",
-              fontWeight: 800,
-              marginTop: 6,
-              color: summary.totalPendingDues > 0 ? "#f59e0b" : "inherit",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            ₹{summary.totalPendingDues.toLocaleString("en-IN")}
           </div>
           <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 4 }}>
             Pending balance ·{" "}
@@ -771,35 +793,39 @@ export default function VisualAnalyticsBoard({
 
         {/* Card 4: Patients & ARPU */}
         <div
-          className="card"
+          className="card h-full flex flex-col justify-between"
           style={{
             padding: "16px 18px",
             background: "var(--surface-1)",
             border: "1px solid var(--border)",
             borderRadius: 12,
+            width: "100%",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
-              PATIENT VOLUME &amp; ARPU
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(6, 182, 212, 0.12)",
-                color: "#06b6d4",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Users size={16} />
+          <div style={{ width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.05em" }}>
+                PATIENT VOLUME &amp; ARPU
+              </span>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: "rgba(6, 182, 212, 0.12)",
+                  color: "#06b6d4",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Users size={16} />
+              </div>
             </div>
-          </div>
-          <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, letterSpacing: "-0.02em" }}>
-            {summary.uniquePatientsCount} <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>Patients</span>
+            <div style={{ fontSize: "1.6rem", fontWeight: 800, marginTop: 6, letterSpacing: "-0.02em" }}>
+              {summary.uniquePatientsCount} <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>Patients</span>
+            </div>
           </div>
           <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 4 }}>
             ₹{summary.arpu.toLocaleString("en-IN")} ARPU · {summary.dailyAverageEncounters}/day
@@ -821,8 +847,8 @@ export default function VisualAnalyticsBoard({
           }}
         >
           <InteractiveBarChart
-            title={`Hospital Revenue & Trajectory (${timelineGranularity === "day" ? "Day-by-Day" : timelineGranularity === "month" ? `${timelineYear} Monthly Timeline` : "Multi-Year Trajectory"})`}
-            subtitle="Collected Cash/UPI (Green) vs. Unpaid Balance (Amber). Click any bar to inspect underlying encounters."
+            title="Hospital Revenue & Trajectory"
+            subtitle="Collected Cash/UPI (Green) vs. Unpaid Balance (Amber) · Click any bar to inspect underlying encounters"
             series={[
               { key: "collected", label: "Collected Cash/UPI", color: "#10b981" },
               { key: "dues", label: "Unpaid Balance", color: "#f59e0b" },
@@ -841,8 +867,8 @@ export default function VisualAnalyticsBoard({
       {activeTab === "OVERVIEW" && (
         <>
           {/* Key Visual Donuts Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
-            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <InteractiveDonutChart
                 title="Earnings vs. Remaining Dues"
                 subtitle="Gross billings realized vs. uncollected patient balance"
@@ -854,7 +880,7 @@ export default function VisualAnalyticsBoard({
               />
             </div>
 
-            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <InteractiveDonutChart
                 title="Hospital Encounters by Department"
                 subtitle="Distribution between OPD, IPD, Emergency, Daycare, and Custom"
@@ -868,7 +894,7 @@ export default function VisualAnalyticsBoard({
           </div>
 
           {/* Operational & Clinical Pulse Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {renderTopDiagnosesCard()}
             {renderInpatientMetricsCard()}
           </div>
@@ -877,8 +903,8 @@ export default function VisualAnalyticsBoard({
 
       {/* ─── TAB 2: FINANCIALS & REVENUE ─── */}
       {activeTab === "FINANCIALS" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 16 }}>
-          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <InteractiveDonutChart
               title="Earnings vs. Remaining Dues"
               subtitle="Gross billings realized vs. uncollected patient balance"
@@ -890,7 +916,7 @@ export default function VisualAnalyticsBoard({
             />
           </div>
 
-          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <InteractiveDonutChart
               title="Payment Channels & Collection Modes"
               subtitle="Breakdown between physical Cash, instant UPI / QR, and outstanding balance"
@@ -902,7 +928,7 @@ export default function VisualAnalyticsBoard({
             />
           </div>
 
-          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <InteractiveDonutChart
               title="Invoice Settlement & Compliance"
               subtitle="Patient bills categorized into fully settled, partially paid, or completely unpaid"
@@ -918,8 +944,8 @@ export default function VisualAnalyticsBoard({
 
       {/* ─── TAB 3: DEPARTMENTS & IPD ─── */}
       {activeTab === "DEPARTMENTS" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
-          <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <InteractiveDonutChart
               title="Hospital Encounters by Department / Category"
               subtitle="Distribution between OPD, IPD Inpatients, Emergency, Daycare, and Custom"
@@ -937,7 +963,7 @@ export default function VisualAnalyticsBoard({
 
       {/* ─── TAB 4: DEMOGRAPHICS & CLINICAL ─── */}
       {activeTab === "DEMOGRAPHICS" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {renderTopDiagnosesCard()}
           {renderDemographicsCard()}
         </div>
@@ -946,8 +972,9 @@ export default function VisualAnalyticsBoard({
       {/* ─── TAB 5: ALL ANALYTICS (FULL COMPREHENSIVE VIEW) ─── */}
       {activeTab === "ALL" && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
-            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+          {/* 4 Donut Charts in a unified, stable 2x2 grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <InteractiveDonutChart
                 title="Earnings vs. Remaining Dues"
                 subtitle="Gross billings realized vs. uncollected patient balance"
@@ -959,7 +986,7 @@ export default function VisualAnalyticsBoard({
               />
             </div>
 
-            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <InteractiveDonutChart
                 title="Payment Channels & Collection Modes"
                 subtitle="Breakdown between physical Cash, instant UPI / QR, and outstanding balance"
@@ -970,10 +997,8 @@ export default function VisualAnalyticsBoard({
                 onSliceClick={(slice) => handleSliceClick(slice, "Payment Channel")}
               />
             </div>
-          </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
-            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <InteractiveDonutChart
                 title="Hospital Encounters by Department / Category"
                 subtitle="Distribution between OPD, IPD Inpatients, Emergency, Daycare, and Custom"
@@ -985,7 +1010,7 @@ export default function VisualAnalyticsBoard({
               />
             </div>
 
-            <div className="card" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <div className="card h-full flex flex-col justify-between" style={{ padding: "18px 20px", background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 12 }}>
               <InteractiveDonutChart
                 title="Invoice Settlement & Compliance"
                 subtitle="Patient bills categorized into fully settled, partially paid, or completely unpaid"
@@ -998,7 +1023,8 @@ export default function VisualAnalyticsBoard({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16 }}>
+          {/* 3 Clinical & Operational Cards in a unified 3-column grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {renderTopDiagnosesCard()}
             {renderDemographicsCard()}
             {renderInpatientMetricsCard()}

@@ -141,144 +141,173 @@ export default function InteractiveDonutChart({
     >
       {/* Title & Subtitle */}
       {(title || subtitle) && (
-        <div style={{ textAlign: "center", marginBottom: 14, width: "100%" }}>
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: 14,
+            width: "100%",
+            minHeight: 46,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
           {title && (
-            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)", lineHeight: 1.3 }}>
               {title}
             </div>
           )}
           {subtitle && (
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2, lineHeight: 1.3 }}>
               {subtitle}
             </div>
           )}
         </div>
       )}
 
-      {totalValue === 0 ? (
-        <div
-          style={{
-            height: Math.min(size, 220),
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "column",
-            gap: 8,
-            color: "var(--text-muted)",
-            fontSize: "0.82rem",
-            background: "rgba(255, 255, 255, 0.02)",
-            borderRadius: 14,
-            border: "1px dashed var(--border)",
-          }}
-        >
-          <div style={{ fontSize: "1.6rem", opacity: 0.5 }}>📊</div>
-          <div>{emptyMessage}</div>
-        </div>
-      ) : (
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: size,
-            aspectRatio: "1 / 1",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Doughnut ref={chartRef} data={chartData} options={chartOptions as any} />
-
-          {/* Clean Flat Center Readout */}
+      {/* Chart Canvas & Center Readout */}
+      <div
+        style={{
+          position: "relative",
+          width: size,
+          maxWidth: "100%",
+          height: size,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "0 auto",
+          flexShrink: 0,
+        }}
+      >
+        {totalValue === 0 ? (
           <div
             style={{
-              position: "absolute",
-              inset: 0,
+              height: size,
+              width: size,
+              maxWidth: "100%",
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              pointerEvents: "none",
-              textAlign: "center",
-              padding: "0 20px",
+              flexDirection: "column",
+              gap: 8,
+              color: "var(--text-muted)",
+              fontSize: "0.82rem",
+              background: "rgba(255, 255, 255, 0.02)",
+              borderRadius: "50%",
+              border: "1px dashed var(--border)",
+              boxSizing: "border-box",
             }}
           >
-            {activeSlice ? (
-              <div>
-                <div
-                  style={{
-                    fontSize: "0.68rem",
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    fontWeight: 700,
-                  }}
-                >
-                  {activeSlice.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: "1.25rem",
-                    fontWeight: 800,
-                    color: activeSlice.color,
-                    marginTop: 2,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {activeSlice.formattedValue || activeSlice.value.toLocaleString("en-IN")}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginTop: 2,
-                  }}
-                >
-                  {totalValue > 0 ? ((activeSlice.value / totalValue) * 100).toFixed(1) : 0}% of total
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div
-                  style={{
-                    fontSize: "0.68rem",
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    fontWeight: 700,
-                  }}
-                >
-                  {totalLabel}
-                </div>
-                <div
-                  style={{
-                    fontSize: "1.3rem",
-                    fontWeight: 800,
-                    color: "var(--text-primary)",
-                    marginTop: 2,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {totalFormatted || totalValue.toLocaleString("en-IN")}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.68rem",
-                    color: "var(--text-muted)",
-                    marginTop: 3,
-                  }}
-                >
-                  Hover or click
-                </div>
-              </div>
-            )}
+            <div style={{ fontSize: "1.6rem", opacity: 0.5 }}>📊</div>
+            <div style={{ padding: "0 16px", textAlign: "center", fontSize: "0.76rem" }}>{emptyMessage}</div>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <Doughnut ref={chartRef} data={chartData} options={chartOptions as any} />
+
+            {/* Clean Flat Center Readout */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+                textAlign: "center",
+                padding: "0 24px",
+              }}
+            >
+              {activeSlice ? (
+                <div style={{ maxWidth: "100%", width: "100%" }}>
+                  <div
+                    style={{
+                      fontSize: "0.68rem",
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {activeSlice.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: (activeSlice.formattedValue || "").length > 10 ? "1.08rem" : "1.25rem",
+                      fontWeight: 800,
+                      color: activeSlice.color,
+                      marginTop: 2,
+                      lineHeight: 1.2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {activeSlice.formattedValue || activeSlice.value.toLocaleString("en-IN")}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {totalValue > 0 ? ((activeSlice.value / totalValue) * 100).toFixed(1) : 0}% of total
+                  </div>
+                </div>
+              ) : (
+                <div style={{ maxWidth: "100%", width: "100%" }}>
+                  <div
+                    style={{
+                      fontSize: "0.68rem",
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {totalLabel}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: (totalFormatted || "").length > 12 ? "1.08rem" : "1.25rem",
+                      fontWeight: 800,
+                      color: "var(--text-primary)",
+                      marginTop: 2,
+                      lineHeight: 1.2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {totalFormatted || totalValue.toLocaleString("en-IN")}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.68rem",
+                      color: "var(--text-muted)",
+                      marginTop: 3,
+                    }}
+                  >
+                    Hover or click
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Clean Aesthetic Pill Legend */}
-      {showLegend && validData.length > 0 && (
+      {showLegend && (
         <div
           style={{
             display: "flex",
@@ -287,57 +316,65 @@ export default function InteractiveDonutChart({
             gap: "8px 10px",
             marginTop: 14,
             width: "100%",
+            minHeight: 52,
+            alignContent: "flex-start",
           }}
         >
-          {validData.map((slice, idx) => {
-            const isHovered = hoveredIndex === idx;
-            const pct = totalValue > 0 ? ((slice.value / totalValue) * 100).toFixed(0) : "0";
-            return (
-              <button
-                type="button"
-                key={slice.id}
-                onClick={() => onSliceClick && onSliceClick(slice)}
-                onMouseEnter={() => setHoveredIndex(idx)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 9px",
-                  borderRadius: 20,
-                  background: isHovered
-                    ? "rgba(255, 255, 255, 0.08)"
-                    : "rgba(255, 255, 255, 0.03)",
-                  border: `1px solid ${isHovered ? slice.color : "rgba(255, 255, 255, 0.07)"}`,
-                  cursor: onSliceClick ? "pointer" : "default",
-                  transition: "all 0.15s ease",
-                  fontSize: "0.74rem",
-                  color: "var(--text-primary)",
-                }}
-              >
-                <span
+          {validData.length > 0 ? (
+            validData.map((slice, idx) => {
+              const isHovered = hoveredIndex === idx;
+              const pct = totalValue > 0 ? ((slice.value / totalValue) * 100).toFixed(0) : "0";
+              return (
+                <button
+                  type="button"
+                  key={slice.id}
+                  onClick={() => onSliceClick && onSliceClick(slice)}
+                  onMouseEnter={() => setHoveredIndex(idx)}
+                  onMouseLeave={() => setHoveredIndex(null)}
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    backgroundColor: slice.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ fontWeight: 600 }}>{slice.label}</span>
-                <span
-                  style={{
-                    fontWeight: 700,
-                    color: slice.color,
-                    fontSize: "0.7rem",
-                    marginLeft: 2,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 9px",
+                    borderRadius: 20,
+                    background: isHovered
+                      ? "rgba(255, 255, 255, 0.08)"
+                      : "rgba(255, 255, 255, 0.03)",
+                    border: `1px solid ${isHovered ? slice.color : "rgba(255, 255, 255, 0.07)"}`,
+                    cursor: onSliceClick ? "pointer" : "default",
+                    transition: "all 0.15s ease",
+                    fontSize: "0.74rem",
+                    color: "var(--text-primary)",
                   }}
                 >
-                  {pct}%
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      backgroundColor: slice.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontWeight: 600 }}>{slice.label}</span>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: slice.color,
+                      fontSize: "0.7rem",
+                      marginLeft: 2,
+                    }}
+                  >
+                    {pct}%
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", padding: "6px 0", alignSelf: "center" }}>
+              No categories recorded
+            </div>
+          )}
         </div>
       )}
     </div>

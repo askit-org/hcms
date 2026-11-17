@@ -187,27 +187,28 @@ export default function InteractiveBarChart({
           marginBottom: 16,
           flexWrap: "wrap",
           gap: 12,
+          minHeight: 48,
         }}
       >
-        <div>
+        <div style={{ flex: "1 1 260px" }}>
           {title && (
-            <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)" }}>
+            <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", lineHeight: 1.3 }}>
               {title}
             </div>
           )}
           {subtitle && (
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2, lineHeight: 1.3 }}>
               {subtitle}
             </div>
           )}
         </div>
 
         {/* Localized Controls & Legend */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", flexShrink: 0 }}>
           {headerControls}
 
           {/* Series Legend */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             {series.map((s) => (
               <div
                 key={s.key}
@@ -218,7 +219,7 @@ export default function InteractiveBarChart({
                   fontSize: "0.74rem",
                   color: "var(--text-secondary)",
                   background: "rgba(255, 255, 255, 0.03)",
-                  padding: "3px 8px",
+                  padding: "4px 8px",
                   borderRadius: 6,
                   border: "1px solid rgba(255, 255, 255, 0.06)",
                 }}
@@ -243,6 +244,7 @@ export default function InteractiveBarChart({
         <div
           style={{
             height,
+            minHeight: height,
             width: "100%",
             display: "flex",
             alignItems: "center",
@@ -254,13 +256,14 @@ export default function InteractiveBarChart({
             background: "rgba(255, 255, 255, 0.02)",
             borderRadius: 14,
             border: "1px dashed var(--border)",
+            boxSizing: "border-box",
           }}
         >
           <div style={{ fontSize: "1.6rem", opacity: 0.5 }}>📈</div>
           <div>{emptyMessage}</div>
         </div>
       ) : (
-        <div style={{ width: "100%", height, position: "relative" }}>
+        <div style={{ width: "100%", height, minHeight: height, position: "relative" }}>
           <Bar ref={chartRef} data={chartData} options={chartOptions as any} />
         </div>
       )}

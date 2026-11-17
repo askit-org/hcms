@@ -22,6 +22,8 @@ import {
   Bed,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProviderStore } from "@/lib/providers";
@@ -409,13 +411,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileMenuOpen ? "open" : ""}`}>
+        {/* ChatGPT-style Divider Collapse / Expand Toggle Button */}
+        <button
+          type="button"
+          className="sidebar-divider-toggle no-print"
+          onClick={toggleSidebarCollapsed}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={sidebarCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
+        >
+          {sidebarCollapsed ? (
+            <ChevronRight size={13} strokeWidth={2.4} />
+          ) : (
+            <ChevronLeft size={13} strokeWidth={2.4} />
+          )}
+        </button>
+
         <div className="logo-wrap">
           <div
             className="logo-row"
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: sidebarCollapsed ? "center" : "space-between",
+              justifyContent: sidebarCollapsed ? "center" : "flex-start",
               width: "100%",
             }}
           >
@@ -452,18 +469,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </Link>
-
-            {!sidebarCollapsed && (
-              <button
-                type="button"
-                className="sidebar-collapse-btn no-print"
-                onClick={toggleSidebarCollapsed}
-                title="Collapse Sidebar (Ctrl+B)"
-                aria-label="Collapse Sidebar"
-              >
-                <PanelLeftClose size={16} />
-              </button>
-            )}
           </div>
           {!sidebarCollapsed && <div className="clinic-tagline">{clinicName}</div>}
         </div>
@@ -551,16 +556,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             id="mobile-menu-btn"
           >
             <Menu size={20} />
-          </button>
-
-          <button
-            type="button"
-            className="sidebar-desktop-toggle no-print"
-            onClick={toggleSidebarCollapsed}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={sidebarCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
 
           <div

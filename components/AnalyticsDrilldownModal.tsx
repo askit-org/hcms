@@ -463,25 +463,23 @@ export default function AnalyticsDrilldownModal({
               </div>
             ) : (
               <>
-                {/* ─── DESKTOP / TABLET DATA TABLE (MIN-WIDTH 840PX) ─── */}
+                {/* ─── UNIFIED RESPONSIVE DATA TABLE (ROWS & COLUMNS) ─── */}
                 <div className="drilldown-table-wrap">
                   <table
-                    className="table"
+                    className="drilldown-table"
                     style={{
-                      marginTop: 8,
                       width: "100%",
-                      minWidth: 840,
-                      tableLayout: "fixed",
+                      minWidth: 720,
                     }}
                   >
                     <thead>
                       <tr>
-                        <th style={{ width: "26%", minWidth: 190 }}>Patient &amp; Contact</th>
-                        <th style={{ width: "11%", minWidth: 90 }}>Category</th>
+                        <th style={{ width: "26%", minWidth: 170 }}>Patient &amp; Contact</th>
+                        <th style={{ width: "11%", minWidth: 80 }}>Category</th>
                         <th style={{ width: "14%", minWidth: 110 }}>Date &amp; Time</th>
-                        <th style={{ width: "18%", minWidth: 150 }}>Diagnosis / Bed</th>
-                        <th style={{ width: "18%", minWidth: 150, textAlign: "right" }}>Financials (Billed / Paid / Due)</th>
-                        <th style={{ width: "13%", minWidth: 100, textAlign: "center" }}>Actions</th>
+                        <th style={{ width: "18%", minWidth: 140 }}>Diagnosis / Bed</th>
+                        <th style={{ width: "16%", minWidth: 120, textAlign: "right" }}>Financials</th>
+                        <th style={{ width: "15%", minWidth: 110, textAlign: "right" }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -581,32 +579,42 @@ export default function AnalyticsDrilldownModal({
                             </td>
 
                             <td style={{ textAlign: "right" }}>
-                              <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                              <div style={{ fontSize: "0.84rem", fontWeight: 700, color: "var(--text-primary)" }}>
                                 ₹{enc.billedAmount.toLocaleString("en-IN")}
                               </div>
-                              <div style={{ fontSize: "0.72rem", color: "#10b981" }}>
-                                Paid: ₹{enc.paidAmount.toLocaleString("en-IN")}
+                              <div style={{ marginTop: 2 }}>
+                                {hasDues ? (
+                                  <span
+                                    className="badge badge-amber"
+                                    style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 6px" }}
+                                  >
+                                    Due: ₹{enc.balanceDue.toLocaleString("en-IN")}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="badge badge-green"
+                                    style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 6px" }}
+                                  >
+                                    Settled ✓
+                                  </span>
+                                )}
                               </div>
-                              {hasDues ? (
-                                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f59e0b" }}>
-                                  Due: ₹{enc.balanceDue.toLocaleString("en-IN")}
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                                  Settled ✓
+                              {hasDues && (
+                                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
+                                  Paid: ₹{enc.paidAmount.toLocaleString("en-IN")}
                                 </div>
                               )}
                             </td>
 
-                            <td style={{ textAlign: "center" }}>
-                              <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
+                            <td style={{ textAlign: "right" }}>
+                              <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
                                 {hasDues && (
                                   <button
                                     type="button"
                                     className="btn btn-xs btn-primary"
                                     onClick={() => setPaymentTarget(enc)}
                                     title="Record payment for this patient"
-                                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                                    style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 8px", fontSize: "0.74rem", fontWeight: 700 }}
                                   >
                                     <Receipt size={12} /> Settle
                                   </button>
@@ -623,7 +631,7 @@ export default function AnalyticsDrilldownModal({
                                     rel="noreferrer"
                                     className="btn btn-xs btn-ghost"
                                     title="Send WhatsApp Payment Reminder"
-                                    style={{ color: "#22c55e" }}
+                                    style={{ color: "#22c55e", padding: "4px 6px" }}
                                   >
                                     <MessageCircle size={14} />
                                   </a>
@@ -632,10 +640,11 @@ export default function AnalyticsDrilldownModal({
                                 <Link
                                   href={`/patients/${enc.patientId}`}
                                   onClick={onClose}
-                                  className="btn btn-xs btn-ghost"
+                                  className="btn btn-xs btn-secondary"
                                   title="Open Patient Profile"
+                                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 8px", fontSize: "0.74rem" }}
                                 >
-                                  <User size={13} />
+                                  <User size={12} /> Profile
                                 </Link>
                               </div>
                             </td>
@@ -644,183 +653,6 @@ export default function AnalyticsDrilldownModal({
                       })}
                     </tbody>
                   </table>
-                </div>
-
-                {/* ─── MOBILE CARD VIEW (SCREENS < 768PX) ─── */}
-                <div className="drilldown-cards-wrap" style={{ marginTop: 10 }}>
-                  {displayedEncounters.map((enc) => {
-                    const hasDues = enc.balanceDue > 0;
-                    return (
-                      <div
-                        key={`m-card-${enc.type}-${enc.id}`}
-                        style={{
-                          background: "rgba(255, 255, 255, 0.03)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 10,
-                        }}
-                      >
-                        {/* Top: Avatar, Name & Badge */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div
-                              style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: "50%",
-                                background: enc.type === "IPD" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
-                                color: enc.type === "IPD" ? "#10b981" : "var(--primary)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontWeight: 800,
-                                fontSize: "0.85rem",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {enc.patientName.charAt(0)}
-                            </div>
-                            <div>
-                              <Link
-                                href={`/patients/${enc.patientId}`}
-                                onClick={onClose}
-                                style={{
-                                  fontWeight: 700,
-                                  color: "var(--text-primary)",
-                                  textDecoration: "none",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  fontSize: "0.92rem",
-                                }}
-                              >
-                                {enc.patientName}
-                                <ExternalLink size={11} style={{ opacity: 0.6 }} />
-                              </Link>
-                              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                                {enc.patientAge ? `${enc.patientAge}y · ` : ""}
-                                {enc.patientGender ? `${enc.patientGender} · ` : ""}
-                                {enc.patientMobile || "No mobile"}
-                              </div>
-                            </div>
-                          </div>
-
-                          <span
-                            className={`badge ${
-                              enc.category.toUpperCase() === "EMERGENCY"
-                                ? "badge-red"
-                                : enc.category.toUpperCase() === "IPD"
-                                ? "badge-green"
-                                : enc.category.toUpperCase() === "OPD"
-                                ? "badge-blue"
-                                : "badge-teal"
-                            }`}
-                            style={{ fontWeight: 700, fontSize: "0.7rem" }}
-                          >
-                            {enc.category}
-                          </span>
-                        </div>
-
-                        {/* Details: Diagnosis & Date */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.76rem", color: "var(--text-secondary)", flexWrap: "wrap", gap: 4 }}>
-                          <div>
-                            <span style={{ color: "var(--text-muted)" }}>Diagnosis: </span>
-                            <span style={{ fontWeight: 600 }}>{enc.diagnosis || enc.status || "—"}</span>
-                            {enc.bedOrRoom && (
-                              <span style={{ color: "#10b981", marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 2 }}>
-                                <Bed size={11} /> {enc.bedOrRoom}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                            {new Date(enc.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}{" "}
-                            {new Date(enc.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                          </div>
-                        </div>
-
-                        {/* Financial Mini Strip */}
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr 1fr",
-                            gap: 6,
-                            background: "rgba(0, 0, 0, 0.25)",
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            textAlign: "center",
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>BILLED</div>
-                            <div style={{ fontSize: "0.84rem", fontWeight: 800, marginTop: 1 }}>
-                              ₹{enc.billedAmount.toLocaleString("en-IN")}
-                            </div>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>PAID</div>
-                            <div style={{ fontSize: "0.84rem", fontWeight: 800, color: "#10b981", marginTop: 1 }}>
-                              ₹{enc.paidAmount.toLocaleString("en-IN")}
-                            </div>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>BALANCE</div>
-                            <div
-                              style={{
-                                fontSize: "0.84rem",
-                                fontWeight: 800,
-                                marginTop: 1,
-                                color: hasDues ? "#f59e0b" : "#10b981",
-                              }}
-                            >
-                              {hasDues ? `₹${enc.balanceDue.toLocaleString("en-IN")}` : "Settled ✓"}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, alignItems: "center" }}>
-                          {hasDues && (
-                            <button
-                              type="button"
-                              className="btn btn-xs btn-primary"
-                              onClick={() => setPaymentTarget(enc)}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-                            >
-                              <Receipt size={12} /> Settle Bill
-                            </button>
-                          )}
-
-                          {hasDues && enc.patientMobile && (
-                            <a
-                              href={`https://wa.me/91${enc.patientMobile.replace(/\D/g, "")}?text=${encodeURIComponent(
-                                `Dear ${enc.patientName}, your remaining balance of ₹${enc.balanceDue} for visit on ${new Date(
-                                  enc.date
-                                ).toLocaleDateString("en-IN")} is pending. Kindly clear your dues at your convenience.`
-                              )}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-xs btn-ghost"
-                              style={{ color: "#22c55e", display: "inline-flex", alignItems: "center", gap: 3 }}
-                            >
-                              <MessageCircle size={13} /> WhatsApp
-                            </a>
-                          )}
-
-                          <Link
-                            href={`/patients/${enc.patientId}`}
-                            onClick={onClose}
-                            className="btn btn-xs btn-ghost"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
-                          >
-                            <User size={13} /> View
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </>
             )}
