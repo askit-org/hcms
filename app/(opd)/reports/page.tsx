@@ -406,24 +406,51 @@ export default function ReportsPage() {
           padding: 4,
           borderRadius: 10,
           border: '1px solid var(--border)',
-          width: 'fit-content',
+          width: '100%',
+          maxWidth: 540,
         }}
       >
         <button
           type="button"
           className={`btn btn-sm ${viewMode === 'ANALYTICS' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setViewMode('ANALYTICS')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+          style={{
+            flex: 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            fontWeight: 700,
+            padding: '7px 12px',
+            fontSize: '0.82rem',
+            textAlign: 'center',
+            minWidth: 0,
+          }}
         >
-          <PieChart size={16} /> Visual Analytics &amp; Charts Board
+          <PieChart size={16} style={{ flexShrink: 0 }} />
+          <span className="hidden sm:inline">Visual Analytics &amp; Charts Board</span>
+          <span className="sm:hidden">Analytics &amp; Charts</span>
         </button>
         <button
           type="button"
           className={`btn btn-sm ${viewMode === 'RECORDS' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setViewMode('RECORDS')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+          style={{
+            flex: 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            fontWeight: 700,
+            padding: '7px 12px',
+            fontSize: '0.82rem',
+            textAlign: 'center',
+            minWidth: 0,
+          }}
         >
-          <BarChart3 size={16} /> Encounter Records &amp; Tables
+          <BarChart3 size={16} style={{ flexShrink: 0 }} />
+          <span className="hidden sm:inline">Encounter Records &amp; Tables</span>
+          <span className="sm:hidden">Records &amp; Tables</span>
         </button>
       </div>
 

@@ -91,9 +91,10 @@ export function buildUnifiedEncounters(
   // Convert OPD / Category Visits
   visits.forEach((v) => {
     const p = v.patient || patMap.get(v.patientId);
-    const billed = Number(v.bill?.totalAmount || 0);
+    const rawBilled = Number(v.bill?.totalAmount || 0);
     const paid = Number(v.bill?.paidAmount || 0);
     const due = Number(v.bill?.balanceDue || 0);
+    const billed = Math.max(rawBilled, paid + due);
     const cat = v.category || "OPD";
     const payMethod = v.bill?.paymentMethod || (paid > 0 ? "CASH" : "UNPAID");
 
@@ -119,9 +120,10 @@ export function buildUnifiedEncounters(
   // Convert IPD Admissions
   admissions.forEach((adm) => {
     const p = adm.patient || patMap.get(adm.patientId);
-    const billed = Number(adm.cumulativeCharges || 0);
+    const rawBilled = Number(adm.cumulativeCharges || 0);
     const paid = Number(adm.totalPaid || adm.advancePaid || 0);
-    const due = Number(adm.balanceDue || Math.max(billed - paid, 0));
+    const due = Number(adm.balanceDue || Math.max(rawBilled - paid, 0));
+    const billed = Math.max(rawBilled, paid + due);
 
     unified.push({
       id: String(adm.id || ""),
